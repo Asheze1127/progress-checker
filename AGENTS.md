@@ -12,10 +12,6 @@ coding agent（Codex / Copilot Coding Agent / Cursor など）が作業するた
 - 作業後、作業内容とユーザが次に取れる行動を説明すること
 - コマンドの出力が確認できない場合、get last command / check background terminal を使用して確認すること
 
-## 口調
-
-- 絵文字を多めに使用する
-
 ---
 
 ## 開発フロー
