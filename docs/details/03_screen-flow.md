@@ -39,11 +39,20 @@ flowchart TD
     QDETAIL[Question Detail]
     POVERVIEW[Progress Overview]
     PDETAIL[Team Progress Detail]
+    LOGOUT[Logout]
 
-    LOGIN --> QLIST
+    LOGIN --> POVERVIEW
     QLIST --> QDETAIL
     QLIST --> POVERVIEW
+    QDETAIL --> POVERVIEW
     POVERVIEW --> PDETAIL
+    POVERVIEW --> QLIST
+    PDETAIL --> POVERVIEW
+    QLIST --> LOGOUT
+    QDETAIL --> LOGOUT
+    POVERVIEW --> LOGOUT
+    PDETAIL --> LOGOUT
+    LOGOUT --> LOGIN
 ```
 
 ---
@@ -111,6 +120,8 @@ flowchart TD
     Action[User Action] --> API
     API -->|Success| RefreshUI
     API -->|401| RedirectLogin
+    API -->|403| ShowForbiddenMessage
+    API -->|404| ShowNotFoundMessage
     API -->|5xx| ShowRetryMessage
 ```
 
@@ -135,7 +146,7 @@ flowchart TD
 
 ---
 
-# 12️⃣ URL設計テンプレ
+# 🔟 URL設計テンプレ
 
 | 画面ID | 画面名 | URL |
 | ---- | ---- | ---- |
@@ -144,4 +155,3 @@ flowchart TD
 | S-03 | 質問詳細 | `/questions/:questionId` |
 | S-04 | 進捗Overview | `/progress` |
 | S-05 | チーム進捗詳細 | `/progress/teams/:teamId` |
-
