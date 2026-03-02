@@ -67,6 +67,7 @@ jobs:
             const repo = context.repo.repo;
 
             const content = [
+              `:robot: <@&1326762123548000327>`,
               `📣 **GitHubでメンションされました**`,
               `**Repo:** ${repo}`,
               `**By:** ${sender}`,
