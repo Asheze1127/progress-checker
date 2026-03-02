@@ -70,6 +70,10 @@ flowchart LR
 ```mermaid
 flowchart LR
     Queue[Question Queue] --> Detail[Question Detail]
+    Detail --> StatusChange["Status Change (In-page Action)"]
+    StatusChange --> Detail
+flowchart LR
+    Queue[Question Queue] --> Detail[Question Detail]
     Detail --> StatusChange[Status Change (In-page Action)]
     StatusChange --> Detail
 ```
