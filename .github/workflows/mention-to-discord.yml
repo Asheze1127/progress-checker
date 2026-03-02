@@ -1,0 +1,89 @@
+name: Notify Discord on GitHub Mention
+
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+  pull_request:
+    types: [opened, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+  pull_request_review:
+    types: [submitted, edited]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Detect mention and notify Discord
+        uses: actions/github-script@v7
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TARGET_USERNAME: Asheze1127
+        with:
+          script: |
+            const webhook = process.env.DISCORD_WEBHOOK_URL;
+            const target = `@${process.env.TARGET_USERNAME}`;
+            if (!webhook) {
+              core.setFailed("DISCORD_WEBHOOK_URL is not set");
+              return;
+            }
+
+            // イベント種別ごとに「本文っぽいもの」とURLを拾う
+            const e = context.payload;
+            let text = "";
+            let url = "";
+            let title = "";
+
+            if (e.issue) {
+              title = e.issue.title || "Issue";
+              url = e.issue.html_url;
+              text = (e.issue.body || "");
+            }
+            if (e.comment) {
+              // issue_comment / review_comment
+              url = e.comment.html_url || url;
+              text = (e.comment.body || text);
+              title = title || "Comment";
+            }
+            if (e.pull_request) {
+              title = e.pull_request.title || "Pull Request";
+              url = e.pull_request.html_url;
+              text = (e.pull_request.body || "");
+            }
+            if (e.review) {
+              url = e.review.html_url || url;
+              text = (e.review.body || text);
+              title = title || "Review";
+            }
+
+            if (!text.includes(target)) {
+              console.log(`No mention: ${target}`);
+              return;
+            }
+
+            const sender = e.sender?.login || "someone";
+            const repo = context.repo.repo;
+
+            const content = [
+              `:robot: <@&1326762123548000327>`,
+              `📣 **GitHubでメンションされました**`,
+              `**Repo:** ${repo}`,
+              `**By:** ${sender}`,
+              `**Title:** ${title}`,
+              `🔗 ${url}`
+            ].join("\n");
+
+            const res = await fetch(webhook, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ content })
+            });
+
+            if (!res.ok) {
+              const t = await res.text();
+              core.setFailed(`Discord webhook failed: ${res.status} ${t}`);
+            } else {
+              console.log("Sent to Discord");
+            }
