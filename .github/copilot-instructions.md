@@ -1,5 +1,5 @@
-# Copilot Instructions
+# Copilot向け指示
 
-This file provides guidance to GitHub Copilot when working with code in this repository.
+このファイルは、このリポジトリのコードを扱う際のGitHub Copilot向けガイダンスを提供します。
 
-See [/AGENTS.md](../AGENTS.md) for the instructions of this project.
+このプロジェクトの指示は [/AGENTS.md](../AGENTS.md) を参照してください。
