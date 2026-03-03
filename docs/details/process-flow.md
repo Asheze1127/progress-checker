@@ -13,6 +13,7 @@
 | 実行方式 | SQS Consumer（Worker）が非同期で本処理を実行 |
 | キュー構成 | `progress` / `question` / `issue` の3キュー（各キューにDLQ設定） |
 | question分岐 | `thread_ts` + `question_sessions` を使って「新規質問 / 継続回答」を判定 |
+| メッセージ方針 | `question_followup` / `issue` は受信時にスレッド履歴を取得し、SQSメッセージへ同梱 |
 | 主要コンポーネント | Slack、Webhook API、Idempotency Store、Question Session Store、SQS、Worker、PostgreSQL、LLM、GitHub API |
 
 ---
@@ -34,9 +35,11 @@ flowchart LR
 
     R -->|question| QCHK{questionは継続回答か?}
     QCHK -->|No| QN[SQS question:new へ送信]
-    QCHK -->|Yes| QF[SQS question:followup へ送信]
+    QCHK -->|Yes| QH[Slack APIでスレッド履歴取得]
+    QH --> QF[SQS question:followup へ送信<br/>thread_messages同梱]
 
-    R -->|issue| QI[SQS issue へ送信]
+    R -->|issue| IH[Slack APIでスレッド履歴取得]
+    IH --> QI[SQS issue へ送信<br/>thread_messages同梱]
 
     QP --> A2[200 OK 返却]
     QN --> A2
@@ -128,7 +131,8 @@ sequenceDiagram
         API->>SQSQ: type=question_new message 送信
     else 継続回答（thread_tsあり + awaiting_user）
         API->>QSS: session状態を確認
-        API->>SQSQ: type=question_followup message 送信
+        API->>Slack: thread_ts の履歴を取得
+        API->>SQSQ: type=question_followup + thread_messages を送信
     end
 
     API-->>Slack: 200 OK（3秒以内）
@@ -150,9 +154,8 @@ sequenceDiagram
     alt type=question_new
         W->>LLM: 初回質問を送信
     else type=question_followup
-        W->>Slack: thread_ts の履歴を取得
         W->>QSS: 過去の不足情報リクエストを取得
-        W->>LLM: 履歴 + 追加回答をまとめて送信
+        W->>LLM: SQS同梱の履歴 + 追加回答をまとめて送信
     end
 
     LLM-->>W: answer / follow-up
@@ -189,7 +192,8 @@ sequenceDiagram
     Slack->>API: action payload
     API->>API: 署名検証
     API->>IDS: idempotency_key 登録確認
-    API->>SQSI: issue message 送信
+    API->>Slack: スレッド履歴取得
+    API->>SQSI: issue + thread_messages を送信
     API-->>Slack: 200 OK
 ```
 
@@ -204,8 +208,7 @@ sequenceDiagram
     participant GH as GitHub API
 
     SQSI->>W: message delivery
-    W->>Slack: スレッド履歴取得
-    W->>LLM: 要約（背景/課題/Done条件）生成
+    W->>LLM: SQS同梱のthread_messagesで要約生成
     W->>GH: Issue作成
     GH-->>W: Issue URL
     W->>Slack: Issue作成完了を通知
@@ -222,7 +225,7 @@ sequenceDiagram
 flowchart LR
     A[Webhook受信] --> B{署名検証}
     B -->|失敗| C[401/403 即時返却]
-    B -->|成功| D{SQS送信成功?}
+    B -->|成功| D{履歴取得/SQS送信成功?}
     D -->|Yes| E[200 OK]
     D -->|No| F[5xx返却]
 ```
