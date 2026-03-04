@@ -158,7 +158,6 @@ flowchart TD
     API -->|403| ShowForbiddenMessage
     API -->|404| ShowNotFoundMessage
     API -->|5xx| ShowRetryMessage
-    API -->|Invalid Slack Signature| RejectSlackRequest
 ```
 
 ---
