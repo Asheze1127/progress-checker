@@ -61,7 +61,7 @@
 
 | 項目     | 採用技術 | 採用理由 | 備考 |
 | ------ | ---- | ---- | ---- |
-| ホスティング | Lambda | AWSエコシステム（Bedrock・SQS）との親和性が高いため | Slack の(3秒制約)[https://docs.slack.dev/apis/events-api/#responding]対応のため、即時 200 OK 返却 → SQS 経由で LLM 処理 Lambda を非同期起動する設計とする |
+| ホスティング | ECS | AWSエコシステム（Bedrock・SQS）との親和性が高いため | Slack の(3秒制約)[https://docs.slack.dev/apis/events-api/#responding]対応のため、即時 200 OK 返却 → SQS 経由で LLM 処理 Lambda を非同期起動する設計とする |
 | コンテナ   |   docker   |   デフォルトスタンダードだから   |    |
 | IaC    |  AWS CDK    |   管理しやすいから   |    |
 | CI/CD  |   linter/formater/自動テスト/sqllint   |   これらで十分CIを達成できるため   |    |
