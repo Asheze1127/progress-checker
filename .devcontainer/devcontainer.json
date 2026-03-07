@@ -14,6 +14,9 @@
     "ghcr.io/guiyomh/features/vim": {
       "version": "latest"
     },
+    "ghcr.io/devcontainers/features/aws-cli:1": {
+      "version": "latest"
+    },
     "ghcr.io/devcontainers/features/github-cli:1": {
       "version": "latest"
     },
@@ -25,11 +28,7 @@
     }
   },
 
-  "forwardPorts": [
-    3000,
-    8080,
-    5432
-  ],
+  "forwardPorts": [3000, 8080, 5432],
 
   "portsAttributes": {
     "3000": {
@@ -61,6 +60,8 @@
         "amazonwebservices.aws-toolkit-vscode",
         "ms-azuretools.vscode-docker",
         "timonwong.shellcheck",
+        "donjayamanne.githistory",
+        "openai.chatgpt",
         "ReneSaarsoo.sql-formatter-vsc"
       ],
       "settings": {
