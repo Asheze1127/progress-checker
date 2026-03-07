@@ -1,5 +1,5 @@
 name: Extract Closing Issue Numbers
-description: Extract issue numbers referenced by closing keywords in a pull request title or body
+description: Extract issue numbers referenced by closing keywords in a pull request body
 
 inputs:
   pull-request-body:
