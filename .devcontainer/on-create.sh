@@ -61,6 +61,8 @@ prepare_nodejs_plugin() {
 setup_nodejs() {
   corepack enable
   corepack prepare pnpm@latest --activate
+  # Regenerate asdf shims after corepack installs pnpm into the Node.js bin dir.
+  "${asdf_bin}" reshim nodejs
 
   if [ -f package.json ]; then
     pnpm install
@@ -70,12 +72,14 @@ setup_nodejs() {
 install_go_tool() {
   local binary_name="$1"
   local package_name="$2"
+  local gobin
+  gobin="$(go env GOPATH)/bin"
 
-  if [ -x "/go/bin/${binary_name}" ]; then
+  if [ -x "${gobin}/${binary_name}" ]; then
     return
   fi
 
-  GOBIN=/go/bin go install "${package_name}"
+  go install "${package_name}"
 }
 
 setup_golang() {
@@ -109,16 +113,22 @@ setup_shrc() {
 
 # Prepare paths backed by persistent volumes from docker-compose.yml.
 # The asdf directory is kept across rebuilds for reusable tool state.
-mkdir -p /commandhistory /go/bin "${asdf_dir}" "${workspace_dir}/node_modules"
+mkdir -p /commandhistory "${asdf_dir}" "${workspace_dir}/node_modules"
 touch /commandhistory/.bash_history /commandhistory/.zsh_history
 
 cd "${workspace_dir}"
 
 setup_asdf
-export PATH="$HOME/.local/bin:${asdf_dir}/bin:${asdf_dir}/shims:/go/bin:${PATH}"
+export PATH="$HOME/.local/bin:${asdf_dir}/bin:${asdf_dir}/shims:${PATH}"
 setup_asdf_plugins
 prepare_nodejs_plugin
 install_tools_from_tool_versions
+
+# Source the asdf golang set-env script so GOPATH/GOROOT are set correctly
+# in this non-interactive shell before installing Go tools.
+# Without this, `go install` would fall back to the default ~/go GOPATH instead
+# of the asdf-managed path.
+[[ -f "${asdf_dir}/plugins/golang/set-env.bash" ]] && . "${asdf_dir}/plugins/golang/set-env.bash"
 
 # TODO: gh-35 Install aws-cdk from infra/package.json instead of managing it with asdf.
 setup_nodejs

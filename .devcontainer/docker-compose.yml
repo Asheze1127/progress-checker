@@ -13,10 +13,8 @@ services:
       # Keep persistent tool state between rebuilds. See .devcontainer/on-create.sh.
       - asdf:/home/vscode/.asdf
       - node_modules:/workspaces/progress-checker/node_modules
-      - gopath:/go
       - command-history:/commandhistory
     environment:
-      GOPATH: /go
       HISTFILE: /commandhistory/.zsh_history
   postgres:
     build:
@@ -43,6 +41,5 @@ services:
 volumes:
   asdf:
   command-history:
-  gopath:
   node_modules:
   postgres-data:
