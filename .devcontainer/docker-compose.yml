@@ -17,9 +17,7 @@ services:
     environment:
       HISTFILE: /commandhistory/.zsh_history
   postgres:
-    build:
-      context: ..
-      dockerfile: backend/database/postgres/Dockerfile
+    image: postgres:16-bookworm
     restart: unless-stopped
     hostname: postgres
     ports:
