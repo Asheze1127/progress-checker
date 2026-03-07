@@ -29,7 +29,7 @@ runs:
             );
 
           const issueNumbers = extractIssueNumbers(
-            /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+#\d+(?:(?:\s*,\s*|\s+and\s+)#\d+)*/gi,
+            /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+#\d+(?:(?:\s*,\s*|(?:\s*,)?\s+and\s+)#\d+)*/gi,
             text,
           );
 
