@@ -18,6 +18,7 @@ append_if_missing() {
 
 setup_asdf() {
   local asdf_arch
+  local expected_sha256
   local temp_dir
 
   if [ -x "${asdf_bin}" ]; then
@@ -26,7 +27,13 @@ setup_asdf() {
 
   asdf_arch="$(dpkg --print-architecture)"
   case "${asdf_arch}" in
-    amd64|arm64)
+    amd64)
+      # SHA256 checksum for asdf-v0.18.0-linux-amd64.tar.gz
+      expected_sha256="4d3007070166cb0a652af26c3f0462b021e04cb26c4ab13894d13689da89f5b8"
+      ;;
+    arm64)
+      # SHA256 checksum for asdf-v0.18.0-linux-arm64.tar.gz
+      expected_sha256="1749b89039e4af51b549aa0919812fd68722c1a26a90eaf84db0b46a39f557a9"
       ;;
     *)
       echo "Unsupported architecture: ${asdf_arch}" >&2
@@ -37,6 +44,13 @@ setup_asdf() {
   temp_dir="$(mktemp -d)"
   mkdir -p "${asdf_dir}/bin"
   curl -fsSLo "${temp_dir}/asdf.tar.gz" "https://github.com/asdf-vm/asdf/releases/download/v${asdf_version}/asdf-v${asdf_version}-linux-${asdf_arch}.tar.gz"
+
+  echo "${expected_sha256}  ${temp_dir}/asdf.tar.gz" | sha256sum --check --strict --quiet || {
+    echo "SHA256 checksum verification failed for asdf v${asdf_version} (${asdf_arch})" >&2
+    rm -rf "${temp_dir}"
+    exit 1
+  }
+
   tar -xzf "${temp_dir}/asdf.tar.gz" -C "${asdf_dir}/bin" asdf
   chmod +x "${asdf_bin}"
   rm -rf "${temp_dir}"
