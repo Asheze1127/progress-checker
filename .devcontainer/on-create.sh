@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-workspace_dir="/workspaces/progress-checker"
+workspace_dir="${PWD}"
 tool_versions_file="${workspace_dir}/.tool-versions"
-asdf_dir="/home/vscode/.asdf"
+asdf_dir="${HOME}/.asdf"
 asdf_bin="${asdf_dir}/bin/asdf"
 asdf_version="0.18.0"
 
