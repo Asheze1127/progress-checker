@@ -1,0 +1,96 @@
+{
+  "name": "progress-checker",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "workspace",
+  "workspaceFolder": "/workspaces/progress-checker",
+  "shutdownAction": "stopCompose",
+
+  "containerEnv": {
+    "DEVCONTAINER": "true",
+    "TZ": "Asia/Tokyo"
+  },
+
+  "features": {
+    "ghcr.io/guiyomh/features/vim": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers-extra/features/pre-commit:2": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers-extra/features/ripgrep:1": {
+      "version": "latest"
+    }
+  },
+
+  "forwardPorts": [
+    3000,
+    8080,
+    5432
+  ],
+
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js"
+    },
+    "8080": {
+      "label": "Go API"
+    },
+    "5432": {
+      "label": "PostgreSQL"
+    }
+  },
+
+  "onCreateCommand": "bash .devcontainer/on-create.sh",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "bierner.github-markdown-preview",
+        "biomejs.biome",
+        "streetsidesoftware.code-spell-checker",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "github.copilot",
+        "github.vscode-github-actions",
+        "github.vscode-pull-request-github",
+        "amazonwebservices.aws-toolkit-vscode",
+        "ms-azuretools.vscode-docker",
+        "timonwong.shellcheck",
+        "ReneSaarsoo.sql-formatter-vsc"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "terminal.integrated.scrollback": 10000,
+        "[markdown]": {
+          "editor.unicodeHighlight.ambiguousCharacters": false,
+          "editor.wordWrap": "on"
+        },
+        "githubPullRequests.ignoredPullRequestBranches": ["main"],
+        "[sql]": {
+          "editor.defaultFormatter": "ReneSaarsoo.sql-formatter-vsc"
+        },
+        // TODO: gh-34 Enable this after Biome is introduced to use the workspace-local binary.
+        // "biome.lsp.bin": "/workspaces/progress-checker/node_modules/.bin/biome",
+        "[go]": {
+          "editor.defaultFormatter": "golang.go"
+        },
+        "[typescript][typescriptreact][json][javascript][javascriptreact]": {
+          "editor.defaultFormatter": "biomejs.biome"
+        },
+        "go.alternateTools": {
+          "go": "/home/vscode/.asdf/shims/go"
+        },
+        "go.coverOnSingleTest": true,
+        "go.testEnvVars": {
+          "GOFLAGS": "-buildvcs=false"
+        }
+      }
+    }
+  }
+}

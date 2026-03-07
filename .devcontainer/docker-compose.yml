@@ -1,0 +1,48 @@
+services:
+  workspace:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    command: sleep infinity
+    init: true
+    network_mode: service:postgres
+    volumes:
+      - ..:/workspaces/progress-checker:cached
+      # Reuse local AWS credentials inside the dev container.
+      - ${HOME}/.aws:/home/vscode/.aws:cached
+      # Keep persistent tool state between rebuilds. See .devcontainer/on-create.sh.
+      - asdf:/home/vscode/.asdf
+      - node_modules:/workspaces/progress-checker/node_modules
+      - gopath:/go
+      - command-history:/commandhistory
+    environment:
+      GOPATH: /go
+      HISTFILE: /commandhistory/.zsh_history
+  postgres:
+    build:
+      context: ..
+      dockerfile: backend/database/postgres/Dockerfile
+    restart: unless-stopped
+    hostname: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: progress_checker
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C.UTF-8"
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_HOSTNAME: "localhost"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d progress_checker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  asdf:
+  command-history:
+  gopath:
+  node_modules:
+  postgres-data:
