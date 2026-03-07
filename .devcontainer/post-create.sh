@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-workspace_dir="/workspaces/progress-checker"
-
-cd "${workspace_dir}"
-
 if ! command -v aws >/dev/null 2>&1; then
   echo "AWS CLI is not available yet. Rebuild the container and rerun postCreate if needed."
   exit 0
