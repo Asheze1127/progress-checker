@@ -38,16 +38,57 @@ root/
 
 ```id="tq93md"
 web/
+├── .storybook/                    # Storybook configuration
+├── public/                        # Static files
 ├── src/
-│   ├── app/                   # Routing layer
-│   ├── features/              # Feature modules
-│   ├── components/            # Shared UI components
-│   ├── hooks/
-│   ├── lib/                   # API clients
-│   ├── stores/                # State management
-│   └── types/
-├── public/
-└── tests/
+│   ├── app/                       # Next.js App Router
+│   │   ├── page.tsx               # Root page
+│   │   ├── layout.tsx             # Common layout
+│   │   ├── globals.css            # Global styles
+│   │   ├── (group)/               # Route Group
+│   │   │   └── xxx/
+│   │   │       └── page.tsx
+│   │   └── api/                   # BFF entry points
+│   │       └── xxx/
+│   │           └── route.ts
+│   ├── features/                  # Feature modules
+│   │   └── xxx/
+│   │       ├── container/         # Screen logic
+│   │       │   └── XxxContainer.tsx
+│   │       ├── element/           # Presentational components
+│   │       │   └── XxxElement.tsx
+│   │       ├── model/             # Data definitions for the feature
+│   │       │   └── xxx.ts
+│   │       ├── utils/             # Helper functions for the feature
+│   │       │   └── xxx.ts
+│   │       └── index.ts           # Public API of the feature
+│   ├── components/                # Shared UI components
+│   │   ├── ui/                    # shadcn/ui and common UI components
+│   │   ├── layout/                # Common layout components
+│   │   └── feedback/              # Error, empty state, and success displays
+│   ├── hooks/                     # Generic hooks only
+│   ├── lib/                       # API clients
+│   │   ├── fetcher/               # Shared HTTP client for all features
+│   │   ├── swr/                   # Common SWR configuration
+│   │   ├── constants/             # Constants
+│   │   ├── utils/                 # Shared utility functions
+│   │   ├── auth/                  # Shared auth logic
+│   │   ├── i18n/                  # Placeholder for future i18n support
+│   │   └── providers/             # React providers
+│   ├── server/                    # BFF internal implementation
+│   │   ├── bff/                   # Per-API service logic
+│   │   ├── client/                # External API / backend clients
+│   │   ├── auth/                  # Server-side auth logic
+│   │   └── utils/                 # Server-side utility functions
+│   ├── styles/                    # Style-related files
+│   ├── test/                      # Test configuration and mocks
+│   ├── types/                     # App-wide type definitions
+│   └── stories/                   # Storybook documentation
+├── components.json                # shadcn/ui configuration
+├── package.json
+├── tsconfig.json
+├── next.config.js
+└── README.md
 ```
 
 ---
