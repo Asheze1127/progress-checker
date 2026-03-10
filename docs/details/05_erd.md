@@ -4,125 +4,129 @@
 
 # 0️⃣ 設計観点
 
-| 項目      | 内容                                    |
-| ------- | ------------------------------------- |
-| 権限モデル   | RBAC（単一ロール: MENTOR）                  |
-| ID戦略    | UUID（全テーブル共通）                         |
-| 論理削除    | 無（MVP）                                |
-| 監査ログ    | 任意（MVP）                               |
-| ORM     | sqlc（型安全なDBアクセス）                      |
+| 項目 | 内容 |
+| --- | --- |
+| 権限モデル | RBAC（単一ロール: MENTOR） + チームスコープ |
+| ID戦略 | UUID（全テーブル共通） |
+| 論理削除 | 無（MVP） |
+| 監査ログ | 任意（MVP） |
+| ORM | sqlc（型安全なDBアクセス） |
+| 設計方針 | 業務モデルを主にしつつ、複数化しやすいSlackチャンネルだけ切り出す |
 
 ---
 
 # 1️⃣ テーブル一覧
 
-| ドメイン  | テーブル名               | 役割                               | Phase |
-| ----- | ------------------- | -------------------------------- | ----- |
-| アカウント | users               | ユーザー主体（参加者・メンター）                | P0    |
-| 組織    | teams               | ハッカソンチーム                        | P0    |
-| 組織    | team_members        | ユーザーとチームの所属関係                   | P0    |
-| 組織    | mentor_assignments  | メンターの担当チーム紐付け                   | P2    |
-| コア機能  | progress_logs       | `/progress` による進捗投稿ログ           | P0    |
-| コア機能  | questions           | `/question` による質問                | P0    |
-| コア機能  | question_sessions   | AI会話セッション管理（followup判定）         | P1    |
-| 認証    | tokens              | Web認証トークン                        | P0    |
-| 補助    | idempotency_keys    | Slackイベント重複排除（Goインメモリキャッシュで管理） | —     |
+| ドメイン | テーブル名 | 役割 | Phase |
+| --- | --- | --- | --- |
+| アカウント | users | ユーザー主体（参加者・メンター） | P0 |
+| 組織 | teams | ハッカソンチーム | P0 |
+| 組織 | team_members | ユーザーとチームの所属関係 | P0 |
+| 組織 | mentor_assignments | メンターの担当チーム紐付け | P0 |
+| 外部連携 | team_channels | チームとSlackチャンネルの用途別紐付け | P0 |
+| コア機能 | progress_logs | `/progress` による進捗投稿ログ | P0 |
+| コア機能 | questions | `/question` による質問 | P0 |
+| コア機能 | question_sessions | AI会話セッション管理（follow-up判定） | P1 |
+| 認証 | tokens | Web認証トークン | P0 |
+| 補助 | idempotency_keys | Slackイベント重複排除（Goインメモリキャッシュで管理） | — |
 
 ---
 
 # 2️⃣ ERD
 
+詳細カラムは後続の「# 3️⃣ カラム定義」を参照し、ERD では主要属性を残したまま領域ごとに分けて示す。
+
+## 組織・Slack連携
+
 ```mermaid
 erDiagram
+    direction LR
+
     users {
         uuid id PK
         varchar slack_user_id UK
-        varchar name
-        varchar email
-        varchar role "participant | mentor"
-        boolean is_active
-        timestamp created_at
-        timestamp updated_at
+        varchar role
     }
 
     teams {
         uuid id PK
         varchar name
-        varchar slack_channel_id
-        timestamp created_at
-        timestamp updated_at
     }
 
     team_members {
-        uuid id PK
         uuid team_id FK
         uuid user_id FK
         timestamp joined_at
     }
 
     mentor_assignments {
-        uuid id PK
-        uuid mentor_id FK
         uuid team_id FK
+        uuid mentor_user_id FK
         timestamp created_at
+    }
+
+    team_channels {
+        uuid team_id FK
+        varchar purpose
+        boolean is_primary
+    }
+
+    users ||--o{ team_members : belongs_to
+    teams ||--o{ team_members : has
+    users ||--o{ mentor_assignments : mentors
+    teams ||--o{ mentor_assignments : assigned
+    teams ||--o{ team_channels : uses
+```
+
+## 進捗・質問・認証
+
+```mermaid
+erDiagram
+    direction LR
+
+    users {
+        uuid id PK
+        varchar slack_user_id UK
+        varchar role
+    }
+
+    teams {
+        uuid id PK
+        varchar name
     }
 
     progress_logs {
-        uuid id PK
         uuid team_id FK
-        uuid user_id FK
-        varchar phase "idea | design | coding | testing | demo"
+        uuid posted_by_user_id FK
+        varchar phase
         boolean sos
-        text comment
-        varchar slack_msg_ts
-        timestamp created_at
     }
 
     questions {
-        uuid id PK
         uuid team_id FK
-        uuid user_id FK
-        varchar title
-        text body
-        varchar status "open | in_progress | resolved"
-        varchar slack_thread_ts
-        varchar slack_channel_id
-        uuid assigned_to FK "nullable"
-        varchar github_issue_url "nullable"
-        timestamp created_at
-        timestamp updated_at
+        uuid asked_by_user_id FK
+        uuid assigned_mentor_id FK
+        varchar status
     }
 
     question_sessions {
-        uuid id PK
         uuid question_id FK
-        varchar status "awaiting_ai | awaiting_user | escalated | resolved"
-        int max_follow_ups
-        int current_round
-        timestamp created_at
-        timestamp updated_at
+        varchar status
+        integer current_round
     }
 
     tokens {
-        uuid id PK
         uuid user_id FK
-        varchar token
+        varchar token_hash
         timestamp expires_at
-        timestamp created_at
     }
 
-
-    users ||--o{ team_members : "belongs to"
-    teams ||--o{ team_members : "has"
-    users ||--o{ mentor_assignments : "mentors"
-    teams ||--o{ mentor_assignments : "mentored by"
-    teams ||--o{ progress_logs : "logs"
-    users ||--o{ progress_logs : "submits"
-    teams ||--o{ questions : "asks"
-    users ||--o{ questions : "asks"
-    users ||--o{ questions : "assigned_to"
-    questions ||--|| question_sessions : "has session"
-    users ||--o{ tokens : "authenticates"
+    teams ||--o{ progress_logs : logs
+    users ||--o{ progress_logs : posts
+    teams ||--o{ questions : asks
+    users ||--o{ questions : submits
+    questions ||--|| question_sessions : has
+    users ||--o{ tokens : authenticates
 ```
 
 ---
@@ -131,119 +135,125 @@ erDiagram
 
 ## users
 
-| カラム          | 型         | 制約              | 説明                          |
-| ------------ | --------- | --------------- | --------------------------- |
-| id           | UUID      | PK              |                             |
-| slack_user_id| VARCHAR   | UNIQUE NOT NULL | Slack上のユーザーID               |
-| name         | VARCHAR   | NOT NULL        | 表示名                         |
-| email        | VARCHAR   |                 | メールアドレス（任意）                 |
-| role         | VARCHAR   | NOT NULL        | participant / mentor        |
-| is_active    | BOOLEAN   | NOT NULL DEFAULT true | アカウント有効判定           |
-| created_at   | TIMESTAMP | NOT NULL        |                             |
-| updated_at   | TIMESTAMP | NOT NULL        |                             |
-
----
+| カラム | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | UUID | PK | |
+| slack_user_id | VARCHAR | UNIQUE NOT NULL | Slack上のユーザーID |
+| name | VARCHAR | NOT NULL | 表示名 |
+| email | VARCHAR | | メールアドレス（任意） |
+| role | VARCHAR | NOT NULL | participant / mentor |
+| is_active | BOOLEAN | NOT NULL DEFAULT true | アカウント有効判定 |
+| created_at | TIMESTAMP | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
 
 ## teams
 
-| カラム             | 型         | 制約              | 説明                   |
-| --------------- | --------- | --------------- | -------------------- |
-| id              | UUID      | PK              |                      |
-| name            | VARCHAR   | NOT NULL        | チーム名                 |
-| slack_channel_id| VARCHAR   |                 | チーム用Slackチャンネル       |
-| created_at      | TIMESTAMP | NOT NULL        |                      |
-| updated_at      | TIMESTAMP | NOT NULL        |                      |
-
----
+| カラム | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | UUID | PK | |
+| name | VARCHAR | NOT NULL | チーム名 |
+| created_at | TIMESTAMP | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
 
 ## team_members
 
-| カラム      | 型         | 制約       | 説明         |
-| -------- | --------- | -------- | ---------- |
-| id       | UUID      | PK       |            |
-| team_id  | UUID      | FK(teams)| 所属チーム      |
-| user_id  | UUID      | FK(users)| 所属ユーザー     |
-| joined_at| TIMESTAMP | NOT NULL | 参加日時       |
+| カラム | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | UUID | PK | |
+| team_id | UUID | FK(teams) | 所属チーム |
+| user_id | UUID | FK(users) | 所属ユーザー |
+| joined_at | TIMESTAMP | NOT NULL | 参加日時 |
 
 UNIQUE(team_id, user_id)
 
----
-
 ## mentor_assignments
 
-| カラム       | 型         | 制約       | 説明           |
-| --------- | --------- | -------- | ------------ |
-| id        | UUID      | PK       |              |
-| mentor_id | UUID      | FK(users)| メンター         |
-| team_id   | UUID      | FK(teams)| 担当チーム        |
-| created_at| TIMESTAMP | NOT NULL |              |
+| カラム | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | UUID | PK | |
+| team_id | UUID | FK(teams) | 担当チーム |
+| mentor_user_id | UUID | FK(users) | 担当メンター |
+| created_at | TIMESTAMP | NOT NULL | |
 
-UNIQUE(mentor_id, team_id)
+UNIQUE(team_id, mentor_user_id)
 
----
+## team_channels
+
+| カラム | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | UUID | PK | |
+| team_id | UUID | FK(teams) | 対象チーム |
+| slack_channel_id | VARCHAR | NOT NULL | SlackチャンネルID |
+| purpose | VARCHAR | NOT NULL | progress / question / notice |
+| is_primary | BOOLEAN | NOT NULL DEFAULT false | 代表チャンネル判定 |
+| created_at | TIMESTAMP | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
+
+UNIQUE(team_id, slack_channel_id, purpose)
 
 ## progress_logs
 
-| カラム         | 型         | 制約        | 説明                                   |
-| ----------- | --------- | --------- | ------------------------------------ |
-| id          | UUID      | PK        |                                      |
-| team_id     | UUID      | FK(teams) | 投稿チーム                                |
-| user_id     | UUID      | FK(users) | 投稿者                                  |
-| phase       | VARCHAR   | NOT NULL  | idea / design / coding / testing / demo |
-| sos         | BOOLEAN   | NOT NULL DEFAULT false | SOSフラグ                    |
-| comment     | TEXT      |           | コメント（自由記述）                           |
-| slack_msg_ts| VARCHAR   |           | Slack投稿のタイムスタンプ                      |
-| created_at  | TIMESTAMP | NOT NULL  |                                      |
-
----
+| カラム | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | UUID | PK | |
+| team_id | UUID | FK(teams) | 投稿チーム |
+| posted_by_user_id | UUID | FK(users) | 投稿者 |
+| phase | VARCHAR | NOT NULL | idea / design / coding / testing / demo |
+| sos | BOOLEAN | NOT NULL DEFAULT false | SOSフラグ |
+| comment | TEXT | | コメント（自由記述） |
+| slack_msg_ts | VARCHAR | | Slack投稿のタイムスタンプ |
+| created_at | TIMESTAMP | NOT NULL | |
 
 ## questions
 
-| カラム             | 型         | 制約        | 説明                            |
-| --------------- | --------- | --------- | ----------------------------- |
-| id              | UUID      | PK        |                               |
-| team_id         | UUID      | FK(teams) | 質問元チーム                        |
-| user_id         | UUID      | FK(users) | 質問者                           |
-| title           | VARCHAR   | NOT NULL  | 質問タイトル                        |
-| body            | TEXT      | NOT NULL  | 質問本文（テンプレート形式）                |
-| status          | VARCHAR   | NOT NULL  | open / in_progress / resolved |
-| slack_thread_ts | VARCHAR   |           | Slackスレッドのタイムスタンプ             |
-| slack_channel_id| VARCHAR   |           | 投稿先チャンネルID                    |
-| assigned_to     | UUID      | FK(users) NULLABLE | 担当メンター               |
-| github_issue_url| VARCHAR   | NULLABLE  | Issue化した場合のURL                |
-| created_at      | TIMESTAMP | NOT NULL  |                               |
-| updated_at      | TIMESTAMP | NOT NULL  |                               |
-
----
+| カラム | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | UUID | PK | |
+| team_id | UUID | FK(teams) | 質問元チーム |
+| asked_by_user_id | UUID | FK(users) | 質問者 |
+| title | VARCHAR | NOT NULL | 質問タイトル |
+| body | TEXT | NOT NULL | 質問本文 |
+| status | VARCHAR | NOT NULL | open / in_progress / resolved |
+| assigned_mentor_id | UUID | FK(users) NULLABLE | 担当メンター |
+| slack_thread_ts | VARCHAR | | Slackスレッドのタイムスタンプ |
+| created_at | TIMESTAMP | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
 
 ## question_sessions
 
-| カラム           | 型         | 制約             | 説明                                                |
-| ------------- | --------- | -------------- | ------------------------------------------------- |
-| id            | UUID      | PK             |                                                   |
-| question_id   | UUID      | FK(questions) UNIQUE | 1質問に1セッション                                  |
-| status        | VARCHAR   | NOT NULL       | awaiting_ai / awaiting_user / escalated / resolved |
-| max_follow_ups| INT       | NOT NULL DEFAULT 3 | AI最大フォローアップ回数                             |
-| current_round | INT       | NOT NULL DEFAULT 0 | 現在のラウンド数                                    |
-| created_at    | TIMESTAMP | NOT NULL       |                                                   |
-| updated_at    | TIMESTAMP | NOT NULL       |                                                   |
-
----
+| カラム | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | UUID | PK | |
+| question_id | UUID | FK(questions) UNIQUE | 1質問に1セッション |
+| status | VARCHAR | NOT NULL | awaiting_ai / awaiting_user / escalated / resolved |
+| max_follow_ups | INT | NOT NULL DEFAULT 3 | AI最大フォローアップ回数 |
+| current_round | INT | NOT NULL DEFAULT 0 | 現在のラウンド数 |
+| created_at | TIMESTAMP | NOT NULL | |
+| updated_at | TIMESTAMP | NOT NULL | |
 
 ## tokens
 
-| カラム       | 型         | 制約        | 説明           |
-| --------- | --------- | --------- | ------------ |
-| id        | UUID      | PK        |              |
-| user_id   | UUID      | FK(users) | トークン所有者      |
-| token     | VARCHAR   | NOT NULL  | JWTトークン文字列   |
-| expires_at| TIMESTAMP | NOT NULL  | 有効期限         |
-| created_at| TIMESTAMP | NOT NULL  |              |
+| カラム | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | UUID | PK | |
+| user_id | UUID | FK(users) | トークン所有者 |
+| token_hash | VARCHAR | NOT NULL | ハッシュ化したトークン |
+| expires_at | TIMESTAMP | NOT NULL | 有効期限 |
+| created_at | TIMESTAMP | NOT NULL | |
 
 ---
 
+# 4️⃣ 整合性ルール
 
-# 4️⃣ 権限設計
+- `questions.asked_by_user_id` と `progress_logs.posted_by_user_id` は、対象 `team_id` に所属するユーザーでなければならない
+- `questions.assigned_mentor_id` は `users.role = mentor` のユーザーでなければならない
+- `questions.assigned_mentor_id` は、対象チームに割り当てられたメンターであることをアプリケーション層で検証する
+- `team_channels` は、チームとSlackチャンネルの対応を用途ごとに管理する
+- `questions` と `progress_logs` にある Slack の `ts` は、外部連携の最小限の参照情報として保持する
+
+---
+
+# 5️⃣ 権限設計
 
 ## RBAC（MVP）
 
@@ -253,7 +263,7 @@ UNIQUE(mentor_id, team_id)
 
 ## 将来拡張（ABAC）
 
-- `mentor_assignments` テーブルで担当チームスコープ制御を追加予定
+- `mentor_assignments` テーブルで担当チームスコープ制御を行う
 
 ```pseudo
 if user.role != "mentor":
@@ -265,22 +275,23 @@ allow
 
 ---
 
-# 5️⃣ インデックス設計
+# 6️⃣ インデックス設計
 
-| テーブル             | カラム                      | 種別     | 用途                         |
-| ---------------- | ------------------------ | ------ | -------------------------- |
-| users            | slack_user_id            | UNIQUE | Slack→ユーザー検索               |
-| team_members     | (team_id, user_id)       | UNIQUE | 重複所属防止                     |
-| mentor_assignments| (mentor_id, team_id)    | UNIQUE | 重複アサイン防止                   |
-| progress_logs    | (team_id, created_at)    | INDEX  | チーム別進捗の時系列取得               |
-| questions        | status                   | INDEX  | ステータス別キュー取得                |
-| questions        | (team_id, created_at)    | INDEX  | チーム別質問の時系列取得               |
-| question_sessions| question_id              | UNIQUE | 1質問1セッション制約                |
-| tokens           | token                    | INDEX  | トークン検証                     |
+| テーブル | カラム | 種別 | 用途 |
+| --- | --- | --- | --- |
+| users | slack_user_id | UNIQUE | Slack→ユーザー検索 |
+| team_members | (team_id, user_id) | UNIQUE | 重複所属防止 |
+| mentor_assignments | (team_id, mentor_user_id) | UNIQUE | 重複アサイン防止 |
+| team_channels | (team_id, slack_channel_id, purpose) | UNIQUE | 用途別重複紐付け防止 |
+| progress_logs | (team_id, created_at) | INDEX | チーム別進捗の時系列取得 |
+| questions | status | INDEX | ステータス別キュー取得 |
+| questions | (team_id, created_at) | INDEX | チーム別質問の時系列取得 |
+| question_sessions | question_id | UNIQUE | 1質問1セッション制約 |
+| tokens | token_hash | INDEX | トークン照合 |
 
 ---
 
-# 6️⃣ 設計上の意思決定ログ
+# 7️⃣ 設計上の意思決定ログ
 
 ## ADR-001: Slackイベント重複排除をDBではなくGoインメモリキャッシュで管理する
 
