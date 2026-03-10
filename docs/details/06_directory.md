@@ -4,14 +4,14 @@
 
 # 0. 設計前提
 
-| 項目 | 内容 |
-| --- | --- |
-| リポジトリ構成 | Monorepo |
-| アーキテクチャ | Layered / Clean Architecture |
-| DDD方針 | 現時点では採用しない（MVPスコープでは過剰な複雑性になるため） |
-| デプロイ単位 | 単一サービス |
-| 言語 | TypeScript / Go |
-| MVP方針 | P0に必要なディレクトリのみ |
+| 項目           | 内容                                                          |
+| -------------- | ------------------------------------------------------------- |
+| リポジトリ構成 | Monorepo                                                      |
+| アーキテクチャ | Layered / Clean Architecture                                  |
+| DDD方針        | 現時点では採用しない（MVPスコープでは過剰な複雑性になるため） |
+| デプロイ単位   | 単一サービス                                                  |
+| 言語           | TypeScript / Go                                               |
+| MVP方針        | P0に必要なディレクトリのみ                                    |
 
 ---
 
@@ -23,10 +23,12 @@ root/
 ├── lamda/                     # AWS Lambda functions
 ├── web/                       # Frontend application
 ├── infrastructure/            # Infrastructure as Code
-│   └── terraform/
-│       └── aws/
-│           ├── modules/
-│           └── projects/
+│   └── cdk/
+│       ├── bin/
+│       ├── lib/
+│       │   ├── stacks/
+│       │   └── constructs/
+│       └── test/
 ├── scripts/                   # Helper scripts
 ├── docs/
 └── README.md
@@ -136,13 +138,19 @@ lamda/
 
 ```id="v9k0mz"
 infrastructure/
-└── terraform/
-    └── aws/
-        ├── modules/
-        └── projects/
-            ├── dev/
-            ├── staging/
-            └── prod/
+└── cdk/
+    ├── bin/
+    │   └── app.ts             # CDK app entry point
+    ├── lib/
+    │   ├── stacks/            # Stack definitions per environment
+    │   │   ├── dev.ts
+    │   │   ├── staging.ts
+    │   │   └── prod.ts
+    │   └── constructs/        # Reusable CDK constructs
+    ├── test/                  # CDK unit tests
+    ├── cdk.json
+    ├── package.json
+    └── tsconfig.json
 ```
 
 ---
