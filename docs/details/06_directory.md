@@ -20,7 +20,7 @@
 ```id="o8d9si"
 root/
 ├── backend/                   # Go backend application
-├── lamda/                     # AWS Lambda functions
+├── lambda/                    # AWS Lambda functions
 ├── web/                       # Frontend application
 ├── infrastructure/            # Infrastructure as Code
 │   └── cdk/
@@ -117,10 +117,10 @@ backend/
 
 ---
 
-# 4. Lamda構成テンプレ（TypeScript）
+# 4. Lambda構成テンプレ（TypeScript）
 
 ```id="kl2m91"
-lamda/
+lambda/
 ├── worker/
 │   ├── question.ts
 │   ├── question.test.ts
@@ -175,7 +175,7 @@ backend/
 └── testutil/
     └── util.go
 
-lamda/
+lambda/
 ├── worker/
 │   └── ...
 │       ├── question.ts
@@ -188,4 +188,4 @@ lamda/
 
 - Integration/E2E専用ディレクトリは作成しない
 - backendテストは対象実装ファイルと同階層に `*_test.go` を配置する
-- lamdaテストは対象実装ファイルと同階層に `*.test.ts` を配置する
+- lambdaテストは対象実装ファイルと同階層に `*.test.ts` を配置する
