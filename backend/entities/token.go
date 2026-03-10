@@ -1,0 +1,12 @@
+package entities
+
+import "time"
+
+// Token represents a JWT/session token for web dashboard authentication.
+type Token struct {
+	ID        string    `json:"id" db:"id"`
+	UserID    string    `json:"user_id" db:"user_id"`
+	Token     string    `json:"-" db:"token"`
+	ExpiresAt time.Time `json:"expires_at" db:"expires_at"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+}

@@ -1,272 +1,318 @@
-# 🗄️ DB設計書テンプレート
+# 🗄️ DB設計書：KCL Progress Board
+
 ---
+
 # 0️⃣ 設計観点
+
 | 項目      | 内容                                    |
 | ------- | ------------------------------------- |
-| 権限モデル   | RBAC / ABAC / Hybrid                  |
-| ID戦略    | UUID / ULID / Auto Increment          |
-| 論理削除    | 有 / 無                                 |
-| 監査ログ    | 必須 / 任意                               |
+| 権限モデル   | RBAC（単一ロール: MENTOR）                  |
+| ID戦略    | UUID（全テーブル共通）                         |
+| 論理削除    | 無（MVP）                                |
+| 監査ログ    | 任意（MVP）                               |
+| ORM     | sqlc（型安全なDBアクセス）                      |
+
 ---
-# 1️⃣ テーブル一覧テンプレート
-| ドメイン  | テーブル名             | 役割     | Phase |
-| ----- | ----------------- | ------ | ----- |
-| アカウント | users             | ユーザー主体 | P0    |
-| 認可    | roles             | ロール定義  | P0    |
-| 認可    | user_roles        | ロール付与  | P0    |
-| 組織    | groups            | 組織/チーム | P0    |
-| 組織    | group_members     | 所属関係   | P0    |
-| コア機能  | entities          | 中核リソース | P0    |
-| コア機能  | entity_relations  | 関係テーブル | P1    |
-| 補助    | comments          | コメント   | P1    |
-| 補助    | logs              | 操作ログ   | P0    |
-| 通知    | notifications     | 通知管理   | P1    |
-| 拡張    | custom_attributes | 拡張属性   | P2    |
-| 監査    | audit_logs        | 監査ログ   | P0    |
+
+# 1️⃣ テーブル一覧
+
+| ドメイン  | テーブル名               | 役割                               | Phase |
+| ----- | ------------------- | -------------------------------- | ----- |
+| アカウント | users               | ユーザー主体（参加者・メンター）                | P0    |
+| 組織    | teams               | ハッカソンチーム                        | P0    |
+| 組織    | team_members        | ユーザーとチームの所属関係                   | P0    |
+| 組織    | mentor_assignments  | メンターの担当チーム紐付け                   | P2    |
+| コア機能  | progress_logs       | `/progress` による進捗投稿ログ           | P0    |
+| コア機能  | questions           | `/question` による質問                | P0    |
+| コア機能  | question_sessions   | AI会話セッション管理（followup判定）         | P1    |
+| 認証    | tokens              | Web認証トークン                        | P0    |
+| 補助    | idempotency_keys    | Slackイベント重複排除（Goインメモリキャッシュで管理） | —     |
+
 ---
-# 2️⃣ ERDテンプレート（抽象版）
+
+# 2️⃣ ERD
+
 ```mermaid
 erDiagram
     users {
-        id PK
-        email UNIQUE
-        name
-        status
-        created_at
-        updated_at
-    }
-    roles {
-        id PK
-        name UNIQUE
-        level
-    }
-    user_roles {
-        user_id FK
-        role_id FK
-        granted_at
-    }
-    groups {
-        id PK
-        name
-        status
-        created_by FK
-        created_at
-    }
-    group_members {
-        id PK
-        user_id FK
-        group_id FK
-        role
-        joined_at
-    }
-    entities {
-        id PK
-        group_id FK
-        title
-        status
-        created_by FK
-        created_at
-    }
-    entity_relations {
-        parent_id FK
-        child_id FK
-    }
-    comments {
-        id PK
-        entity_id FK
-        user_id FK
-        body
-        created_at
-    }
-    users ||--o{ user_roles
-    roles ||--o{ user_roles
-    users ||--o{ group_members
-    groups ||--o{ group_members
-    groups ||--o{ entities
-    entities ||--o{ comments
-    entities ||--o{ entity_relations
-```
----
-# 3️⃣ カラム定義テンプレート
-## users
-| カラム        | 型         | 制約              | 説明              |
-| ---------- | --------- | --------------- | --------------- |
-| id         | UUID      | PK              |                 |
-| email      | VARCHAR   | UNIQUE NOT NULL |                 |
-| name       | VARCHAR   | NOT NULL        |                 |
-| status     | ENUM      | NOT NULL        | active/inactive |
-| created_at | TIMESTAMP | NOT NULL        |                 |
-| updated_at | TIMESTAMP | NOT NULL        |                 |
----
-## roles
-| カラム   | 型        | 制約       | 説明        |
-| ----- | -------- | -------- | --------- |
-| id    | SMALLINT | PK       |           |
-| name  | VARCHAR  | UNIQUE   |           |
-| level | SMALLINT | NOT NULL | 数値が高いほど強い |
----
-## entities（コアリソース）
-| カラム        | 型         | 制約       | 説明                    |
-| ---------- | --------- | -------- | --------------------- |
-| id         | UUID      | PK       |                       |
-| group_id   | UUID      | FK       | 所属単位                  |
-| title      | VARCHAR   | NOT NULL |                       |
-| status     | ENUM      | NOT NULL | draft/active/archived |
-| created_by | UUID      | FK       |                       |
-| created_at | TIMESTAMP | NOT NULL |                       |
-| updated_at | TIMESTAMP | NOT NULL |                       |
----
-# 4️⃣ 権限設計テンプレート
-## RBAC
-* role.level 比較で許可判定
-## ABAC（任意）
-```json
-{
-  "subject.role": "EDITOR",
-  "resource.status": "active",
-  "environment.time": "<= deadline"
-}
-```
-| テーブル        | 役割   |
-| ----------- | ---- |
-| policies    | 条件定義 |
-| policy_logs | 評価ログ |
-以下に、**超汎用DB設計テンプレートへベクトルDB設計を統合した拡張版**を示します。
-特定用途（AI推薦・RAG・検索等）に依存しない抽象モデルです。
-# 🧠 ベクトルDB設計テンプレート
-## アーキテクチャ選択パターン
-## A. 同一DB内（pgvector）
-```
-App
- └── PostgreSQL (RDB + Vector)
-```
-**メリット**
-* トランザクション整合性
-* シンプル
-**デメリット**
-* 大規模時のスケール制限
----
-## 外部ベクトルDB分離
-```
-App
- ├── RDB（メタデータ）
- └── Vector DB（検索専用）
-```
-**メリット**
-* 高速検索・水平スケール
-* フィルタリング最適化
-**デメリット**
-* 整合性管理が必要
-## ベクトル格納設計パターン
----
-## 🔹 パターン1：既存テーブルに直接持つ（小規模向け）
-```sql
-ALTER TABLE entities
-ADD COLUMN embedding VECTOR(1536);
-```
-**適用条件**
-* 1エンティティ = 1ベクトル
-* 更新頻度低い
----
-## 🔹 パターン2：専用ベクトルテーブル（推奨）
-```mermaid
-erDiagram
-    entities {
         uuid id PK
-        varchar title
+        varchar slack_user_id UK
+        varchar name
+        varchar email
+        varchar role "participant | mentor"
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
     }
-    embeddings {
+
+    teams {
         uuid id PK
-        uuid entity_id FK
-        varchar content_type
-        vector embedding
-        jsonb metadata
+        varchar name
+        varchar slack_channel_id
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    team_members {
+        uuid id PK
+        uuid team_id FK
+        uuid user_id FK
+        timestamp joined_at
+    }
+
+    mentor_assignments {
+        uuid id PK
+        uuid mentor_id FK
+        uuid team_id FK
         timestamp created_at
     }
-    entities ||--o{ embeddings : "持つ"
+
+    progress_logs {
+        uuid id PK
+        uuid team_id FK
+        uuid user_id FK
+        varchar phase "idea | design | coding | testing | demo"
+        boolean sos
+        text comment
+        varchar slack_msg_ts
+        timestamp created_at
+    }
+
+    questions {
+        uuid id PK
+        uuid team_id FK
+        uuid user_id FK
+        varchar title
+        text body
+        varchar status "open | in_progress | resolved"
+        varchar slack_thread_ts
+        varchar slack_channel_id
+        uuid assigned_to FK "nullable"
+        varchar github_issue_url "nullable"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    question_sessions {
+        uuid id PK
+        uuid question_id FK
+        varchar status "awaiting_ai | awaiting_user | escalated | resolved"
+        int max_follow_ups
+        int current_round
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    tokens {
+        uuid id PK
+        uuid user_id FK
+        varchar token
+        timestamp expires_at
+        timestamp created_at
+    }
+
+
+    users ||--o{ team_members : "belongs to"
+    teams ||--o{ team_members : "has"
+    users ||--o{ mentor_assignments : "mentors"
+    teams ||--o{ mentor_assignments : "mentored by"
+    teams ||--o{ progress_logs : "logs"
+    users ||--o{ progress_logs : "submits"
+    teams ||--o{ questions : "asks"
+    users ||--o{ questions : "asks"
+    users ||--o{ questions : "assigned_to"
+    questions ||--|| question_sessions : "has session"
+    users ||--o{ tokens : "authenticates"
 ```
+
 ---
-## embeddings テーブル定義テンプレ
-| カラム          | 型         | 説明                   |
-| ------------ | --------- | -------------------- |
-| id           | UUID      | PK                   |
-| entity_id    | UUID      | 紐づくリソース              |
-| content_type | VARCHAR   | title/body/comment 等 |
-| embedding    | VECTOR(N) | ベクトル                 |
-| metadata     | JSONB     | フィルタ用属性              |
-| model_name   | VARCHAR   | 使用モデル                |
-| created_at   | TIMESTAMP |                      |
+
+# 3️⃣ カラム定義
+
+## users
+
+| カラム          | 型         | 制約              | 説明                          |
+| ------------ | --------- | --------------- | --------------------------- |
+| id           | UUID      | PK              |                             |
+| slack_user_id| VARCHAR   | UNIQUE NOT NULL | Slack上のユーザーID               |
+| name         | VARCHAR   | NOT NULL        | 表示名                         |
+| email        | VARCHAR   |                 | メールアドレス（任意）                 |
+| role         | VARCHAR   | NOT NULL        | participant / mentor        |
+| is_active    | BOOLEAN   | NOT NULL DEFAULT true | アカウント有効判定           |
+| created_at   | TIMESTAMP | NOT NULL        |                             |
+| updated_at   | TIMESTAMP | NOT NULL        |                             |
+
 ---
-# 3️⃣ メタデータ設計（検索フィルタ用）
-```json
-{
-  "group_id": "uuid",
-  "status": "active",
-  "visibility": "public",
-  "language": "ja",
-  "created_by": "uuid"
-}
+
+## teams
+
+| カラム             | 型         | 制約              | 説明                   |
+| --------------- | --------- | --------------- | -------------------- |
+| id              | UUID      | PK              |                      |
+| name            | VARCHAR   | NOT NULL        | チーム名                 |
+| slack_channel_id| VARCHAR   |                 | チーム用Slackチャンネル       |
+| created_at      | TIMESTAMP | NOT NULL        |                      |
+| updated_at      | TIMESTAMP | NOT NULL        |                      |
+
+---
+
+## team_members
+
+| カラム      | 型         | 制約       | 説明         |
+| -------- | --------- | -------- | ---------- |
+| id       | UUID      | PK       |            |
+| team_id  | UUID      | FK(teams)| 所属チーム      |
+| user_id  | UUID      | FK(users)| 所属ユーザー     |
+| joined_at| TIMESTAMP | NOT NULL | 参加日時       |
+
+UNIQUE(team_id, user_id)
+
+---
+
+## mentor_assignments
+
+| カラム       | 型         | 制約       | 説明           |
+| --------- | --------- | -------- | ------------ |
+| id        | UUID      | PK       |              |
+| mentor_id | UUID      | FK(users)| メンター         |
+| team_id   | UUID      | FK(teams)| 担当チーム        |
+| created_at| TIMESTAMP | NOT NULL |              |
+
+UNIQUE(mentor_id, team_id)
+
+---
+
+## progress_logs
+
+| カラム         | 型         | 制約        | 説明                                   |
+| ----------- | --------- | --------- | ------------------------------------ |
+| id          | UUID      | PK        |                                      |
+| team_id     | UUID      | FK(teams) | 投稿チーム                                |
+| user_id     | UUID      | FK(users) | 投稿者                                  |
+| phase       | VARCHAR   | NOT NULL  | idea / design / coding / testing / demo |
+| sos         | BOOLEAN   | NOT NULL DEFAULT false | SOSフラグ                    |
+| comment     | TEXT      |           | コメント（自由記述）                           |
+| slack_msg_ts| VARCHAR   |           | Slack投稿のタイムスタンプ                      |
+| created_at  | TIMESTAMP | NOT NULL  |                                      |
+
+---
+
+## questions
+
+| カラム             | 型         | 制約        | 説明                            |
+| --------------- | --------- | --------- | ----------------------------- |
+| id              | UUID      | PK        |                               |
+| team_id         | UUID      | FK(teams) | 質問元チーム                        |
+| user_id         | UUID      | FK(users) | 質問者                           |
+| title           | VARCHAR   | NOT NULL  | 質問タイトル                        |
+| body            | TEXT      | NOT NULL  | 質問本文（テンプレート形式）                |
+| status          | VARCHAR   | NOT NULL  | open / in_progress / resolved |
+| slack_thread_ts | VARCHAR   |           | Slackスレッドのタイムスタンプ             |
+| slack_channel_id| VARCHAR   |           | 投稿先チャンネルID                    |
+| assigned_to     | UUID      | FK(users) NULLABLE | 担当メンター               |
+| github_issue_url| VARCHAR   | NULLABLE  | Issue化した場合のURL                |
+| created_at      | TIMESTAMP | NOT NULL  |                               |
+| updated_at      | TIMESTAMP | NOT NULL  |                               |
+
+---
+
+## question_sessions
+
+| カラム           | 型         | 制約             | 説明                                                |
+| ------------- | --------- | -------------- | ------------------------------------------------- |
+| id            | UUID      | PK             |                                                   |
+| question_id   | UUID      | FK(questions) UNIQUE | 1質問に1セッション                                  |
+| status        | VARCHAR   | NOT NULL       | awaiting_ai / awaiting_user / escalated / resolved |
+| max_follow_ups| INT       | NOT NULL DEFAULT 3 | AI最大フォローアップ回数                             |
+| current_round | INT       | NOT NULL DEFAULT 0 | 現在のラウンド数                                    |
+| created_at    | TIMESTAMP | NOT NULL       |                                                   |
+| updated_at    | TIMESTAMP | NOT NULL       |                                                   |
+
+---
+
+## tokens
+
+| カラム       | 型         | 制約        | 説明           |
+| --------- | --------- | --------- | ------------ |
+| id        | UUID      | PK        |              |
+| user_id   | UUID      | FK(users) | トークン所有者      |
+| token     | VARCHAR   | NOT NULL  | JWTトークン文字列   |
+| expires_at| TIMESTAMP | NOT NULL  | 有効期限         |
+| created_at| TIMESTAMP | NOT NULL  |              |
+
+---
+
+
+# 4️⃣ 権限設計
+
+## RBAC（MVP）
+
+- `users.role` で判定
+- Web画面へのアクセスは `role = mentor` のみ許可
+- Slack操作は全ユーザーが利用可能
+
+## 将来拡張（ABAC）
+
+- `mentor_assignments` テーブルで担当チームスコープ制御を追加予定
+
+```pseudo
+if user.role != "mentor":
+    deny (403)
+if resource.team_id not in user.assigned_team_ids:
+    deny (403)
+allow
 ```
-※ RAGやマルチテナントでは必須
+
 ---
-# 4️⃣ インデックス設計
-## pgvector（Cosine距離）
-```sql
-CREATE INDEX idx_embeddings_vector
-ON embeddings
-USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100);
-```
-## HNSW（高速）
-```sql
-CREATE INDEX idx_embeddings_hnsw
-ON embeddings
-USING hnsw (embedding vector_cosine_ops);
-```
+
+# 5️⃣ インデックス設計
+
+| テーブル             | カラム                      | 種別     | 用途                         |
+| ---------------- | ------------------------ | ------ | -------------------------- |
+| users            | slack_user_id            | UNIQUE | Slack→ユーザー検索               |
+| team_members     | (team_id, user_id)       | UNIQUE | 重複所属防止                     |
+| mentor_assignments| (mentor_id, team_id)    | UNIQUE | 重複アサイン防止                   |
+| progress_logs    | (team_id, created_at)    | INDEX  | チーム別進捗の時系列取得               |
+| questions        | status                   | INDEX  | ステータス別キュー取得                |
+| questions        | (team_id, created_at)    | INDEX  | チーム別質問の時系列取得               |
+| question_sessions| question_id              | UNIQUE | 1質問1セッション制約                |
+| tokens           | token                    | INDEX  | トークン検証                     |
+
 ---
-# 5️⃣ クエリテンプレ
-## 類似検索（TopK）
-```sql
-SELECT entity_id, 1 - (embedding <=> :query_vector) AS similarity
-FROM embeddings
-WHERE metadata->>'group_id' = :group_id
-ORDER BY embedding <=> :query_vector
-LIMIT 10;
-```
----
-# 6️⃣ 更新戦略テンプレ
-| 戦略     | 説明          |
-| ------ | ----------- |
-| 同期更新   | レコード保存時に即生成 |
-| 非同期キュー | 保存→Job→生成   |
-| 再生成バッチ | モデル変更時に全更新  |
----
-# 7️⃣ RAG設計テンプレ
-```mermaid
-flowchart LR
-    UserQuery --> EmbedQuery
-    EmbedQuery --> VectorSearch
-    VectorSearch --> ContextChunks
-    ContextChunks --> LLM
-    LLM --> Answer
-```
----
-## チャンク設計指針
-| 項目      | 推奨             |
-| ------- | -------------- |
-| 文字数     | 300〜800 tokens |
-| オーバーラップ | 10〜20%         |
-| 単位      | 意味単位（段落）       |
----
-# 8️⃣ 多ベクトル対応
-用途別に分ける：
-| 種類                  | 例      |
-| ------------------- | ------ |
-| semantic_vector     | 本文検索   |
-| keyword_vector      | タイトル重視 |
-| user_profile_vector | レコメンド  |
-| skill_vector        | マッチング  |
-```sql
-vector_semantic VECTOR(1536),
-vector_title VECTOR(1536)
-```
+
+# 6️⃣ 設計上の意思決定ログ
+
+## ADR-001: Slackイベント重複排除をDBではなくGoインメモリキャッシュで管理する
+
+| 項目 | 内容 |
+| --- | --- |
+| **決定日** | 2026-03-05 |
+| **ステータス** | 採用 |
+
+### 背景
+
+Slackの [Events API](https://docs.slack.dev/apis/events-api/#responding) はイベントを重複送信することがあるため、冪等性の担保が必要。
+当初は `idempotency_keys` テーブルをDBで管理する案を検討した。
+
+### 検討した選択肢
+
+| 案 | 概要 |
+| --- | --- |
+| RDB（`idempotency_keys` テーブル） | 永続化できるが、WebhookのたびにDB書き込みが発生する。定期パージも必要 |
+| Goインメモリキャッシュ（`sync.Map` + TTL） | 追加インフラ不要。軽量で3秒制約に有利 |
+| Redis（ElastiCache） | TTL管理が容易だが、インフラコストと複雑性が増す |
+
+### 決定内容
+
+**Goインメモリキャッシュ（`sync.Map` + TTL）を採用する。**
+
+### 理由
+
+- ECS上でコンテナが長期起動するため、再起動による消失リスクは実質低い
+- Slackの重複イベントは数秒〜数分以内に届くケースがほとんどであり、TTLをそれに合わせれば十分
+- スループットはピーク数件/分程度（仕様書より）のため、DB書き込みのボトルネックは起きないが、シンプルさを優先する
+- Redis追加はインフラコストと管理コストが見合わない（ハッカソン規模）
+
+### トレードオフ・注意点
+
+- コンテナが複数台にスケールした場合、インスタンス間でキャッシュが共有されないため重複を取りこぼす可能性がある（現時点では単一コンテナ運用のため許容）
