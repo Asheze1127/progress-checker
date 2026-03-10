@@ -108,7 +108,7 @@ backend/
 │       └── command.go       # Command definitions (package cmd)
 ├── main.go                  # Entry point (imports cmd package)
 ├── database/                # DB schema / migration / query layer
-├── infrastucture/           # External integrations and adapters
+├── infrastructure/          # External integrations and adapters
 ├── pkg/                     # Shared packages
 ├── testutil/
 │   └── util.go
