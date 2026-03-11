@@ -5,80 +5,81 @@
 # System Architecture
 
 ```mermaid
-flowchart LR
-    %% =======================
-    %% Users
-    %% =======================
-    subgraph USERS["Users"]
-        SU["Slack User"]:::user
-        WU["Web User"]:::user
-    end
+flowchart TB
+    SU["Slack User"]
+    WU["Web User"]
+    SLACK["Slack API / Workspace"]
+    GH["GitHub API"]
+    CF["CloudFront"]
+    S3["S3 (Next.js Static Assets)"]
 
-    %% =======================
-    %% External
-    %% =======================
-    subgraph EXT["External Services"]
-        SLACK["Slack API / Workspace"]:::ext
-        GH["GitHub API"]:::ext
-    end
-
-    %% =======================
-    %% Edge / Web
-    %% =======================
-    subgraph WEB_EDGE["Web Delivery (AWS)"]
-        CF["CloudFront"]:::edge
-        S3["S3 (Next.js Static Assets)"]:::edge
-    end
-
-    %% =======================
-    %% API / Compute
-    %% =======================
-    subgraph COMPUTE["API / Compute (AWS)"]
+    subgraph AWS["AWS Cloud"]
         direction TB
+        R53["Route 53 Private Hosted Zone<br/>issue-api.internal.example.com"]
 
-        IGW["Internet Gateway<br/>(attached to VPC boundary)"]:::net
+        subgraph REGION["Tokyo Region"]
+            direction TB
+            IGW["Internet Gateway"]
 
-        subgraph VPC["VPC"]
-            direction LR
-
-            subgraph PUB["Public Subnet"]
+            subgraph VPC["VPC"]
                 direction TB
-                ALB["Application Load Balancer"]:::api
-                NAT["NAT Gateway"]:::net
+                ALB["Public ALB<br/>/webhook/slack, /api/*"]
+                IALB["Internal ALB<br/>/internal/issues"]
+
+                subgraph TOPO["Availability Zones"]
+                    direction LR
+
+                    subgraph AZ_A["Availability Zone A"]
+                        direction TB
+                        subgraph PUB_A["Public Subnet"]
+                            direction TB
+                            NAT_A["NAT Gateway"]
+                        end
+                        subgraph APP_A["Private App Subnet"]
+                            direction TB
+                            API_A["ECS Go API Service"]
+                            WORKERS_A["Lambda Workers<br/>Progress / Question / Issue"]
+                            VPCE_A["VPC Endpoints<br/>SQS / Bedrock"]
+                        end
+                        subgraph DB_A["Private DB Subnet"]
+                            direction TB
+                            RDS_A["RDS PostgreSQL"]
+                        end
+                    end
+
+                    subgraph AZ_B["Availability Zone B"]
+                        direction TB
+                        subgraph PUB_B["Public Subnet"]
+                            direction TB
+                            NAT_B["NAT Gateway"]
+                        end
+                        subgraph APP_B["Private App Subnet"]
+                            direction TB
+                            API_B["ECS Go API Service"]
+                            WORKERS_B["Lambda Workers<br/>Progress / Question / Issue"]
+                            VPCE_B["VPC Endpoints<br/>SQS / Bedrock"]
+                        end
+                        subgraph DB_B["Private DB Subnet"]
+                            direction TB
+                            RDS_B["RDS PostgreSQL"]
+                        end
+                    end
+                end
             end
 
-            subgraph PRI["Private Subnet"]
+            subgraph ASYNC["Async Queues"]
                 direction TB
-                API["ECS Fargate: Go API Service<br/>(/webhook/slack, /api/*, /internal/issues)"]:::ecs
-                WP["AWS Lambda (TypeScript): Progress Worker"]:::lambda
-                WQ["AWS Lambda (TypeScript): Question Worker"]:::lambda
-                WI["AWS Lambda (TypeScript): Issue Worker"]:::lambda
-                VPCE_SQS["VPC Endpoint<br/>(Amazon SQS)"]:::net
-                VPCE_BR["VPC Endpoint<br/>(Amazon Bedrock)"]:::net
-                RDS["RDS PostgreSQL"]:::data
+                SQS["SQS Queues<br/>progress / question / issue / DLQ"]
             end
-        end
 
-        subgraph ASYNC["Async Queues"]
-            direction LR
-            SQSP["SQS: progress"]:::queue
-            SQSQ["SQS: question"]:::queue
-            SQSI["SQS: issue"]:::queue
-            DLQ["SQS DLQ"]:::dlq
+            subgraph PLATFORM["Managed Services"]
+                direction LR
+                BEDROCK["Amazon Bedrock"]
+                SEC["Secrets Manager"]
+            end
         end
     end
 
-    %% =======================
-    %% Data / AWS Services
-    %% =======================
-    subgraph DATA_OPS["Data / AWS Services"]
-        BEDROCK["Amazon Bedrock"]:::aws
-        SEC["Secrets Manager"]:::sec
-    end
-
-    %% =======================
-    %% Request Flow
-    %% =======================
     SU --> SLACK
     SLACK -->|"Slash Command / Event"| IGW
 
@@ -87,41 +88,46 @@ flowchart LR
     CF -->|"GET /api/*"| IGW
     IGW --> ALB
 
-    ALB -->|"POST /webhook/slack"| API
-    ALB -->|"GET /api/*"| API
+    ALB --> API_A
+    ALB --> API_B
 
-    API -->|"enqueue via VPC Endpoint"| VPCE_SQS
-    VPCE_SQS --> SQSP
-    VPCE_SQS --> SQSQ
-    VPCE_SQS --> SQSI
+    API_A -->|"enqueue via VPC Endpoint"| VPCE_A
+    API_B -->|"enqueue via VPC Endpoint"| VPCE_B
+    VPCE_A --> SQS
+    VPCE_B --> SQS
 
-    SQSP --> WP
-    SQSQ --> WQ
-    SQSI --> WI
+    SQS -->|"SQS-triggered"| WORKERS_A
+    SQS -->|"SQS-triggered"| WORKERS_B
 
-    SQSP -. retry over .-> DLQ
-    SQSQ -. retry over .-> DLQ
-    SQSI -. retry over .-> DLQ
+    API_A --> RDS_A
+    API_B --> RDS_B
+    WORKERS_A --> RDS_A
+    WORKERS_B --> RDS_B
 
-    API --> RDS
-    WP --> RDS
-    WQ --> RDS
-    WI --> RDS
+    API_A -->|"external access via NAT"| NAT_A
+    API_B -->|"external access via NAT"| NAT_B
+    WORKERS_A -->|"external access via NAT"| NAT_A
+    WORKERS_B -->|"external access via NAT"| NAT_B
+    NAT_A --> SLACK
+    NAT_A --> GH
+    NAT_B --> SLACK
+    NAT_B --> GH
 
-    WP -->|"external access via NAT"| NAT
-    WQ -->|"external access via NAT"| NAT
-    API -->|"external access via NAT"| NAT
-    NAT --> SLACK
-    NAT --> GH
-    WQ -->|"invoke LLM via VPC Endpoint"| VPCE_BR
-    WI -->|"invoke LLM via VPC Endpoint"| VPCE_BR
-    VPCE_BR --> BEDROCK
-    WI -->|"POST /internal/issues"| API
+    WORKERS_A -->|"invoke LLM via VPC Endpoint"| VPCE_A
+    WORKERS_B -->|"invoke LLM via VPC Endpoint"| VPCE_B
+    VPCE_A --> BEDROCK
+    VPCE_B --> BEDROCK
 
-    API --> SEC
-    WP --> SEC
-    WQ --> SEC
-    WI --> SEC
+    WORKERS_A -->|"Issue Worker path"| IALB
+    WORKERS_B -->|"Issue Worker path"| IALB
+    R53 -. alias .-> IALB
+    IALB --> API_A
+    IALB --> API_B
+
+    API_A --> SEC
+    API_B --> SEC
+    WORKERS_A --> SEC
+    WORKERS_B --> SEC
 
     classDef user fill:#e8f1ff,stroke:#3572ef,color:#0a2540;
     classDef ext fill:#fff2e6,stroke:#ff7a00,color:#4a2f00;
@@ -135,6 +141,23 @@ flowchart LR
     classDef data fill:#f5faff,stroke:#2b6cb0,color:#0a2a4a;
     classDef aws fill:#fefce8,stroke:#ca8a04,color:#713f12;
     classDef sec fill:#f7f3ff,stroke:#805ad5,color:#3b2f63;
+    class SU,WU user;
+    class SLACK,GH ext;
+    class CF,S3 edge;
+    class R53,IGW,NAT_A,NAT_B,VPCE_A,VPCE_B net;
+    class ALB,IALB api;
+    class API_A,API_B ecs;
+    class WORKERS_A,WORKERS_B lambda;
+    class SQS queue;
+    class RDS_A,RDS_B data;
+    class BEDROCK aws;
+    class SEC sec;
+    style PUB_A fill:#eef6e7,stroke:#7aa116,stroke-width:1px
+    style PUB_B fill:#eef6e7,stroke:#7aa116,stroke-width:1px
+    style APP_A fill:#edf9fb,stroke:#0f9fb3,stroke-width:1px
+    style APP_B fill:#edf9fb,stroke:#0f9fb3,stroke-width:1px
+    style DB_A fill:#eef5ff,stroke:#2b6cb0,stroke-width:1px
+    style DB_B fill:#eef5ff,stroke:#2b6cb0,stroke-width:1px
 ```
 
 ---
@@ -147,14 +170,14 @@ flowchart LR
 
 ### Slack
 
-- Slash Command / Event / Action は `Internet Gateway` 経由で VPC 内の `ALB` の `POST /webhook/slack` を呼ぶ
+- Slash Command / Event / Action は `Internet Gateway` 経由で VPC 内の `Public ALB` の `POST /webhook/slack` を呼ぶ
 - `ECS Go API Service` は署名検証と重複排除を行い、3秒以内に `200 OK` を返す
 - 重い処理は `SQS` に投入して非同期化する
 
 ### Web
 
 - `CloudFront` 経由で Web UI を配信（静的アセットは `S3`）
-- ダッシュボード用 API は `CloudFront -> Internet Gateway -> ALB -> ECS Go API Service -> RDS` で取得
+- ダッシュボード用 API は `CloudFront -> Internet Gateway -> Public ALB -> ECS Go API Service -> RDS` で取得
 
 ---
 
@@ -178,7 +201,7 @@ flowchart LR
   - 必要時はメンター向け転送
 - `Issue Worker (AWS Lambda / TypeScript)`
   - `VPC Endpoint (Amazon Bedrock)` 経由でスレッドを要約
-  - `ECS Go API Service` の内部エンドポイント `POST /internal/issues` を呼び出し
+  - `Route 53 Private Hosted Zone` で解決する内部向けFQDN `issue-api.internal.example.com` を使って `Internal ALB` 配下の `POST /internal/issues` を HTTPS で呼び出す
   - `ECS Go API Service` が GitHub Issue を作成
   - Slackスレッドへ Issue URL を返却
 
@@ -195,13 +218,24 @@ flowchart LR
 - `Secrets Manager` で Slack/GitHub/LLM の秘匿情報を管理
 - `ECS Task Role` / `Lambda Execution Role` ごとに最小権限IAMを付与
 - 署名検証は Webhook 受信時の必須処理
-- `ALB` は VPC の Public Subnet に配置し、外部公開の入口を一本化する
-- `ECS API` / `Lambda Worker` と `RDS` は Private Subnet に配置する
+- `Public Subnet` は AZ A/B に分け、`Public ALB` と `NAT Gateway` を配置する
+- `Private App Subnet` は AZ A/B に分け、`ECS API` / `Lambda Worker` / `VPC Endpoint` / `Internal ALB` を配置する
+- `Private DB Subnet` は AZ A/B に分け、`RDS PostgreSQL` の DB Subnet Group を構成する
+- `Issue Worker` から `ECS Go API Service` への HTTP 通信は `Internal ALB` を経由し、外部公開の `Public ALB` と分離する
+- `Route 53 Private Hosted Zone` に `issue-api.internal.example.com` の alias record を定義し、`Internal ALB` のデフォルトDNS名を直接参照しない
+- `Issue Worker` は VPC 内の Route 53 Resolver で内部FQDNを名前解決し、`HTTPS -> Internal ALB -> ECS Go API Service` の順で接続する
 - `ECS API` から `SQS` への送信は `VPC Endpoint (Amazon SQS)` 経由とする
 - `Question Worker` / `Issue Worker` から `Amazon Bedrock` への通信は `VPC Endpoint` 経由とする
 - `Issue Worker` から GitHub への直接通信は行わず、`ECS Go API Service` の内部エンドポイント経由で Issue を作成する
-- Private Subnet から外部API（Slack / GitHub）へ出る通信は `NAT Gateway` 経由とする
-- `NAT Gateway` は外向き通信専用とし、外部からの受信は `Internet Gateway + ALB` で受ける
+- `Private App Subnet` から外部API（Slack / GitHub）へ出る通信は `NAT Gateway` 経由とする
+- `NAT Gateway` は外向き通信専用とし、外部からの受信は `Internet Gateway + Public ALB` で受ける
+
+### Internal Service Discovery
+
+- `Lambda` が呼び出し元である間は、内部HTTPの到達先は `Internal ALB` に一本化する
+- 名前解決は `Cloud Map` のタスク直参照ではなく、`Route 53 Private Hosted Zone -> alias -> Internal ALB` で行う
+- `Service Connect` は `Amazon ECS` タスク間通信を主対象にした仕組みなので、`Lambda -> ECS API` の入口としては採用しない
+- 将来 `ECS -> ECS` の内部通信が増えた場合に限り、`Service Connect` を東西トラフィック用に再評価する
 
 ---
 
@@ -263,14 +297,14 @@ flowchart LR
 
 ## 水平スケール
 
-| 対象 | 方法 |
-| --- | --- |
-| CloudFront | AWS管理で自動スケール |
-| ALB | AWS管理で自動スケール |
-| ECS API Service | Service Auto Scaling（CPU/Memory/Request数） |
-| Lambda Worker | SQSトリガーで自動スケール（必要時はReserved Concurrencyで制御） |
-| SQS | バッファリングでスパイク吸収 |
-| RDS PostgreSQL | 初期は単一構成、必要時にリードレプリカ追加 |
+| 対象            | 方法                                                            |
+| --------------- | --------------------------------------------------------------- |
+| CloudFront      | AWS管理で自動スケール                                           |
+| ALB             | AWS管理で自動スケール                                           |
+| ECS API Service | Service Auto Scaling（CPU/Memory/Request数）                    |
+| Lambda Worker   | SQSトリガーで自動スケール（必要時はReserved Concurrencyで制御） |
+| SQS             | バッファリングでスパイク吸収                                    |
+| RDS PostgreSQL  | 初期は単一構成、必要時にリードレプリカ追加                      |
 
 ---
 
