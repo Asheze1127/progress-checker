@@ -1,0 +1,34 @@
+name: Check Closed Issue TODO
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+
+jobs:
+  check-closed-issue-todo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract issue numbers closed by this PR
+        id: closing-issues
+        uses: ./.github/actions/extract-closing-issue-numbers
+        with:
+          pull-request-body: ${{ github.event.pull_request.body }}
+
+      - name: Fail when TODO remains for an issue closed by this PR
+        if: steps.closing-issues.outputs.issue-numbers != ''
+        shell: bash
+        run: |
+          for issue_number in ${{steps.closing-issues.outputs.issue-numbers}}; do
+            echo "Checking TODO entries for issue #${issue_number}"
+
+            if git grep -n -I -E "TODO:[[:space:]]*gh-${issue_number}\\b" -- .; then
+              echo "Found TODO entries for issue #${issue_number}."
+              exit 1
+            fi
+          done
