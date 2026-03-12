@@ -14,7 +14,7 @@
 | キュー構成 | `progress` / `question` / `issue` の3キュー（各キューにDLQ設定） |
 | question分岐 | `thread_ts` + `question_sessions` を使って「新規質問 / 継続回答」を判定 |
 | メッセージ方針 | `question_followup` / `issue` は受信時にスレッド履歴を取得し、SQSメッセージへ同梱 |
-| 主要コンポーネント | Slack、Webhook API、Idempotency Store、Question Session Store、SQS、Worker、PostgreSQL、LLM、GitHub API |
+| 主要コンポーネント | Slack、Webhook API、Idempotency Store、Question Session Store、SQS、Worker、PostgreSQL、LLM、Route 53 Private Hosted Zone、Internal ALB、Internal API、GitHub API |
 
 ---
 
@@ -205,12 +205,19 @@ sequenceDiagram
     participant W as Issue Worker
     participant Slack as Slack
     participant LLM as LLM API
+    participant DNS as Route 53 Private Hosted Zone
+    participant IALB as Internal ALB
+    participant API as ECS Go API Service
     participant GH as GitHub API
 
     SQSI->>W: message delivery
     W->>LLM: SQS同梱のthread_messagesで要約生成
-    W->>GH: Issue作成
-    GH-->>W: Issue URL
+    W->>DNS: issue-api.internal.example.com を解決
+    W->>IALB: HTTPS POST /internal/issues
+    IALB->>API: Forward /internal/issues
+    API->>GH: Issue作成
+    GH-->>API: Issue URL
+    API-->>W: Issue URL
     W->>Slack: Issue作成完了を通知
     W-->>SQSI: ack（delete message）
 ```
@@ -242,4 +249,3 @@ flowchart LR
     F -->|No| A
     F -->|Yes| G[DLQへ移送 + 運営通知]
 ```
-
