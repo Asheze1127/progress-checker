@@ -2,11 +2,11 @@ package entities
 
 import "time"
 
-// Token represents a JWT/session token for web dashboard authentication.
-type Token struct {
-	ID        string    `json:"id" db:"id"`
-	UserID    string    `json:"user_id" db:"user_id"`
-	TokenHash string    `json:"-" db:"token_hash"`
-	ExpiresAt time.Time `json:"expires_at" db:"expires_at"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
+// SessionToken represents an opaque web session token stored as a hash.
+type SessionToken struct {
+	ID        string
+	UserID    string
+	TokenHash string
+	ExpiresAt time.Time
+	CreatedAt time.Time
 }

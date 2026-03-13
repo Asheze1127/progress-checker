@@ -12,27 +12,35 @@ const (
 
 // Team represents a hackathon team.
 type Team struct {
-	ID        string    `json:"id" db:"id"`
-	Name      string    `json:"name" db:"name"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	ID        string
+	Name      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // TeamMember represents the membership relation between a user and a team.
 type TeamMember struct {
-	ID       string    `json:"id" db:"id"`
-	TeamID   string    `json:"team_id" db:"team_id"`
-	UserID   string    `json:"user_id" db:"user_id"`
-	JoinedAt time.Time `json:"joined_at" db:"joined_at"`
+	ID       string
+	TeamID   string
+	UserID   string
+	JoinedAt time.Time
+}
+
+// MentorAssignment represents which mentor is responsible for which team.
+type MentorAssignment struct {
+	ID           string
+	TeamID       string
+	MentorUserID string
+	CreatedAt    time.Time
 }
 
 // TeamChannel links a team to an external channel with a specific purpose.
+// MVP keeps a single channel for each team-purpose pair.
 type TeamChannel struct {
-	ID        string         `json:"id" db:"id"`
-	TeamID    string         `json:"team_id" db:"team_id"`
-	SlackChID string         `json:"slack_channel_id" db:"slack_channel_id"`
-	Purpose   ChannelPurpose `json:"purpose" db:"purpose"`
-	IsPrimary bool           `json:"is_primary" db:"is_primary"`
-	CreatedAt time.Time      `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at" db:"updated_at"`
+	ID             string
+	TeamID         string
+	SlackChannelID string
+	Purpose        ChannelPurpose
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
