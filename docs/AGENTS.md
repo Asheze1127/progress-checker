@@ -19,7 +19,7 @@ AI向け `docs/` ナビゲーションガイド。ここを起点に必要なド
 
 | ファイル | 内容の要点 | 参照すべき場面 |
 | --- | --- | --- |
-| [`spesfication.md`](./spesfication.md) | Why / What / How の全体概要。課題・スコープ・アイデア・開発ステップ | 仕様の背景・意図を確認したいとき |
+| [`specification.md`](./specification.md) | Why / What / How の全体概要。課題・スコープ・アイデア・開発ステップ | 仕様の背景・意図を確認したいとき |
 | [`details/feature-list.md`](./details/feature-list.md) | 機能一覧と優先度（P0〜P3）。カテゴリA（進捗）・B（Q&A）・C（Issue化）・D（分析） | 機能追加・スコープ判断・優先度確認 |
 | [`details/tech-stack.md`](./details/tech-stack.md) | 技術選定一覧（フロント: Next.js/TS/ShadCN、バック: Go/oapi-codegen/sqlc、DB: PostgreSQL、インフラ: AWS ECS/CDK/SQS）| 技術選定理由・依存追加の判断 |
 | [`details/screen-flow.md`](./details/screen-flow.md) | Web画面遷移（S-01〜S-05）とSlack操作遷移（L-01〜L-05）。Mermaidフローチャートあり | 画面・UX設計・遷移実装 |
