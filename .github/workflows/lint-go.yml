@@ -1,0 +1,38 @@
+name: Lint Go
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/lint-go.yml'
+
+jobs:
+  golangci-lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for go.mod
+        id: gomod
+        run: |
+          if [ -f backend/go.mod ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::backend/go.mod not found, skipping golangci-lint"
+          fi
+
+      - uses: actions/setup-go@v5
+        if: steps.gomod.outputs.present == 'true'
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - uses: golangci/golangci-lint-action@v6
+        if: steps.gomod.outputs.present == 'true'
+        with:
+          version: latest
+          working-directory: backend
