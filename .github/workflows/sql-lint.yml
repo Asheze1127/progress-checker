@@ -1,0 +1,40 @@
+name: SQL Lint
+
+on:
+  pull_request:
+    paths:
+      - "backend/database/postgres/**/*.sql"
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/database/postgres/**/*.sql"
+
+jobs:
+  sql-lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install sql-lint
+        run: npm install -g sql-lint
+
+      - name: Run sql-lint
+        run: |
+          if [ ! -d "backend/database/postgres" ]; then
+            echo "Directory backend/database/postgres does not exist. Skipping lint."
+            exit 0
+          fi
+          sql_files=$(find backend/database/postgres -name "*.sql" -print0 | tr '\0' '\n')
+          if [ -z "$sql_files" ]; then
+            echo "No SQL files found in backend/database/postgres/. Skipping lint."
+            exit 0
+          fi
+          find backend/database/postgres -name "*.sql" -print0 | xargs -0 sql-lint --driver postgres
