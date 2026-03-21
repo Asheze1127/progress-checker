@@ -4,8 +4,6 @@ on:
   pull_request:
     paths:
       - "backend/database/postgres/**/*.sql"
-      - "tools/sql/**"
-      - ".github/workflows/sql-format.yml"
 
 jobs:
   sql-format:
@@ -13,19 +11,17 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: pnpm
-          cache-dependency-path: tools/sql/pnpm-lock.yaml
+      - uses: actions/checkout@v6
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
           package_json_file: tools/sql/package.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
 
       - name: Install SQL formatter
         working-directory: tools/sql
