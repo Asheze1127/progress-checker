@@ -144,7 +144,6 @@ install_tools_from_tool_versions
 # of the asdf-managed path.
 [[ -f "${asdf_dir}/plugins/golang/set-env.bash" ]] && . "${asdf_dir}/plugins/golang/set-env.bash"
 
-# TODO: gh-35 Install aws-cdk from infra/package.json instead of managing it with asdf.
 setup_nodejs
 setup_golang
 setup_shrc
