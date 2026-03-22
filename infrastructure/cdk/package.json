@@ -9,7 +9,7 @@
     "format": "biome format . --write",
     "format:check": "biome format .",
     "typecheck": "tsc --project tsconfig.json --noEmit",
-    "lint": "npm run format:check --silent && npm run typecheck --silent",
+    "lint": "npm run format:check --silent && biome lint . && npm run typecheck --silent",
     "lint:fix": "biome lint --write .",
     "synth": "npm run synth:stg --silent && npm run synth:prod --silent",
     "synth:stg": "npm run build --silent && cdk synth -c stage=stg",
