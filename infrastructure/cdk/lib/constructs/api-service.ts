@@ -30,7 +30,10 @@ export class ApiService extends Construct {
     });
 
     const apiLogGroup = new logs.LogGroup(this, "LogGroup", {
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      removalPolicy:
+        props.appEnvironment === "prod"
+          ? cdk.RemovalPolicy.RETAIN
+          : cdk.RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
