@@ -1,8 +1,8 @@
-import * as ec2 from "aws-cdk-lib/aws-ec2";
-import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import type * as ec2 from "aws-cdk-lib/aws-ec2";
+import type * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as route53Targets from "aws-cdk-lib/aws-route53-targets";
-import { Construct } from "constructs";
+import type { Construct } from "constructs";
 
 export type EdgeServiceDiscoveryProps = {
   vpc: ec2.IVpc;

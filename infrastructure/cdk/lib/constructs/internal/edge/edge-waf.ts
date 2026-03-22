@@ -1,6 +1,6 @@
-import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import type * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import * as wafv2 from "aws-cdk-lib/aws-wafv2";
-import { Construct } from "constructs";
+import type { Construct } from "constructs";
 
 export type EdgeWafProps = {
   publicAlb: elbv2.IApplicationLoadBalancer;

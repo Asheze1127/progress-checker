@@ -1,9 +1,9 @@
 import * as cdk from "aws-cdk-lib";
-import * as ec2 from "aws-cdk-lib/aws-ec2";
+import type * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as logs from "aws-cdk-lib/aws-logs";
 import { Construct } from "constructs";
-import { type StageName } from "../stacks/stage-config";
+import type { StageName } from "../stacks/stage-config";
 
 export type ApiServiceProps = {
   vpc: ec2.IVpc;

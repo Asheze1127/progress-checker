@@ -1,12 +1,12 @@
 import * as cdk from "aws-cdk-lib";
-import * as ec2 from "aws-cdk-lib/aws-ec2";
+import type * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as eventsources from "aws-cdk-lib/aws-lambda-event-sources";
-import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
-import * as sqs from "aws-cdk-lib/aws-sqs";
+import type * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
+import type * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 import * as path from "node:path";
-import { type StageName } from "../stacks/stage-config";
+import type { StageName } from "../stacks/stage-config";
 
 const LAMBDA_CODE_PATH = path.resolve(__dirname, "../../../../../lambda/worker");
 

@@ -1,6 +1,6 @@
-import * as ec2 from "aws-cdk-lib/aws-ec2";
-import * as ecs from "aws-cdk-lib/aws-ecs";
-import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import type * as ec2 from "aws-cdk-lib/aws-ec2";
+import type * as ecs from "aws-cdk-lib/aws-ecs";
+import type * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import { Construct } from "constructs";
 import { createEdgeLoadBalancers } from "./internal/edge/edge-load-balancers";
 import { createEdgeServiceDiscovery } from "./internal/edge/edge-service-discovery";
