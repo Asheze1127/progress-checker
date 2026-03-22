@@ -19,6 +19,7 @@ export interface EdgeProps {
   privateHostedZoneName: string;
   issueApiRecordName: string;
   publicWebAclName: string;
+  publicAlbCertificateArn: string;
 }
 
 export class Edge extends Construct {
@@ -37,6 +38,7 @@ export class Edge extends Construct {
       appSubnetName: props.appSubnetName,
       healthCheckSuccessCodes: props.healthCheckSuccessCodes,
       internalAlbSecurityGroup: props.internalAlbSecurityGroup,
+      publicAlbCertificateArn: props.publicAlbCertificateArn,
       publicAlbSecurityGroup: props.publicAlbSecurityGroup,
       vpc: props.vpc,
     });
