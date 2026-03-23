@@ -83,26 +83,24 @@ setup_nodejs() {
   fi
 }
 
-install_go_tool() {
-  local binary_name="$1"
-  local package_name="$2"
+setup_golang() {
   local gobin
   gobin="$(go env GOPATH)/bin"
 
-  if [ -x "${gobin}/${binary_name}" ]; then
-    return
-  fi
+  local tools=(
+    "gopls:golang.org/x/tools/gopls@latest"
+    "dlv:github.com/go-delve/delve/cmd/dlv@latest"
+    "staticcheck:honnef.co/go/tools/cmd/staticcheck@latest"
+    "gotests:github.com/cweill/gotests/gotests@latest"
+    "gomodifytags:github.com/fatih/gomodifytags@latest"
+    "impl:github.com/josharian/impl@latest"
+  )
 
-  go install "${package_name}"
-}
-
-setup_golang() {
-  install_go_tool gopls golang.org/x/tools/gopls@latest
-  install_go_tool dlv github.com/go-delve/delve/cmd/dlv@latest
-  install_go_tool staticcheck honnef.co/go/tools/cmd/staticcheck@latest
-  install_go_tool gotests github.com/cweill/gotests/gotests@latest
-  install_go_tool gomodifytags github.com/fatih/gomodifytags@latest
-  install_go_tool impl github.com/josharian/impl@latest
+  for entry in "${tools[@]}"; do
+    local bin="${entry%%:*}"
+    local pkg="${entry#*:}"
+    [ -x "${gobin}/${bin}" ] || go install "${pkg}"
+  done
 }
 
 setup_shrc() {
@@ -114,6 +112,7 @@ setup_shrc() {
   append_if_missing /home/vscode/.bashrc 'export ASDF_DATA_DIR=/home/vscode/.asdf'
   append_if_missing /home/vscode/.bashrc 'export PATH="$HOME/.local/bin:${ASDF_DATA_DIR:-$HOME/.asdf}/bin:${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"'
   append_if_missing /home/vscode/.bashrc '[[ -f "${ASDF_DATA_DIR:-$HOME/.asdf}/plugins/golang/set-env.bash" ]] && . "${ASDF_DATA_DIR:-$HOME/.asdf}/plugins/golang/set-env.bash"'
+  append_if_missing /home/vscode/.bashrc 'export PATH="${GOPATH}/bin:$PATH"'
   append_if_missing /home/vscode/.bashrc 'command -v direnv >/dev/null 2>&1 && eval "$(direnv hook bash)"'
   append_if_missing /home/vscode/.zshrc 'export HISTFILE=/commandhistory/.zsh_history'
   append_if_missing /home/vscode/.zshrc 'HISTSIZE=10000'
@@ -122,6 +121,7 @@ setup_shrc() {
   append_if_missing /home/vscode/.zshrc 'export ASDF_DATA_DIR=/home/vscode/.asdf'
   append_if_missing /home/vscode/.zshrc 'export PATH="$HOME/.local/bin:${ASDF_DATA_DIR:-$HOME/.asdf}/bin:${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"'
   append_if_missing /home/vscode/.zshrc '[[ -f "${ASDF_DATA_DIR:-$HOME/.asdf}/plugins/golang/set-env.zsh" ]] && . "${ASDF_DATA_DIR:-$HOME/.asdf}/plugins/golang/set-env.zsh"'
+  append_if_missing /home/vscode/.zshrc 'export PATH="${GOPATH}/bin:$PATH"'
   append_if_missing /home/vscode/.zshrc 'command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"'
 }
 
