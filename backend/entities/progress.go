@@ -12,22 +12,17 @@ const (
 	ProgressPhaseDemo    ProgressPhase = "demo"
 )
 
-// ProgressLog records a single progress update submitted via /progress.
+type ProgressLogID string
+
 type ProgressLog struct {
-	ID             string
-	TeamID         string
-	PostedByUserID string
-	SlackMsgTS     string
-	Bodies         []ProgressBody
+	ID             ProgressLogID
+	ParticipantID  ParticipantID
+	ProgressBodies []ProgressBody
 }
 
-// ProgressBody represents a structured section within a progress submission.
 type ProgressBody struct {
-	ID            string
-	ProgressLogID string
-	Order         int
-	Phase         ProgressPhase
-	SOS           bool
-	Comment       string
-	SubmittedAt      time.Time
+	Phase       ProgressPhase
+	SOS         bool
+	Comment     string
+	SubmittedAt time.Time
 }

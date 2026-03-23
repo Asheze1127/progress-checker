@@ -7,10 +7,13 @@ const (
 	UserRoleMentor      UserRole = "mentor"
 )
 
-// User represents a Slack workspace member (participant or mentor).
+type UserID string
+
+type SlackUserID string
+
 type User struct {
-	ID          string
-	SlackUserID string
+	ID          UserID
+	SlackUserID SlackUserID
 	Name        string
 	Email       string
 	Role        UserRole
