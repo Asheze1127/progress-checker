@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+workspace_dir="${PWD}"
+tool_versions_file="${workspace_dir}/.tool-versions"
+asdf_dir="${HOME}/.asdf"
+asdf_bin="${asdf_dir}/bin/asdf"
+asdf_version="0.18.0"
+
+append_if_missing() {
+  local file="$1"
+  local line="$2"
+
+  if ! grep -Fqx "$line" "$file"; then
+    printf '%s\n' "$line" >> "$file"
+  fi
+}
+
+setup_asdf() {
+  local asdf_arch
+  local expected_sha256
+  local temp_dir
+
+  if [ -x "${asdf_bin}" ]; then
+    return
+  fi
+
+  asdf_arch="$(dpkg --print-architecture)"
+  case "${asdf_arch}" in
+    amd64)
+      # SHA256 checksum for asdf-v0.18.0-linux-amd64.tar.gz
+      expected_sha256="4d3007070166cb0a652af26c3f0462b021e04cb26c4ab13894d13689da89f5b8"
+      ;;
+    arm64)
+      # SHA256 checksum for asdf-v0.18.0-linux-arm64.tar.gz
+      expected_sha256="1749b89039e4af51b549aa0919812fd68722c1a26a90eaf84db0b46a39f557a9"
+      ;;
+    *)
+      echo "Unsupported architecture: ${asdf_arch}" >&2
+      exit 1
+      ;;
+  esac
+
+  temp_dir="$(mktemp -d)"
+  mkdir -p "${asdf_dir}/bin"
+  curl -fsSLo "${temp_dir}/asdf.tar.gz" "https://github.com/asdf-vm/asdf/releases/download/v${asdf_version}/asdf-v${asdf_version}-linux-${asdf_arch}.tar.gz"
+
+  echo "${expected_sha256}  ${temp_dir}/asdf.tar.gz" | sha256sum --check --strict --quiet || {
+    echo "SHA256 checksum verification failed for asdf v${asdf_version} (${asdf_arch})" >&2
+    rm -rf "${temp_dir}"
+    exit 1
+  }
+
+  tar -xzf "${temp_dir}/asdf.tar.gz" -C "${asdf_dir}/bin" asdf
+  chmod +x "${asdf_bin}"
+  rm -rf "${temp_dir}"
+}
+
+setup_asdf_plugins() {
+  # `asdf plugin add` fails if the plugin is already installed.
+  cut -d' ' -f1 "${tool_versions_file}" | grep -v '^#' | xargs -n1 "${asdf_bin}" plugin add || true
+}
+
+install_tools_from_tool_versions() {
+  "${asdf_bin}" install
+  "${asdf_bin}" reshim
+}
+
+prepare_nodejs_plugin() {
+  if [ -x "${asdf_dir}/plugins/nodejs/bin/import-release-team-keyring" ]; then
+    bash "${asdf_dir}/plugins/nodejs/bin/import-release-team-keyring"
+  fi
+}
+
+setup_nodejs() {
+  corepack enable
+  corepack prepare pnpm@latest --activate
+  # Regenerate asdf shims after corepack installs pnpm into the Node.js bin dir.
+  "${asdf_bin}" reshim nodejs
+
+  if [ -f package.json ]; then
+    pnpm install
+  fi
+}
+
+setup_golang() {
+  local gobin
+  gobin="$(go env GOPATH)/bin"
+
+  local tools=(
+    "gopls:golang.org/x/tools/gopls@latest"
+    "dlv:github.com/go-delve/delve/cmd/dlv@latest"
+    "staticcheck:honnef.co/go/tools/cmd/staticcheck@latest"
+    "gotests:github.com/cweill/gotests/gotests@latest"
+    "gomodifytags:github.com/fatih/gomodifytags@latest"
+    "impl:github.com/josharian/impl@latest"
+  )
+
+  for entry in "${tools[@]}"; do
+    local bin="${entry%%:*}"
+    local pkg="${entry#*:}"
+    [ -x "${gobin}/${bin}" ] || go install "${pkg}"
+  done
+}
+
+setup_shrc() {
+  touch /home/vscode/.asdfrc /home/vscode/.bashrc /home/vscode/.zshrc
+
+  append_if_missing /home/vscode/.asdfrc "legacy_version_file = yes"
+  append_if_missing /home/vscode/.bashrc 'export HISTFILE=/commandhistory/.bash_history'
+  append_if_missing /home/vscode/.bashrc 'PROMPT_COMMAND="history -a"'
+  append_if_missing /home/vscode/.bashrc 'export ASDF_DATA_DIR=/home/vscode/.asdf'
+  append_if_missing /home/vscode/.bashrc 'export PATH="$HOME/.local/bin:${ASDF_DATA_DIR:-$HOME/.asdf}/bin:${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"'
+  append_if_missing /home/vscode/.bashrc '[[ -f "${ASDF_DATA_DIR:-$HOME/.asdf}/plugins/golang/set-env.bash" ]] && . "${ASDF_DATA_DIR:-$HOME/.asdf}/plugins/golang/set-env.bash"'
+  append_if_missing /home/vscode/.bashrc 'export PATH="${GOPATH}/bin:$PATH"'
+  append_if_missing /home/vscode/.bashrc 'command -v direnv >/dev/null 2>&1 && eval "$(direnv hook bash)"'
+  append_if_missing /home/vscode/.zshrc 'export HISTFILE=/commandhistory/.zsh_history'
+  append_if_missing /home/vscode/.zshrc 'HISTSIZE=10000'
+  append_if_missing /home/vscode/.zshrc 'SAVEHIST=10000'
+  append_if_missing /home/vscode/.zshrc 'setopt APPEND_HISTORY SHARE_HISTORY INC_APPEND_HISTORY'
+  append_if_missing /home/vscode/.zshrc 'export ASDF_DATA_DIR=/home/vscode/.asdf'
+  append_if_missing /home/vscode/.zshrc 'export PATH="$HOME/.local/bin:${ASDF_DATA_DIR:-$HOME/.asdf}/bin:${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"'
+  append_if_missing /home/vscode/.zshrc '[[ -f "${ASDF_DATA_DIR:-$HOME/.asdf}/plugins/golang/set-env.zsh" ]] && . "${ASDF_DATA_DIR:-$HOME/.asdf}/plugins/golang/set-env.zsh"'
+  append_if_missing /home/vscode/.zshrc 'export PATH="${GOPATH}/bin:$PATH"'
+  append_if_missing /home/vscode/.zshrc 'command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"'
+}
+
+# Prepare paths backed by persistent volumes from docker-compose.yml.
+# The asdf directory is kept across rebuilds for reusable tool state.
+mkdir -p /commandhistory "${asdf_dir}" "${workspace_dir}/node_modules"
+touch /commandhistory/.bash_history /commandhistory/.zsh_history
+
+cd "${workspace_dir}"
+
+setup_asdf
+export PATH="$HOME/.local/bin:${asdf_dir}/bin:${asdf_dir}/shims:${PATH}"
+setup_asdf_plugins
+prepare_nodejs_plugin
+install_tools_from_tool_versions
+
+# Source the asdf golang set-env script so GOPATH/GOROOT are set correctly
+# in this non-interactive shell before installing Go tools.
+# Without this, `go install` would fall back to the default ~/go GOPATH instead
+# of the asdf-managed path.
+[[ -f "${asdf_dir}/plugins/golang/set-env.bash" ]] && . "${asdf_dir}/plugins/golang/set-env.bash"
+
+# TODO: gh-35 Install aws-cdk from infra/package.json instead of managing it with asdf.
+setup_nodejs
+setup_golang
+setup_shrc
