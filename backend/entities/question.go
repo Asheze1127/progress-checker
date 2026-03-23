@@ -27,6 +27,7 @@ type Question struct {
 	AssignedMentorID *string
 	Title            string
 	// Body stores the initial question text submitted from Slack.
+	// To avoid rate restrictions
 	Body          string
 	Status        QuestionStatus
 	SlackThreadTS string
@@ -42,8 +43,6 @@ type QuestionSession struct {
 	// Status is independent from QuestionStatus and only tracks active AI follow-up flow.
 	Status QuestionSessionStatus
 	// 3 rounds of AI follow-up before escalating to a mentor
-	MaxFollowUps int
-	CurrentRound int
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }

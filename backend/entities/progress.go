@@ -18,7 +18,6 @@ type ProgressLog struct {
 	TeamID         string
 	PostedByUserID string
 	SlackMsgTS     string
-	CreatedAt      time.Time
 	Bodies         []ProgressBody
 }
 
@@ -30,4 +29,5 @@ type ProgressBody struct {
 	Phase         ProgressPhase
 	SOS           bool
 	Comment       string
+	SubmittedAt      time.Time
 }

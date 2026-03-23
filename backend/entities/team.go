@@ -12,10 +12,13 @@ const (
 
 // Team represents a hackathon team.
 type Team struct {
-	ID        string
-	Name      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID                string
+	Name              string
+	TeamMembers       []TeamMember
+	MentorAssignments []MentorAssignment
+	TeamChannels      []TeamChannel
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // TeamMember represents the membership relation between a user and a team.
