@@ -2,48 +2,44 @@ package middleware
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Asheze1127/progress-checker/backend/application/service"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
-// mockSessionValidator implements SessionValidator for testing.
-type mockSessionValidator struct {
-	validateFunc func(ctx context.Context, token string) (*entities.User, error)
-}
+const testJWTSecret = "test-secret-key-for-middleware"
 
-func (m *mockSessionValidator) ValidateSession(ctx context.Context, token string) (*entities.User, error) {
-	if m.validateFunc != nil {
-		return m.validateFunc(ctx, token)
+func generateTestToken(t *testing.T, user *entities.User) string {
+	t.Helper()
+	jwtSvc := service.NewJWTService(testJWTSecret)
+	token, err := jwtSvc.GenerateToken(user)
+	if err != nil {
+		t.Fatalf("failed to generate test token: %v", err)
 	}
-	return nil, errors.New("session not found or expired")
+	return token
 }
 
 func TestAuthMiddleware_ValidToken(t *testing.T) {
-	validator := &mockSessionValidator{
-		validateFunc: func(_ context.Context, token string) (*entities.User, error) {
-			if token != "valid-token" {
-				return nil, errors.New("session not found or expired")
-			}
-			return &entities.User{
-				ID:   "user-1",
-				Name: "Test Mentor",
-				Role: entities.UserRoleMentor,
-			}, nil
-		},
+	jwtSvc := service.NewJWTService(testJWTSecret)
+
+	mentorUser := &entities.User{
+		ID:   "user-1",
+		Name: "Test Mentor",
+		Role: entities.UserRoleMentor,
 	}
+	token := generateTestToken(t, mentorUser)
 
 	var capturedUser *entities.User
-	handler := AuthMiddleware(validator)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedUser = UserFromContext(r.Context())
 		w.WriteHeader(http.StatusOK)
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/test", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
+	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -62,9 +58,9 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_MissingAuthHeader(t *testing.T) {
-	validator := &mockSessionValidator{}
+	jwtSvc := service.NewJWTService(testJWTSecret)
 
-	handler := AuthMiddleware(validator)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("handler should not be called")
 	}))
 
@@ -79,9 +75,9 @@ func TestAuthMiddleware_MissingAuthHeader(t *testing.T) {
 }
 
 func TestAuthMiddleware_InvalidBearerFormat(t *testing.T) {
-	validator := &mockSessionValidator{}
+	jwtSvc := service.NewJWTService(testJWTSecret)
 
-	handler := AuthMiddleware(validator)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("handler should not be called")
 	}))
 
@@ -97,9 +93,9 @@ func TestAuthMiddleware_InvalidBearerFormat(t *testing.T) {
 }
 
 func TestAuthMiddleware_EmptyBearerToken(t *testing.T) {
-	validator := &mockSessionValidator{}
+	jwtSvc := service.NewJWTService(testJWTSecret)
 
-	handler := AuthMiddleware(validator)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("handler should not be called")
 	}))
 
@@ -115,13 +111,9 @@ func TestAuthMiddleware_EmptyBearerToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_InvalidToken(t *testing.T) {
-	validator := &mockSessionValidator{
-		validateFunc: func(_ context.Context, _ string) (*entities.User, error) {
-			return nil, errors.New("session not found or expired")
-		},
-	}
+	jwtSvc := service.NewJWTService(testJWTSecret)
 
-	handler := AuthMiddleware(validator)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("handler should not be called")
 	}))
 
@@ -137,18 +129,21 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_NonMentorRole(t *testing.T) {
-	validator := &mockSessionValidator{
-		validateFunc: func(_ context.Context, _ string) (*entities.User, error) {
-			return nil, errors.New("user is not a mentor")
-		},
-	}
+	jwtSvc := service.NewJWTService(testJWTSecret)
 
-	handler := AuthMiddleware(validator)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	participantUser := &entities.User{
+		ID:   "user-2",
+		Name: "Participant",
+		Role: entities.UserRoleParticipant,
+	}
+	token := generateTestToken(t, participantUser)
+
+	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("handler should not be called")
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/test", nil)
-	req.Header.Set("Authorization", "Bearer some-token")
+	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)

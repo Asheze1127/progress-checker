@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Asheze1127/progress-checker/backend/application/service"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
@@ -14,15 +15,9 @@ type contextKey string
 // userContextKey is the context key for storing the authenticated user.
 const userContextKey contextKey = "authenticated_user"
 
-// SessionValidator defines the interface for validating session tokens.
-type SessionValidator interface {
-	// ValidateSession checks a token and returns the associated user or an error.
-	ValidateSession(ctx context.Context, token string) (*entities.User, error)
-}
-
 // AuthMiddleware creates an HTTP middleware that authenticates requests using
-// Bearer tokens in the Authorization header.
-func AuthMiddleware(validator SessionValidator) func(http.Handler) http.Handler {
+// Bearer tokens in the Authorization header via JWT validation.
+func AuthMiddleware(jwtService *service.JWTService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := extractBearerToken(r)
@@ -31,14 +26,21 @@ func AuthMiddleware(validator SessionValidator) func(http.Handler) http.Handler 
 				return
 			}
 
-			user, err := validator.ValidateSession(r.Context(), token)
+			claims, err := jwtService.ValidateToken(token)
 			if err != nil {
-				if isForbiddenError(err) {
-					http.Error(w, `{"error":"insufficient permissions: mentor role required"}`, http.StatusForbidden)
-					return
-				}
-				http.Error(w, `{"error":"invalid or expired session"}`, http.StatusUnauthorized)
+				http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
 				return
+			}
+
+			if claims.UserRole != entities.UserRoleMentor {
+				http.Error(w, `{"error":"insufficient permissions: mentor role required"}`, http.StatusForbidden)
+				return
+			}
+
+			user := &entities.User{
+				ID:   claims.UserID,
+				Name: claims.UserName,
+				Role: claims.UserRole,
 			}
 
 			ctx := context.WithValue(r.Context(), userContextKey, user)
@@ -76,9 +78,4 @@ func extractBearerToken(r *http.Request) string {
 	}
 
 	return token
-}
-
-// isForbiddenError checks if an error indicates a permission issue (non-mentor role).
-func isForbiddenError(err error) bool {
-	return strings.Contains(err.Error(), "not a mentor")
 }

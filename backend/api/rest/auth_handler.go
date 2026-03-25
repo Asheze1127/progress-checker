@@ -6,18 +6,18 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
 // AuthHandler handles authentication-related HTTP endpoints.
 type AuthHandler struct {
-	authService *application.AuthService
+	loginUseCase *usecase.LoginUseCase
 }
 
-// NewAuthHandler creates a new AuthHandler with the given auth service.
-func NewAuthHandler(authService *application.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authService}
+// NewAuthHandler creates a new AuthHandler with the given login use case.
+func NewAuthHandler(loginUseCase *usecase.LoginUseCase) *AuthHandler {
+	return &AuthHandler{loginUseCase: loginUseCase}
 }
 
 // loginRequest represents the JSON body of a login request.
@@ -64,13 +64,13 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.authService.Login(r.Context(), req.Email, req.Password)
+	result, err := h.loginUseCase.Execute(r.Context(), req.Email, req.Password)
 	if err != nil {
-		if errors.Is(err, application.ErrInvalidCredentials) {
+		if errors.Is(err, usecase.ErrInvalidCredentials) {
 			writeJSONError(w, "invalid email or password", http.StatusUnauthorized)
 			return
 		}
-		if errors.Is(err, application.ErrUserNotMentor) {
+		if errors.Is(err, usecase.ErrUserNotMentor) {
 			writeJSONError(w, "only mentors can log in", http.StatusForbidden)
 			return
 		}
@@ -84,27 +84,6 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}, http.StatusOK)
 }
 
-// HandleLogout handles POST /api/v1/auth/logout requests.
-func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeJSONError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	token := extractBearerTokenFromRequest(r)
-	if token == "" {
-		writeJSONError(w, "missing authorization header", http.StatusUnauthorized)
-		return
-	}
-
-	if err := h.authService.Logout(r.Context(), token); err != nil {
-		writeJSONError(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-}
-
 // toUserResponse converts an entity User to a userResponse.
 func toUserResponse(user entities.User) userResponse {
 	return userResponse{
@@ -112,21 +91,6 @@ func toUserResponse(user entities.User) userResponse {
 		Name: user.Name,
 		Role: string(user.Role),
 	}
-}
-
-// extractBearerTokenFromRequest extracts the Bearer token from the Authorization header.
-func extractBearerTokenFromRequest(r *http.Request) string {
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return ""
-	}
-
-	const bearerPrefix = "Bearer "
-	if !strings.HasPrefix(authHeader, bearerPrefix) {
-		return ""
-	}
-
-	return strings.TrimSpace(authHeader[len(bearerPrefix):])
 }
 
 // writeJSON writes a JSON response with the given status code.
