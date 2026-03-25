@@ -11,9 +11,8 @@ import (
 
 // mockQuestionRepository is a test double for QuestionRepository.
 type mockQuestionRepository struct {
-	saveFunc         func(ctx context.Context, q *entities.Question) error
-	findByThreadFunc func(ctx context.Context, channelID, threadTS string) (*entities.Question, error)
-	savedQuestion    *entities.Question
+	saveFunc      func(ctx context.Context, q *entities.Question) error
+	savedQuestion *entities.Question
 }
 
 func (m *mockQuestionRepository) Save(ctx context.Context, q *entities.Question) error {
@@ -24,11 +23,24 @@ func (m *mockQuestionRepository) Save(ctx context.Context, q *entities.Question)
 	return nil
 }
 
-func (m *mockQuestionRepository) FindByThreadTS(ctx context.Context, channelID, threadTS string) (*entities.Question, error) {
-	if m.findByThreadFunc != nil {
-		return m.findByThreadFunc(ctx, channelID, threadTS)
-	}
+func (m *mockQuestionRepository) GetByID(_ context.Context, _ entities.QuestionID) (*entities.Question, error) {
 	return nil, nil
+}
+
+func (m *mockQuestionRepository) GetByThreadTS(_ context.Context, _ entities.SlackChannelID, _ string) (*entities.Question, error) {
+	return nil, nil
+}
+
+func (m *mockQuestionRepository) GetAwaitingByChannelAndThread(_ context.Context, _ entities.SlackChannelID, _ string) (*entities.Question, error) {
+	return nil, nil
+}
+
+func (m *mockQuestionRepository) UpdateStatus(_ context.Context, _ entities.QuestionID, _ entities.QuestionStatus) error {
+	return nil
+}
+
+func (m *mockQuestionRepository) AssignMentor(_ context.Context, _ entities.QuestionID, _ entities.MentorID) error {
+	return nil
 }
 
 // mockMessageQueue is a test double for MessageQueue.

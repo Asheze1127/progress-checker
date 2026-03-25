@@ -23,8 +23,24 @@ func (m *testQuestionRepository) Save(ctx context.Context, q *entities.Question)
 	return nil
 }
 
-func (m *testQuestionRepository) FindByThreadTS(ctx context.Context, channelID, threadTS string) (*entities.Question, error) {
+func (m *testQuestionRepository) GetByID(_ context.Context, _ entities.QuestionID) (*entities.Question, error) {
 	return nil, nil
+}
+
+func (m *testQuestionRepository) GetByThreadTS(_ context.Context, _ entities.SlackChannelID, _ string) (*entities.Question, error) {
+	return nil, nil
+}
+
+func (m *testQuestionRepository) GetAwaitingByChannelAndThread(_ context.Context, _ entities.SlackChannelID, _ string) (*entities.Question, error) {
+	return nil, nil
+}
+
+func (m *testQuestionRepository) UpdateStatus(_ context.Context, _ entities.QuestionID, _ entities.QuestionStatus) error {
+	return nil
+}
+
+func (m *testQuestionRepository) AssignMentor(_ context.Context, _ entities.QuestionID, _ entities.MentorID) error {
+	return nil
 }
 
 // testMessageQueue is a test double for MessageQueue.
@@ -74,8 +90,24 @@ func (m *failingQuestionRepository) Save(ctx context.Context, q *entities.Questi
 	return errors.New("database error")
 }
 
-func (m *failingQuestionRepository) FindByThreadTS(ctx context.Context, channelID, threadTS string) (*entities.Question, error) {
+func (m *failingQuestionRepository) GetByID(_ context.Context, _ entities.QuestionID) (*entities.Question, error) {
 	return nil, nil
+}
+
+func (m *failingQuestionRepository) GetByThreadTS(_ context.Context, _ entities.SlackChannelID, _ string) (*entities.Question, error) {
+	return nil, nil
+}
+
+func (m *failingQuestionRepository) GetAwaitingByChannelAndThread(_ context.Context, _ entities.SlackChannelID, _ string) (*entities.Question, error) {
+	return nil, nil
+}
+
+func (m *failingQuestionRepository) UpdateStatus(_ context.Context, _ entities.QuestionID, _ entities.QuestionStatus) error {
+	return nil
+}
+
+func (m *failingQuestionRepository) AssignMentor(_ context.Context, _ entities.QuestionID, _ entities.MentorID) error {
+	return nil
 }
 
 func makeSlackForm(command, text, userID, channelID, threadTS string) string {
