@@ -1,0 +1,37 @@
+name: Lint TypeScript (Biome)
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'lambda/**'
+      - 'infrastructure/**'
+      - '.github/workflows/lint-ts.yml'
+
+jobs:
+  biome:
+    name: biome
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: biomejs/setup-biome@v2
+        with:
+          version: latest
+
+      - name: Run Biome on TypeScript projects
+        run: |
+          set -e
+          ran=false
+          for dir in web lambda infrastructure/cdk; do
+            if [ -f "${dir}/biome.json" ] || [ -f "${dir}/biome.jsonc" ]; then
+              echo "Running biome ci in ${dir}/"
+              (cd "${dir}" && biome ci .)
+              ran=true
+            fi
+          done
+          if [ "${ran}" = "false" ]; then
+            echo "::notice::No biome.json found in web/, lambda/, or infrastructure/cdk/. Skipping."
+          fi
