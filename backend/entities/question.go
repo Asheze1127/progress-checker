@@ -11,6 +11,7 @@ type QuestionStatus string
 const (
 	QuestionStatusOpen           QuestionStatus = "open"
 	QuestionStatusInProgress     QuestionStatus = "in_progress"
+	QuestionStatusAwaitingUser   QuestionStatus = "awaiting_user"
 	QuestionStatusAssignedMentor QuestionStatus = "assigned_mentor"
 	QuestionStatusResolved       QuestionStatus = "resolved"
 )
@@ -47,9 +48,9 @@ func (q Question) Validate() error {
 	}
 
 	switch q.Status {
-	case QuestionStatusOpen, QuestionStatusInProgress, QuestionStatusAssignedMentor, QuestionStatusResolved:
+	case QuestionStatusOpen, QuestionStatusInProgress, QuestionStatusAwaitingUser, QuestionStatusAssignedMentor, QuestionStatusResolved:
 	default:
-		errs = append(errs, fmt.Errorf("question.status must be one of open, in_progress, assigned_mentor, resolved"))
+		errs = append(errs, fmt.Errorf("question.status must be one of open, in_progress, awaiting_user, assigned_mentor, resolved"))
 	}
 
 	if strings.TrimSpace(q.SlackThreadTS) == "" {
@@ -80,8 +81,9 @@ func (q Question) Validate() error {
 
 // validTransitions defines the allowed status transitions for a question.
 var validTransitions = map[QuestionStatus][]QuestionStatus{
-	QuestionStatusOpen:           {QuestionStatusResolved, QuestionStatusInProgress, QuestionStatusAssignedMentor},
-	QuestionStatusInProgress:     {QuestionStatusResolved, QuestionStatusAssignedMentor},
+	QuestionStatusOpen:           {QuestionStatusResolved, QuestionStatusInProgress, QuestionStatusAwaitingUser, QuestionStatusAssignedMentor},
+	QuestionStatusInProgress:     {QuestionStatusResolved, QuestionStatusAwaitingUser, QuestionStatusAssignedMentor},
+	QuestionStatusAwaitingUser:   {QuestionStatusResolved, QuestionStatusInProgress, QuestionStatusAssignedMentor},
 	QuestionStatusAssignedMentor: {QuestionStatusResolved},
 	QuestionStatusResolved:       {},
 }

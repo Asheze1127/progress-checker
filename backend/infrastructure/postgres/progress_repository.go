@@ -3,8 +3,11 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/Asheze1127/progress-checker/backend/entities"
+	"github.com/Asheze1127/progress-checker/backend/infrastructure/sqlcgen"
+	"github.com/google/uuid"
 )
 
 var _ entities.ProgressRepository = (*ProgressRepository)(nil)
@@ -26,27 +29,41 @@ func (r *ProgressRepository) Save(ctx context.Context, log *entities.ProgressLog
 		return err
 	}
 
+	logID, err := uuid.Parse(string(log.ID))
+	if err != nil {
+		return fmt.Errorf("invalid progress log ID %q: %w", log.ID, err)
+	}
+	participantID, err := uuid.Parse(string(log.ParticipantID))
+	if err != nil {
+		return fmt.Errorf("invalid participant ID %q: %w", log.ParticipantID, err)
+	}
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	_, err = tx.ExecContext(ctx,
-		"INSERT INTO progress_logs (id, participant_id) VALUES ($1, $2)",
-		string(log.ID), string(log.ParticipantID),
-	)
+	queries := sqlcgen.New(tx)
+
+	err = queries.InsertProgressLog(ctx, sqlcgen.InsertProgressLogParams{
+		ID:            logID,
+		ParticipantID: participantID,
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("inserting progress log %q: %w", log.ID, err)
 	}
 
 	for _, body := range log.ProgressBodies {
-		_, err = tx.ExecContext(ctx,
-			"INSERT INTO progress_bodies (progress_log_id, phase, sos, comment, submitted_at) VALUES ($1, $2, $3, $4, $5)",
-			string(log.ID), string(body.Phase), body.SOS, body.Comment, body.SubmittedAt,
-		)
+		err = queries.InsertProgressBody(ctx, sqlcgen.InsertProgressBodyParams{
+			ProgressLogID: logID,
+			Phase:         sqlcgen.ProgressPhase(body.Phase),
+			Sos:           body.SOS,
+			Comment:       sql.NullString{String: body.Comment, Valid: body.Comment != ""},
+			SubmittedAt:   body.SubmittedAt,
+		})
 		if err != nil {
-			return err
+			return fmt.Errorf("inserting progress body (phase=%s) for log %q: %w", body.Phase, log.ID, err)
 		}
 	}
 

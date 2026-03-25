@@ -76,7 +76,7 @@ func TestQuestionValidate(t *testing.T) {
 				Status:         QuestionStatus("invalid"),
 				SlackThreadTS:  "1742731200.000100",
 			},
-			wantErrStrings: []string{"question.status must be one of open, in_progress, assigned_mentor, resolved"},
+			wantErrStrings: []string{"question.status must be one of open, in_progress, awaiting_user, assigned_mentor, resolved"},
 		},
 		{
 			name: "empty status",
@@ -87,7 +87,7 @@ func TestQuestionValidate(t *testing.T) {
 				SlackChannelID: SlackChannelID("channel-1"),
 				SlackThreadTS:  "1742731200.000100",
 			},
-			wantErrStrings: []string{"question.status must be one of open, in_progress, assigned_mentor, resolved"},
+			wantErrStrings: []string{"question.status must be one of open, in_progress, awaiting_user, assigned_mentor, resolved"},
 		},
 		{
 			name: "empty slack_thread_ts",
