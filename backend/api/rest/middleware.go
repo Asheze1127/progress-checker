@@ -8,6 +8,7 @@ import (
 
 	"github.com/Asheze1127/progress-checker/backend/api/middleware"
 	pkgslack "github.com/Asheze1127/progress-checker/backend/pkg/slack"
+	idempotencysvc "github.com/Asheze1127/progress-checker/backend/service/idempotency"
 )
 
 // SlackVerification returns middleware that verifies Slack request signatures.
@@ -21,7 +22,7 @@ func SlackVerification(verifier *pkgslack.Verifier) func(http.Handler) http.Hand
 				return
 			}
 
-			// Restore the body so downstream handlers can read it.
+			// Restore the body so downstream handlers can read them.
 			r.Body = io.NopCloser(bytes.NewReader(body))
 
 			next.ServeHTTP(w, r)
@@ -33,14 +34,13 @@ func SlackVerification(verifier *pkgslack.Verifier) func(http.Handler) http.Hand
 // in the correct order: signature verification first, then idempotency check.
 func SlackWebhookMiddleware(
 	verifier *pkgslack.Verifier,
-	store middleware.IdempotencyStore,
+	svc *idempotencysvc.Service,
 	keyFunc middleware.IdempotencyKeyFunc,
 ) func(http.Handler) http.Handler {
 	verifyMiddleware := SlackVerification(verifier)
-	idempotencyMiddleware := middleware.Idempotency(store, keyFunc)
+	idempotencyMiddleware := middleware.Idempotency(svc, keyFunc)
 
 	return func(handler http.Handler) http.Handler {
-		// Apply in reverse order: idempotency wraps handler, verification wraps that.
 		return verifyMiddleware(idempotencyMiddleware(handler))
 	}
 }

@@ -8,9 +8,11 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	idempotencysvc "github.com/Asheze1127/progress-checker/backend/service/idempotency"
 )
 
-// mockStore is a test implementation of IdempotencyStore.
+// mockStore is a test implementation of idempotencysvc.Store.
 type mockStore struct {
 	keys     map[string]bool
 	existErr error
@@ -53,7 +55,7 @@ func TestIdempotency(t *testing.T) {
 			wantHandlerCalls: 1,
 		},
 		{
-			name: "duplicate request returns 200 without calling handler",
+			name:    "duplicate request returns 200 without calling handler",
 			keyFunc: func(_ *http.Request) string { return "duplicate-key" },
 			store: func() *mockStore {
 				s := newMockStore()
@@ -94,7 +96,7 @@ func TestIdempotency(t *testing.T) {
 		},
 		{
 			name:             "default key func with no retry header skips check",
-			keyFunc:          nil, // uses DefaultIdempotencyKeyFunc
+			keyFunc:          nil,
 			store:            newMockStore(),
 			retryHeader:      "",
 			wantStatusCode:   http.StatusOK,
@@ -102,7 +104,7 @@ func TestIdempotency(t *testing.T) {
 		},
 		{
 			name:             "default key func with retry header generates key",
-			keyFunc:          nil, // uses DefaultIdempotencyKeyFunc
+			keyFunc:          nil,
 			store:            newMockStore(),
 			retryHeader:      "1",
 			wantStatusCode:   http.StatusOK,
@@ -119,8 +121,9 @@ func TestIdempotency(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			middleware := Idempotency(tt.store, tt.keyFunc)
-			wrapped := middleware(handler)
+			svc := idempotencysvc.NewService(tt.store)
+			mw := Idempotency(svc, tt.keyFunc)
+			wrapped := mw(handler)
 
 			req := httptest.NewRequest(http.MethodPost, "/webhook/slack", nil)
 			if tt.retryHeader != "" {

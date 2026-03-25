@@ -1,4 +1,4 @@
-// Package idempotency provides implementations of the IdempotencyStore interface.
+// Package idempotency provides implementations of the idempotency Store interface.
 package idempotency
 
 import (
@@ -6,13 +6,13 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/Asheze1127/progress-checker/backend/api/middleware"
+	idempotencysvc "github.com/Asheze1127/progress-checker/backend/service/idempotency"
 )
 
-// Compile-time check that PostgresStore implements middleware.IdempotencyStore.
-var _ middleware.IdempotencyStore = (*PostgresStore)(nil)
+// Compile-time check that PostgresStore implements idempotencysvc.Store.
+var _ idempotencysvc.Store = (*PostgresStore)(nil)
 
-// PostgresStore is a PostgreSQL-backed implementation of middleware.IdempotencyStore.
+// PostgresStore is a PostgreSQL-backed implementation of idempotencysvc.Store.
 // It uses the idempotency_keys table for persistence across multiple instances.
 type PostgresStore struct {
 	db *sql.DB
