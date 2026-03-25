@@ -45,6 +45,7 @@ func TestStaffValidate(t *testing.T) {
 				Name:        "Operations",
 				Email:       "ops@example.com",
 			},
+			wantErrStrings: []string{"staff.slack_user_id is required"},
 		},
 		{
 			name: "empty name",

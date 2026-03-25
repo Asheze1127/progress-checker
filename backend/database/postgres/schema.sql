@@ -44,16 +44,16 @@ CREATE TABLE slack_channels (
 CREATE INDEX idx_slack_channels_team_id ON slack_channels (team_id);
 
 -- =============================================================================
--- Slack channel purposes: each channel can serve one or more purposes
+-- Channel purpose assignments: each channel can serve one or more purposes
 -- =============================================================================
-CREATE TABLE slack_channel_purposes (
+CREATE TABLE channel_purpose_assignments (
     slack_channel_id VARCHAR NOT NULL REFERENCES slack_channels (id) ON DELETE CASCADE,
     purpose          slack_channel_purpose NOT NULL,
     created_at       TIMESTAMPTZ          NOT NULL DEFAULT now(),
     UNIQUE (slack_channel_id, purpose)
 );
 
-CREATE INDEX idx_slack_channel_purposes_slack_channel_id ON slack_channel_purposes (slack_channel_id);
+CREATE INDEX idx_channel_purpose_assignments_slack_channel_id ON channel_purpose_assignments (slack_channel_id);
 
 -- =============================================================================
 -- Participants: a user with role='participant' assigned to exactly one team

@@ -1,0 +1,39 @@
+name: Test TypeScript
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'lambda/**'
+      - 'infrastructure/cdk/**'
+      - '.github/workflows/test-ts.yml'
+
+jobs:
+  test:
+    name: npm test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+
+      - name: Run tests in TypeScript projects
+        run: |
+          set -e
+          ran=false
+          for dir in web lambda infrastructure/cdk; do
+            if [ -f "${dir}/package.json" ]; then
+              echo "Installing dependencies in ${dir}/"
+              (cd "${dir}" && npm ci)
+              echo "Running tests in ${dir}/"
+              (cd "${dir}" && npm test)
+              ran=true
+            fi
+          done
+          if [ "${ran}" = "false" ]; then
+            echo "::notice::No package.json found in web/, lambda/, or infrastructure/cdk/. Skipping."
+          fi
