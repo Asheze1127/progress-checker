@@ -10,19 +10,11 @@ import (
 	idempotencysvc "github.com/Asheze1127/progress-checker/backend/service/idempotency"
 )
 
-// headerSlackRetryNum is the Slack header indicating a retry.
-const headerSlackRetryNum = "X-Slack-Retry-Num"
-
 // slackDeduplicationKey extracts a deduplication key from a Slack request.
-// Uses trigger_id from the form body to uniquely identify the original request.
-// Returns an empty string if no retry header is present (first attempt).
+// Uses trigger_id from the form body to uniquely identify the request.
+// The key is stored on the first request and checked on retries,
+// so every request (not just retries) must go through this check.
 func slackDeduplicationKey(r *http.Request) string {
-	if r.Header.Get(headerSlackRetryNum) == "" {
-		return ""
-	}
-
-	// Parse form to get trigger_id without consuming the body.
-	// The body has already been restored by SlackVerification middleware.
 	if err := r.ParseForm(); err != nil {
 		return ""
 	}
