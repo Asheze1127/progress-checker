@@ -2,6 +2,14 @@
 -- Compatible with psqldef (declarative schema management)
 
 -- =============================================================================
+-- ENUM types
+-- =============================================================================
+CREATE TYPE user_role AS ENUM ('participant', 'mentor');
+CREATE TYPE slack_channel_purpose AS ENUM ('progress', 'question', 'notice');
+CREATE TYPE progress_phase AS ENUM ('idea', 'design', 'coding', 'testing', 'demo');
+CREATE TYPE question_status AS ENUM ('open', 'in_progress', 'awaiting_user', 'assigned_mentor', 'resolved');
+
+-- =============================================================================
 -- Users: participants and mentors authenticate via Slack
 -- =============================================================================
 CREATE TABLE users (
@@ -9,7 +17,7 @@ CREATE TABLE users (
     slack_user_id VARCHAR     NOT NULL UNIQUE,
     name          VARCHAR     NOT NULL,
     email         VARCHAR     NOT NULL,
-    role          VARCHAR     NOT NULL CHECK (role IN ('participant', 'mentor')),
+    role          user_role   NOT NULL,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -40,7 +48,8 @@ CREATE INDEX idx_slack_channels_team_id ON slack_channels (team_id);
 -- =============================================================================
 CREATE TABLE slack_channel_purposes (
     slack_channel_id VARCHAR NOT NULL REFERENCES slack_channels (id) ON DELETE CASCADE,
-    purpose          VARCHAR NOT NULL CHECK (purpose IN ('progress', 'question', 'notice')),
+    purpose          slack_channel_purpose NOT NULL,
+    created_at       TIMESTAMPTZ          NOT NULL DEFAULT now(),
     UNIQUE (slack_channel_id, purpose)
 );
 
@@ -69,8 +78,9 @@ CREATE TABLE mentors (
 -- Mentor-team assignments: many-to-many between mentors and teams
 -- =============================================================================
 CREATE TABLE mentor_team_assignments (
-    mentor_user_id UUID NOT NULL REFERENCES mentors (user_id) ON DELETE CASCADE,
-    team_id        UUID NOT NULL REFERENCES teams (id) ON DELETE CASCADE,
+    mentor_user_id UUID        NOT NULL REFERENCES mentors (user_id) ON DELETE CASCADE,
+    team_id        UUID        NOT NULL REFERENCES teams (id) ON DELETE CASCADE,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (mentor_user_id, team_id)
 );
 
@@ -105,9 +115,9 @@ CREATE INDEX idx_progress_logs_participant_id ON progress_logs (participant_id);
 CREATE TABLE progress_bodies (
     id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     progress_log_id UUID          NOT NULL REFERENCES progress_logs (id) ON DELETE CASCADE,
-    phase           VARCHAR       NOT NULL CHECK (phase IN ('idea', 'design', 'coding', 'testing', 'demo')),
+    phase           progress_phase NOT NULL,
     sos             BOOLEAN       NOT NULL DEFAULT FALSE,
-    comment         TEXT          NOT NULL DEFAULT '',
+    comment         TEXT,
     submitted_at    TIMESTAMPTZ   NOT NULL
 );
 
@@ -121,7 +131,7 @@ CREATE TABLE questions (
     participant_id   UUID        NOT NULL REFERENCES participants (user_id) ON DELETE CASCADE,
     title            VARCHAR     NOT NULL,
     slack_channel_id VARCHAR     NOT NULL REFERENCES slack_channels (id) ON DELETE RESTRICT,
-    status           VARCHAR     NOT NULL CHECK (status IN ('open', 'in_progress', 'assigned_mentor', 'resolved')),
+    status           question_status NOT NULL,
     slack_thread_ts  VARCHAR     NOT NULL,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -135,8 +145,9 @@ CREATE INDEX idx_questions_status ON questions (status);
 -- Question-mentor assignments: many-to-many between questions and mentors
 -- =============================================================================
 CREATE TABLE question_mentor_assignments (
-    question_id    UUID NOT NULL REFERENCES questions (id) ON DELETE CASCADE,
-    mentor_user_id UUID NOT NULL REFERENCES mentors (user_id) ON DELETE CASCADE,
+    question_id    UUID        NOT NULL REFERENCES questions (id) ON DELETE CASCADE,
+    mentor_user_id UUID        NOT NULL REFERENCES mentors (user_id) ON DELETE CASCADE,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (question_id, mentor_user_id)
 );
 
@@ -166,18 +177,3 @@ CREATE TABLE team_github_repositories (
 );
 
 CREATE INDEX idx_team_github_repositories_team_id ON team_github_repositories (team_id);
-
--- =============================================================================
--- Sessions: user authentication sessions (Issue #71)
--- =============================================================================
-CREATE TABLE sessions (
-    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id    UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    token_hash VARCHAR     NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_sessions_user_id ON sessions (user_id);
-CREATE INDEX idx_sessions_token_hash ON sessions (token_hash);
-CREATE INDEX idx_sessions_expires_at ON sessions (expires_at);
