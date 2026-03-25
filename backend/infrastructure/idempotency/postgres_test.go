@@ -10,9 +10,10 @@ import (
 	_ "github.com/lib/pq"
 
 	idempotencysvc "github.com/Asheze1127/progress-checker/backend/service/idempotency"
+	"github.com/Asheze1127/progress-checker/backend/infrastructure/sqlcgen"
 )
 
-func testDB(t *testing.T) *sql.DB {
+func testDBTX(t *testing.T) sqlcgen.DBTX {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
@@ -26,9 +27,9 @@ func testDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func cleanupKeys(t *testing.T, db *sql.DB) {
+func cleanupKeys(t *testing.T, db sqlcgen.DBTX) {
 	t.Helper()
-	_, err := db.Exec("DELETE FROM idempotency_keys")
+	_, err := db.ExecContext(context.Background(), "DELETE FROM idempotency_keys")
 	if err != nil {
 		t.Fatalf("failed to cleanup: %v", err)
 	}
@@ -39,7 +40,7 @@ func TestPostgresStoreImplementsInterface(t *testing.T) {
 }
 
 func TestPostgresStore_Exists_returns_false_for_missing_key(t *testing.T) {
-	db := testDB(t)
+	db := testDBTX(t)
 	cleanupKeys(t, db)
 	store := NewPostgresStore(db)
 
@@ -53,7 +54,7 @@ func TestPostgresStore_Exists_returns_false_for_missing_key(t *testing.T) {
 }
 
 func TestPostgresStore_Set_and_Exists(t *testing.T) {
-	db := testDB(t)
+	db := testDBTX(t)
 	cleanupKeys(t, db)
 	store := NewPostgresStore(db)
 	ctx := context.Background()
@@ -73,7 +74,7 @@ func TestPostgresStore_Set_and_Exists(t *testing.T) {
 }
 
 func TestPostgresStore_Set_duplicate_does_not_error(t *testing.T) {
-	db := testDB(t)
+	db := testDBTX(t)
 	cleanupKeys(t, db)
 	store := NewPostgresStore(db)
 	ctx := context.Background()
@@ -87,16 +88,17 @@ func TestPostgresStore_Set_duplicate_does_not_error(t *testing.T) {
 }
 
 func TestPostgresStore_Exists_returns_false_for_expired_key(t *testing.T) {
-	db := testDB(t)
+	db := testDBTX(t)
 	cleanupKeys(t, db)
 	store := NewPostgresStore(db)
 	ctx := context.Background()
 
-	// Insert with already-expired TTL (1 microsecond in the past via direct SQL)
-	_, err := db.Exec(
-		"INSERT INTO idempotency_keys (key, expires_at) VALUES ($1, now() - interval '1 second')",
-		"expired-key",
-	)
+	// Insert an already-expired key via sqlc queries
+	q := sqlcgen.New(db)
+	err := q.InsertIdempotencyKey(ctx, sqlcgen.InsertIdempotencyKeyParams{
+		Key:         "expired-key",
+		TtlInterval: -1_000_000, // -1 second in microseconds
+	})
 	if err != nil {
 		t.Fatalf("insert failed: %v", err)
 	}
