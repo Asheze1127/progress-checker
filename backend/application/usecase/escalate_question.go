@@ -26,7 +26,7 @@ func NewEscalateQuestionUsecase(repo entities.QuestionRepository, notifier servi
 // Execute escalates the given question to a mentor. It is idempotent: if the
 // question is already assigned to a mentor, no update is performed.
 func (u *EscalateQuestionUsecase) Execute(ctx context.Context, questionID entities.QuestionID) error {
-	question, err := u.questionRepo.FindByID(ctx, questionID)
+	question, err := u.questionRepo.GetByID(ctx, questionID)
 	if err != nil {
 		return fmt.Errorf("finding question %q: %w", questionID, err)
 	}

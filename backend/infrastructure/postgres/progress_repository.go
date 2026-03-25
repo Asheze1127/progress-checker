@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	db "github.com/Asheze1127/progress-checker/backend/database/postgres/generated"
 	"github.com/Asheze1127/progress-checker/backend/entities"
-	"github.com/Asheze1127/progress-checker/backend/infrastructure/sqlcgen"
 	"github.com/google/uuid"
 )
 
@@ -14,12 +14,16 @@ var _ entities.ProgressRepository = (*ProgressRepository)(nil)
 
 // ProgressRepository persists progress logs to PostgreSQL.
 type ProgressRepository struct {
-	db *sql.DB
+	db      *sql.DB
+	queries *db.Queries
 }
 
 // NewProgressRepository creates a new ProgressRepository backed by the given database connection.
-func NewProgressRepository(db *sql.DB) *ProgressRepository {
-	return &ProgressRepository{db: db}
+func NewProgressRepository(database *sql.DB) *ProgressRepository {
+	return &ProgressRepository{
+		db:      database,
+		queries: db.New(database),
+	}
 }
 
 // Save persists a progress log and its bodies within a transaction.
@@ -44,9 +48,9 @@ func (r *ProgressRepository) Save(ctx context.Context, log *entities.ProgressLog
 	}
 	defer tx.Rollback()
 
-	queries := sqlcgen.New(tx)
+	qtx := r.queries.WithTx(tx)
 
-	err = queries.InsertProgressLog(ctx, sqlcgen.InsertProgressLogParams{
+	_, err = qtx.InsertProgressLog(ctx, db.InsertProgressLogParams{
 		ID:            logID,
 		ParticipantID: participantID,
 	})
@@ -55,9 +59,11 @@ func (r *ProgressRepository) Save(ctx context.Context, log *entities.ProgressLog
 	}
 
 	for _, body := range log.ProgressBodies {
-		err = queries.InsertProgressBody(ctx, sqlcgen.InsertProgressBodyParams{
+		bodyID := uuid.New()
+		_, err = qtx.InsertProgressBody(ctx, db.InsertProgressBodyParams{
+			ID:            bodyID,
 			ProgressLogID: logID,
-			Phase:         sqlcgen.ProgressPhase(body.Phase),
+			Phase:         string(body.Phase),
 			Sos:           body.SOS,
 			Comment:       sql.NullString{String: body.Comment, Valid: body.Comment != ""},
 			SubmittedAt:   body.SubmittedAt,

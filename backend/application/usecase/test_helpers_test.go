@@ -11,12 +11,32 @@ import (
 type stubQuestionRepo struct {
 	question      *entities.Question
 	findErr       error
+	saveErr       error
 	updateErr     error
+	assignErr     error
 	updatedID     entities.QuestionID
 	updatedStatus entities.QuestionStatus
 }
 
-func (r *stubQuestionRepo) FindByID(_ context.Context, id entities.QuestionID) (*entities.Question, error) {
+func (r *stubQuestionRepo) Save(_ context.Context, _ *entities.Question) error {
+	return r.saveErr
+}
+
+func (r *stubQuestionRepo) GetByID(_ context.Context, _ entities.QuestionID) (*entities.Question, error) {
+	if r.findErr != nil {
+		return nil, r.findErr
+	}
+	return r.question, nil
+}
+
+func (r *stubQuestionRepo) GetByThreadTS(_ context.Context, _ entities.SlackChannelID, _ string) (*entities.Question, error) {
+	if r.findErr != nil {
+		return nil, r.findErr
+	}
+	return r.question, nil
+}
+
+func (r *stubQuestionRepo) GetAwaitingByChannelAndThread(_ context.Context, _ entities.SlackChannelID, _ string) (*entities.Question, error) {
 	if r.findErr != nil {
 		return nil, r.findErr
 	}
@@ -27,6 +47,10 @@ func (r *stubQuestionRepo) UpdateStatus(_ context.Context, id entities.QuestionI
 	r.updatedID = id
 	r.updatedStatus = status
 	return r.updateErr
+}
+
+func (r *stubQuestionRepo) AssignMentor(_ context.Context, _ entities.QuestionID, _ entities.MentorID) error {
+	return r.assignErr
 }
 
 type stubSlackNotifier struct {

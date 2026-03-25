@@ -20,7 +20,7 @@ func NewResolveQuestionUsecase(repo entities.QuestionRepository) *ResolveQuestio
 // Execute marks the given question as resolved. It is idempotent: if the
 // question is already resolved, no update is performed.
 func (u *ResolveQuestionUsecase) Execute(ctx context.Context, questionID entities.QuestionID) error {
-	question, err := u.questionRepo.FindByID(ctx, questionID)
+	question, err := u.questionRepo.GetByID(ctx, questionID)
 	if err != nil {
 		return fmt.Errorf("finding question %q: %w", questionID, err)
 	}
