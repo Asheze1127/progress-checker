@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	db "github.com/Asheze1127/progress-checker/backend/database/postgres/generated"
 	"github.com/Asheze1127/progress-checker/backend/entities"
+	"github.com/google/uuid"
 )
 
 // Compile-time check that ProgressQueryRepository implements the interface.
@@ -14,138 +16,123 @@ var _ entities.ProgressQueryRepository = (*ProgressQueryRepository)(nil)
 
 // ProgressQueryRepository implements entities.ProgressQueryRepository using PostgreSQL.
 type ProgressQueryRepository struct {
-	db *sql.DB
+	queries *db.Queries
 }
 
 // NewProgressQueryRepository creates a new ProgressQueryRepository.
-func NewProgressQueryRepository(db *sql.DB) *ProgressQueryRepository {
-	return &ProgressQueryRepository{db: db}
+func NewProgressQueryRepository(database *sql.DB) *ProgressQueryRepository {
+	return &ProgressQueryRepository{queries: db.New(database)}
 }
-
-const latestProgressQuery = `
-SELECT
-    t.id          AS team_id,
-    t.name        AS team_name,
-    pl.id         AS progress_log_id,
-    pl.participant_id,
-    pb.phase,
-    pb.sos,
-    COALESCE(pb.comment, '') AS comment,
-    pb.submitted_at
-FROM teams t
-LEFT JOIN LATERAL (
-    SELECT pl2.id, pl2.participant_id
-    FROM progress_logs pl2
-    JOIN participants p ON p.user_id = pl2.participant_id
-    WHERE p.team_id = t.id
-    ORDER BY pl2.created_at DESC
-    LIMIT 1
-) pl ON TRUE
-LEFT JOIN progress_bodies pb ON pb.progress_log_id = pl.id
-`
 
 // ListLatestByTeam returns the latest progress for all teams.
 func (r *ProgressQueryRepository) ListLatestByTeam(ctx context.Context) ([]entities.TeamProgress, error) {
-	query := latestProgressQuery + `ORDER BY t.name, pb.submitted_at`
-
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.queries.GetLatestProgressByTeam(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query latest progress by team: %w", err)
 	}
-	defer rows.Close()
-
-	return scanTeamProgressRows(rows)
+	return toTeamProgressList(rows), nil
 }
 
 // ListLatestByTeamID returns the latest progress filtered by team ID.
 func (r *ProgressQueryRepository) ListLatestByTeamID(ctx context.Context, teamID entities.TeamID) ([]entities.TeamProgress, error) {
-	query := latestProgressQuery + `WHERE t.id = $1 ORDER BY t.name, pb.submitted_at`
-
-	rows, err := r.db.QueryContext(ctx, query, string(teamID))
+	uid, err := uuid.Parse(string(teamID))
+	if err != nil {
+		return nil, fmt.Errorf("parse team id: %w", err)
+	}
+	rows, err := r.queries.GetLatestProgressByTeamID(ctx, uid)
 	if err != nil {
 		return nil, fmt.Errorf("query latest progress by team id: %w", err)
 	}
-	defer rows.Close()
-
-	return scanTeamProgressRows(rows)
+	return toTeamProgressListByID(rows), nil
 }
 
-// scanTeamProgressRows reads rows from the joined query and groups them
-// into TeamProgress entities. Each team appears once, with all progress
-// bodies collected into a single ProgressLog.
-func scanTeamProgressRows(rows *sql.Rows) ([]entities.TeamProgress, error) {
-	teamMap := make(map[entities.TeamID]*entities.TeamProgress)
-	var orderedTeamIDs []entities.TeamID
+func toTeamProgressList(rows []db.GetLatestProgressByTeamRow) []entities.TeamProgress {
+	teamMap := make(map[uuid.UUID]*entities.TeamProgress)
+	var orderedIDs []uuid.UUID
 
-	for rows.Next() {
-		var (
-			teamID        string
-			teamName      string
-			progressLogID sql.NullString
-			participantID sql.NullString
-			phase         sql.NullString
-			sos           sql.NullBool
-			comment       sql.NullString
-			submittedAt   sql.NullTime
-		)
-
-		if err := rows.Scan(
-			&teamID,
-			&teamName,
-			&progressLogID,
-			&participantID,
-			&phase,
-			&sos,
-			&comment,
-			&submittedAt,
-		); err != nil {
-			return nil, fmt.Errorf("scan progress row: %w", err)
-		}
-
-		tid := entities.TeamID(teamID)
-
-		tp, exists := teamMap[tid]
+	for _, row := range rows {
+		tp, exists := teamMap[row.TeamID]
 		if !exists {
 			tp = &entities.TeamProgress{
-				TeamID:   tid,
-				TeamName: teamName,
+				TeamID:   entities.TeamID(row.TeamID.String()),
+				TeamName: row.TeamName,
 			}
-			teamMap[tid] = tp
-			orderedTeamIDs = append(orderedTeamIDs, tid)
+			teamMap[row.TeamID] = tp
+			orderedIDs = append(orderedIDs, row.TeamID)
 		}
 
-		if !progressLogID.Valid {
+		if !row.BodyID.Valid {
 			continue
 		}
 
 		if tp.LatestProgress == nil {
 			tp.LatestProgress = &entities.ProgressLog{
-				ID:            entities.ProgressLogID(progressLogID.String),
-				ParticipantID: entities.ParticipantID(participantID.String),
+				ID:            entities.ProgressLogID(row.ProgressLogID.String()),
+				ParticipantID: entities.ParticipantID(row.ParticipantID.String()),
 			}
 		}
 
-		if phase.Valid {
+		if row.Phase.Valid {
 			tp.LatestProgress.ProgressBodies = append(
 				tp.LatestProgress.ProgressBodies,
-				entities.ProgressBody{
-					Phase:       entities.ProgressPhase(phase.String),
-					SOS:         sos.Bool,
-					Comment:     comment.String,
-					SubmittedAt: submittedAt.Time.UTC().Truncate(time.Microsecond),
-				},
+				toProgressBody(row.Phase, row.Sos, row.Comment, row.SubmittedAt),
 			)
 		}
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate progress rows: %w", err)
+	results := make([]entities.TeamProgress, 0, len(orderedIDs))
+	for _, id := range orderedIDs {
+		results = append(results, *teamMap[id])
+	}
+	return results
+}
+
+func toTeamProgressListByID(rows []db.GetLatestProgressByTeamIDRow) []entities.TeamProgress {
+	teamMap := make(map[uuid.UUID]*entities.TeamProgress)
+	var orderedIDs []uuid.UUID
+
+	for _, row := range rows {
+		tp, exists := teamMap[row.TeamID]
+		if !exists {
+			tp = &entities.TeamProgress{
+				TeamID:   entities.TeamID(row.TeamID.String()),
+				TeamName: row.TeamName,
+			}
+			teamMap[row.TeamID] = tp
+			orderedIDs = append(orderedIDs, row.TeamID)
+		}
+
+		if !row.BodyID.Valid {
+			continue
+		}
+
+		if tp.LatestProgress == nil {
+			tp.LatestProgress = &entities.ProgressLog{
+				ID:            entities.ProgressLogID(row.ProgressLogID.String()),
+				ParticipantID: entities.ParticipantID(row.ParticipantID.String()),
+			}
+		}
+
+		if row.Phase.Valid {
+			tp.LatestProgress.ProgressBodies = append(
+				tp.LatestProgress.ProgressBodies,
+				toProgressBody(row.Phase, row.Sos, row.Comment, row.SubmittedAt),
+			)
+		}
 	}
 
-	results := make([]entities.TeamProgress, 0, len(orderedTeamIDs))
-	for _, tid := range orderedTeamIDs {
-		results = append(results, *teamMap[tid])
+	results := make([]entities.TeamProgress, 0, len(orderedIDs))
+	for _, id := range orderedIDs {
+		results = append(results, *teamMap[id])
 	}
+	return results
+}
 
-	return results, nil
+func toProgressBody(phase db.NullProgressPhase, sos sql.NullBool, comment sql.NullString, submittedAt sql.NullTime) entities.ProgressBody {
+	return entities.ProgressBody{
+		Phase:       entities.ProgressPhase(phase.ProgressPhase),
+		SOS:         sos.Bool,
+		Comment:     comment.String,
+		SubmittedAt: submittedAt.Time.UTC().Truncate(time.Microsecond),
+	}
 }
