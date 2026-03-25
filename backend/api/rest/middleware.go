@@ -7,18 +7,17 @@ import (
 	"net/http"
 
 	"github.com/Asheze1127/progress-checker/backend/api/middleware"
-	"github.com/Asheze1127/progress-checker/backend/pkg/slack"
+	pkgslack "github.com/Asheze1127/progress-checker/backend/pkg/slack"
 )
 
 // SlackVerification returns middleware that verifies Slack request signatures.
 // Verified request bodies are restored so downstream handlers can read them.
-func SlackVerification(verifier *slack.Verifier) func(http.Handler) http.Handler {
+func SlackVerification(verifier *pkgslack.Verifier) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, err := verifier.Verify(r)
 			if err != nil {
-				status := slack.HTTPStatusForError(err)
-				http.Error(w, err.Error(), status)
+				http.Error(w, err.Error(), http.StatusUnauthorized)
 				return
 			}
 
@@ -33,7 +32,7 @@ func SlackVerification(verifier *slack.Verifier) func(http.Handler) http.Handler
 // SlackWebhookMiddleware chains SlackVerification and Idempotency middleware
 // in the correct order: signature verification first, then idempotency check.
 func SlackWebhookMiddleware(
-	verifier *slack.Verifier,
+	verifier *pkgslack.Verifier,
 	store middleware.IdempotencyStore,
 	keyFunc middleware.IdempotencyKeyFunc,
 ) func(http.Handler) http.Handler {
