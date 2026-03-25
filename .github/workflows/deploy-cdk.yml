@@ -1,0 +1,97 @@
+name: Deploy CDK Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+      - production
+    paths:
+      - 'infrastructure/cdk/**'
+
+concurrency:
+  group: deploy-cdk-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-1
+  NODE_VERSION: '22.14.0'
+  WORKING_DIRECTORY: infrastructure/cdk
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: npm ci
+
+      - name: Run typecheck
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: npm run typecheck
+
+  deploy-staging:
+    name: Deploy Staging
+    needs: typecheck
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: npm ci
+
+      - name: Deploy to staging
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: npm run cdk:apply:stg -- --require-approval never
+
+  deploy-production:
+    name: Deploy Production
+    needs: typecheck
+    if: github.ref == 'refs/heads/production'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: npm ci
+
+      - name: Deploy to production
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: npm run cdk:apply:prod -- --require-approval never
