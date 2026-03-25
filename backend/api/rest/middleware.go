@@ -13,14 +13,25 @@ import (
 // headerSlackRetryNum is the Slack header indicating a retry.
 const headerSlackRetryNum = "X-Slack-Retry-Num"
 
-// slackIdempotencyKey extracts an idempotency key from a Slack request.
-// Returns an empty string for first attempts (no retry header).
-func slackIdempotencyKey(r *http.Request) string {
-	retryNum := r.Header.Get(headerSlackRetryNum)
-	if retryNum == "" {
+// slackDeduplicationKey extracts a deduplication key from a Slack request.
+// Uses trigger_id from the form body to uniquely identify the original request.
+// Returns an empty string if no retry header is present (first attempt).
+func slackDeduplicationKey(r *http.Request) string {
+	if r.Header.Get(headerSlackRetryNum) == "" {
 		return ""
 	}
-	return r.URL.Path + ":retry:" + retryNum
+
+	// Parse form to get trigger_id without consuming the body.
+	// The body has already been restored by SlackVerification middleware.
+	if err := r.ParseForm(); err != nil {
+		return ""
+	}
+
+	triggerID := r.FormValue("trigger_id")
+	if triggerID == "" {
+		return ""
+	}
+	return "slack:" + triggerID
 }
 
 // SlackVerification returns middleware that verifies Slack request signatures.
@@ -45,7 +56,7 @@ func SlackVerification(verifier *pkgslack.Verifier) func(http.Handler) http.Hand
 func SlackIdempotency(svc *idempotencysvc.Service) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			key := slackIdempotencyKey(r)
+			key := slackDeduplicationKey(r)
 			if key == "" {
 				next.ServeHTTP(w, r)
 				return
