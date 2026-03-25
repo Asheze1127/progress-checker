@@ -1,49 +1,77 @@
 package entities
 
-import "time"
-
-type ChannelPurpose string
-
-const (
-	ChannelPurposeProgress ChannelPurpose = "progress"
-	ChannelPurposeQuestion ChannelPurpose = "question"
-	ChannelPurposeNotice   ChannelPurpose = "notice"
+import (
+	"errors"
+	"fmt"
+	"strings"
 )
 
-// Team represents a hackathon team.
+type SlackChannelPurpose string
+
+const (
+	SlackChannelPurposeProgress SlackChannelPurpose = "progress"
+	SlackChannelPurposeQuestion SlackChannelPurpose = "question"
+	SlackChannelPurposeNotice   SlackChannelPurpose = "notice"
+)
+
+type TeamID string
+
+type SlackChannelID string
+
 type Team struct {
-	ID                string
-	Name              string
-	TeamMembers       []TeamMember
-	MentorAssignments []MentorAssignment
-	TeamChannels      []TeamChannel
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID            TeamID
+	Name          string
+	SlackChannels []SlackChannel
 }
 
-// TeamMember represents the membership relation between a user and a team.
-type TeamMember struct {
-	ID       string
-	TeamID   string
-	UserID   string
-	JoinedAt time.Time
+type SlackChannel struct {
+	ID                   SlackChannelID
+	SlackChannelPurposes []SlackChannelPurpose
 }
 
-// MentorAssignment represents which mentor is responsible for which team.
-type MentorAssignment struct {
-	ID           string
-	TeamID       string
-	MentorUserID string
-	CreatedAt    time.Time
-}
+func (t Team) Validate() error {
+	var errs []error
 
-// TeamChannel links a team to an external channel with a specific purpose.
-// MVP keeps a single channel for each team-purpose pair.
-type TeamChannel struct {
-	ID             string
-	TeamID         string
-	SlackChannelID string
-	Purpose        ChannelPurpose
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	if strings.TrimSpace(string(t.ID)) == "" {
+		errs = append(errs, fmt.Errorf("team.id is required"))
+	}
+
+	if strings.TrimSpace(t.Name) == "" {
+		errs = append(errs, fmt.Errorf("team.name is required"))
+	}
+
+	seenChannelIDs := make(map[SlackChannelID]struct{}, len(t.SlackChannels))
+	for i, slackChannel := range t.SlackChannels {
+		if strings.TrimSpace(string(slackChannel.ID)) == "" {
+			errs = append(errs, fmt.Errorf("team.slack_channels[%d].id is required", i))
+		}
+
+		if _, ok := seenChannelIDs[slackChannel.ID]; ok {
+			errs = append(errs, fmt.Errorf("team.slack_channels.id contains duplicate value %q", slackChannel.ID))
+		} else {
+			seenChannelIDs[slackChannel.ID] = struct{}{}
+		}
+
+		if len(slackChannel.SlackChannelPurposes) == 0 {
+			errs = append(errs, fmt.Errorf("team.slack_channels[%d].purposes must not be empty", i))
+		}
+
+		seenPurposes := make(map[SlackChannelPurpose]struct{}, len(slackChannel.SlackChannelPurposes))
+		for j, purpose := range slackChannel.SlackChannelPurposes {
+			switch purpose {
+			case SlackChannelPurposeProgress, SlackChannelPurposeQuestion, SlackChannelPurposeNotice:
+			default:
+				errs = append(errs, fmt.Errorf("team.slack_channels[%d].purposes[%d] must be one of progress, question, notice", i, j))
+			}
+
+			if _, ok := seenPurposes[purpose]; ok {
+				errs = append(errs, fmt.Errorf("team.slack_channels[%d].purposes contains duplicate value %q", i, purpose))
+				continue
+			}
+
+			seenPurposes[purpose] = struct{}{}
+		}
+	}
+
+	return errors.Join(errs...)
 }

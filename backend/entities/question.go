@@ -1,48 +1,79 @@
 package entities
 
-import "time"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
-// QuestionStatus represents the mentor-facing handling state of a question.
 type QuestionStatus string
 
 const (
-	QuestionStatusOpen       QuestionStatus = "open"
-	QuestionStatusInProgress QuestionStatus = "in_progress"
-	QuestionStatusResolved   QuestionStatus = "resolved"
+	QuestionStatusOpen           QuestionStatus = "open"
+	QuestionStatusInProgress     QuestionStatus = "in_progress"
+	QuestionStatusAssignedMentor QuestionStatus = "assigned_mentor"
+	QuestionStatusResolved       QuestionStatus = "resolved"
 )
 
-type QuestionSessionStatus string
+type QuestionID string
 
-const (
-	SessionStatusAwaitingAI   QuestionSessionStatus = "awaiting_ai"
-	SessionStatusAwaitingUser QuestionSessionStatus = "awaiting_user"
-	SessionStatusEscalated    QuestionSessionStatus = "escalated"
-)
-
-// Question represents a question submitted via /question.
 type Question struct {
-	ID               string
-	TeamID           string
-	AskedByUserID    string
-	AssignedMentorID *string
-	Title            string
-	// Body stores the initial question text submitted from Slack.
-	// To avoid rate restrictions
-	Body          string
-	Status        QuestionStatus
-	SlackThreadTS string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID             QuestionID
+	ParticipantID  ParticipantID
+	MentorIDs      []MentorID
+	Title          string
+	SlackChannelID SlackChannelID
+	Status         QuestionStatus
+	SlackThreadTS  string
 }
 
-// QuestionSession tracks the AI conversation state for a question thread.
-// Used to determine whether a Slack reply is a new question or a follow-up.
-type QuestionSession struct {
-	ID         string
-	QuestionID string
-	// Status is independent from QuestionStatus and only tracks active AI follow-up flow.
-	Status QuestionSessionStatus
-	// 3 rounds of AI follow-up before escalating to a mentor
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+func (q Question) Validate() error {
+	var errs []error
+
+	if strings.TrimSpace(string(q.ID)) == "" {
+		errs = append(errs, fmt.Errorf("question.id is required"))
+	}
+
+	if strings.TrimSpace(string(q.ParticipantID)) == "" {
+		errs = append(errs, fmt.Errorf("question.participant_id is required"))
+	}
+
+	if strings.TrimSpace(q.Title) == "" {
+		errs = append(errs, fmt.Errorf("question.title is required"))
+	}
+
+	if strings.TrimSpace(string(q.SlackChannelID)) == "" {
+		errs = append(errs, fmt.Errorf("question.slack_channel_id is required"))
+	}
+
+	switch q.Status {
+	case QuestionStatusOpen, QuestionStatusInProgress, QuestionStatusAssignedMentor, QuestionStatusResolved:
+	default:
+		errs = append(errs, fmt.Errorf("question.status must be one of open, in_progress, assigned_mentor, resolved"))
+	}
+
+	if strings.TrimSpace(q.SlackThreadTS) == "" {
+		errs = append(errs, fmt.Errorf("question.slack_thread_ts is required"))
+	}
+
+	seenMentorIDs := make(map[MentorID]struct{}, len(q.MentorIDs))
+
+	for i, mentorID := range q.MentorIDs {
+		if strings.TrimSpace(string(mentorID)) == "" {
+			errs = append(errs, fmt.Errorf("question.mentor_ids[%d] is required", i))
+		}
+
+		if _, ok := seenMentorIDs[mentorID]; ok {
+			errs = append(errs, fmt.Errorf("question.mentor_ids contains duplicate value %q", mentorID))
+			continue
+		}
+
+		seenMentorIDs[mentorID] = struct{}{}
+	}
+
+	if q.Status == QuestionStatusAssignedMentor && len(q.MentorIDs) == 0 {
+		errs = append(errs, fmt.Errorf("question.mentor_ids must not be empty when status is %q", q.Status))
+	}
+
+	return errors.Join(errs...)
 }
