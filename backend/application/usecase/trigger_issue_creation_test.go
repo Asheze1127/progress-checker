@@ -1,4 +1,4 @@
-package application
+package usecase
 
 import (
 	"context"
@@ -19,13 +19,13 @@ func (s *stubThreadFetcher) FetchThreadMessages(_ context.Context, _, _ string) 
 	return s.messages, s.err
 }
 
-type spySQSPublisher struct {
+type spyMessageQueue struct {
 	calledQueue string
 	calledBody  []byte
 	err         error
 }
 
-func (s *spySQSPublisher) Publish(_ context.Context, queueName string, message []byte) error {
+func (s *spyMessageQueue) Publish(_ context.Context, queueName string, message []byte) error {
 	s.calledQueue = queueName
 	s.calledBody = message
 	return s.err
@@ -33,17 +33,17 @@ func (s *spySQSPublisher) Publish(_ context.Context, queueName string, message [
 
 // --- Tests ---
 
-func TestIssueTriggerInput_Validate(t *testing.T) {
+func TestTriggerIssueCreationInput_Validate(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
-		input   IssueTriggerInput
+		input   TriggerIssueCreationInput
 		wantErr bool
 	}{
 		{
 			name: "valid reaction input",
-			input: IssueTriggerInput{
+			input: TriggerIssueCreationInput{
 				ChannelID:     "C123",
 				ThreadTS:      "1234567890.123456",
 				TriggerUserID: "U123",
@@ -53,7 +53,7 @@ func TestIssueTriggerInput_Validate(t *testing.T) {
 		},
 		{
 			name: "valid message_action input",
-			input: IssueTriggerInput{
+			input: TriggerIssueCreationInput{
 				ChannelID:     "C123",
 				ThreadTS:      "1234567890.123456",
 				TriggerUserID: "U123",
@@ -63,7 +63,7 @@ func TestIssueTriggerInput_Validate(t *testing.T) {
 		},
 		{
 			name: "missing channel_id",
-			input: IssueTriggerInput{
+			input: TriggerIssueCreationInput{
 				ThreadTS:      "1234567890.123456",
 				TriggerUserID: "U123",
 				TriggerType:   "reaction",
@@ -72,7 +72,7 @@ func TestIssueTriggerInput_Validate(t *testing.T) {
 		},
 		{
 			name: "missing thread_ts",
-			input: IssueTriggerInput{
+			input: TriggerIssueCreationInput{
 				ChannelID:     "C123",
 				TriggerUserID: "U123",
 				TriggerType:   "reaction",
@@ -81,7 +81,7 @@ func TestIssueTriggerInput_Validate(t *testing.T) {
 		},
 		{
 			name: "missing trigger_user_id",
-			input: IssueTriggerInput{
+			input: TriggerIssueCreationInput{
 				ChannelID:   "C123",
 				ThreadTS:    "1234567890.123456",
 				TriggerType: "reaction",
@@ -90,7 +90,7 @@ func TestIssueTriggerInput_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid trigger_type",
-			input: IssueTriggerInput{
+			input: TriggerIssueCreationInput{
 				ChannelID:     "C123",
 				ThreadTS:      "1234567890.123456",
 				TriggerUserID: "U123",
@@ -111,7 +111,7 @@ func TestIssueTriggerInput_Validate(t *testing.T) {
 	}
 }
 
-func TestTriggerIssueCreation_Success(t *testing.T) {
+func TestExecute_Success(t *testing.T) {
 	t.Parallel()
 
 	threadMessages := []slack.ThreadMessage{
@@ -120,27 +120,27 @@ func TestTriggerIssueCreation_Success(t *testing.T) {
 	}
 
 	fetcher := &stubThreadFetcher{messages: threadMessages}
-	publisher := &spySQSPublisher{}
-	service := NewIssueTriggerService(fetcher, publisher)
+	queue := &spyMessageQueue{}
+	uc := NewTriggerIssueCreationUseCase(fetcher, queue)
 
-	input := IssueTriggerInput{
+	input := TriggerIssueCreationInput{
 		ChannelID:     "C123",
 		ThreadTS:      "1234567890.123456",
 		TriggerUserID: "U123",
 		TriggerType:   "reaction",
 	}
 
-	err := service.TriggerIssueCreation(context.Background(), input)
+	err := uc.Execute(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if publisher.calledQueue != "issue" {
-		t.Errorf("expected queue 'issue', got %q", publisher.calledQueue)
+	if queue.calledQueue != "issue" {
+		t.Errorf("expected queue 'issue', got %q", queue.calledQueue)
 	}
 
 	var msg IssueQueueMessage
-	if err := json.Unmarshal(publisher.calledBody, &msg); err != nil {
+	if err := json.Unmarshal(queue.calledBody, &msg); err != nil {
 		t.Fatalf("failed to unmarshal published message: %v", err)
 	}
 
@@ -164,60 +164,60 @@ func TestTriggerIssueCreation_Success(t *testing.T) {
 	}
 }
 
-func TestTriggerIssueCreation_InvalidInput(t *testing.T) {
+func TestExecute_InvalidInput(t *testing.T) {
 	t.Parallel()
 
 	fetcher := &stubThreadFetcher{}
-	publisher := &spySQSPublisher{}
-	service := NewIssueTriggerService(fetcher, publisher)
+	queue := &spyMessageQueue{}
+	uc := NewTriggerIssueCreationUseCase(fetcher, queue)
 
-	input := IssueTriggerInput{
+	input := TriggerIssueCreationInput{
 		ChannelID: "",
 		ThreadTS:  "1234567890.123456",
 	}
 
-	err := service.TriggerIssueCreation(context.Background(), input)
+	err := uc.Execute(context.Background(), input)
 	if err == nil {
 		t.Fatal("expected error for invalid input")
 	}
 }
 
-func TestTriggerIssueCreation_FetchError(t *testing.T) {
+func TestExecute_FetchError(t *testing.T) {
 	t.Parallel()
 
 	fetcher := &stubThreadFetcher{err: context.DeadlineExceeded}
-	publisher := &spySQSPublisher{}
-	service := NewIssueTriggerService(fetcher, publisher)
+	queue := &spyMessageQueue{}
+	uc := NewTriggerIssueCreationUseCase(fetcher, queue)
 
-	input := IssueTriggerInput{
+	input := TriggerIssueCreationInput{
 		ChannelID:     "C123",
 		ThreadTS:      "1234567890.123456",
 		TriggerUserID: "U123",
 		TriggerType:   "reaction",
 	}
 
-	err := service.TriggerIssueCreation(context.Background(), input)
+	err := uc.Execute(context.Background(), input)
 	if err == nil {
 		t.Fatal("expected error when thread fetcher fails")
 	}
 }
 
-func TestTriggerIssueCreation_PublishError(t *testing.T) {
+func TestExecute_PublishError(t *testing.T) {
 	t.Parallel()
 
 	fetcher := &stubThreadFetcher{messages: []slack.ThreadMessage{}}
-	publisher := &spySQSPublisher{err: context.DeadlineExceeded}
-	service := NewIssueTriggerService(fetcher, publisher)
+	queue := &spyMessageQueue{err: context.DeadlineExceeded}
+	uc := NewTriggerIssueCreationUseCase(fetcher, queue)
 
-	input := IssueTriggerInput{
+	input := TriggerIssueCreationInput{
 		ChannelID:     "C123",
 		ThreadTS:      "1234567890.123456",
 		TriggerUserID: "U123",
 		TriggerType:   "reaction",
 	}
 
-	err := service.TriggerIssueCreation(context.Background(), input)
+	err := uc.Execute(context.Background(), input)
 	if err == nil {
-		t.Fatal("expected error when SQS publish fails")
+		t.Fatal("expected error when queue publish fails")
 	}
 }

@@ -9,19 +9,19 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	slackpkg "github.com/Asheze1127/progress-checker/backend/pkg/slack"
 )
 
 // --- Test doubles ---
 
 type spyIssueTrigger struct {
-	calledWith application.IssueTriggerInput
+	calledWith usecase.TriggerIssueCreationInput
 	called     bool
 	err        error
 }
 
-func (s *spyIssueTrigger) TriggerIssueCreation(_ context.Context, input application.IssueTriggerInput) error {
+func (s *spyIssueTrigger) Execute(_ context.Context, input usecase.TriggerIssueCreationInput) error {
 	s.called = true
 	s.calledWith = input
 	return s.err

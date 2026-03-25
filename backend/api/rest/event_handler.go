@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	slackpkg "github.com/Asheze1127/progress-checker/backend/pkg/slack"
 )
 
@@ -15,7 +15,7 @@ const defaultTriggerEmoji = "ticket"
 
 // IssueTrigger defines the interface for triggering issue creation.
 type IssueTrigger interface {
-	TriggerIssueCreation(ctx context.Context, input application.IssueTriggerInput) error
+	Execute(ctx context.Context, input usecase.TriggerIssueCreationInput) error
 }
 
 // EventHandler handles incoming Slack Events API webhooks.
@@ -85,14 +85,14 @@ func (h *EventHandler) handleReactionAdded(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	input := application.IssueTriggerInput{
+	input := usecase.TriggerIssueCreationInput{
 		ChannelID:     event.Event.Item.Channel,
 		ThreadTS:      event.Event.Item.TS,
 		TriggerUserID: event.Event.User,
 		TriggerType:   "reaction",
 	}
 
-	if err := h.issueTrigger.TriggerIssueCreation(r.Context(), input); err != nil {
+	if err := h.issueTrigger.Execute(r.Context(), input); err != nil {
 		log.Printf("failed to trigger issue creation from reaction: %v", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
@@ -107,14 +107,14 @@ func (h *EventHandler) handleMessageAction(w http.ResponseWriter, r *http.Reques
 		threadTS = event.Message.TS
 	}
 
-	input := application.IssueTriggerInput{
+	input := usecase.TriggerIssueCreationInput{
 		ChannelID:     event.Channel.ID,
 		ThreadTS:      threadTS,
 		TriggerUserID: event.User.ID,
 		TriggerType:   "message_action",
 	}
 
-	if err := h.issueTrigger.TriggerIssueCreation(r.Context(), input); err != nil {
+	if err := h.issueTrigger.Execute(r.Context(), input); err != nil {
 		log.Printf("failed to trigger issue creation from message action: %v", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
