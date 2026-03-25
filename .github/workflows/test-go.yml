@@ -1,0 +1,37 @@
+name: Test Go
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/test-go.yml'
+
+jobs:
+  test:
+    name: go test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for go.mod
+        id: gomod
+        run: |
+          if [ -f backend/go.mod ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::backend/go.mod not found, skipping go test"
+          fi
+
+      - uses: actions/setup-go@v5
+        if: steps.gomod.outputs.present == 'true'
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Run Go tests
+        if: steps.gomod.outputs.present == 'true'
+        working-directory: backend
+        run: go test ./...
