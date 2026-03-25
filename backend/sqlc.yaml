@@ -1,9 +1,26 @@
 version: "2"
 sql:
   - engine: "postgresql"
-    queries: "database/postgres/queries"
+    queries: "database/postgres/queries/"
     schema: "database/postgres/schema.sql"
     gen:
       go:
-        package: "sqlcgen"
-        out: "infrastructure/sqlcgen"
+        package: "db"
+        out: "database/postgres/generated"
+        sql_package: "database/sql"
+        emit_json_tags: true
+        emit_prepared_queries: false
+        emit_interface: true
+        emit_exact_table_names: true
+        emit_empty_slices: true
+        overrides:
+          - db_type: "uuid"
+            go_type: "github.com/google/uuid.UUID"
+          - db_type: "user_role"
+            go_type: "string"
+          - db_type: "slack_channel_purpose"
+            go_type: "string"
+          - db_type: "progress_phase"
+            go_type: "string"
+          - db_type: "question_status"
+            go_type: "string"

@@ -3,127 +3,114 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"strings"
 
+	db "github.com/Asheze1127/progress-checker/backend/database/postgres/generated"
 	"github.com/Asheze1127/progress-checker/backend/entities"
+	"github.com/google/uuid"
 )
 
-// Compile-time check that QuestionRepository implements entities.QuestionRepository.
 var _ entities.QuestionRepository = (*QuestionRepository)(nil)
 
-// QuestionRepository is a PostgreSQL-backed implementation of entities.QuestionRepository.
+// QuestionRepository persists and queries questions in PostgreSQL.
 type QuestionRepository struct {
-	db *sql.DB
+	queries *db.Queries
 }
 
-// NewQuestionRepository creates a new QuestionRepository with the given database connection.
-func NewQuestionRepository(db *sql.DB) *QuestionRepository {
-	return &QuestionRepository{db: db}
+// NewQuestionRepository creates a new QuestionRepository backed by the given database connection.
+func NewQuestionRepository(database *sql.DB) *QuestionRepository {
+	return &QuestionRepository{queries: db.New(database)}
 }
 
-// Save validates and persists a Question entity using a transaction.
-func (r *QuestionRepository) Save(ctx context.Context, q *entities.Question) error {
-	if err := q.Validate(); err != nil {
-		return fmt.Errorf("invalid question: %w", err)
+func (r *QuestionRepository) Save(ctx context.Context, question *entities.Question) error {
+	if err := question.Validate(); err != nil {
+		return err
 	}
-
-	tx, err := r.db.BeginTx(ctx, nil)
+	qID, err := uuid.Parse(string(question.ID))
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return err
 	}
-	defer func() {
-		_ = tx.Rollback()
-	}()
-
-	mentorIDs := make([]string, len(q.MentorIDs))
-	for i, id := range q.MentorIDs {
-		mentorIDs[i] = string(id)
-	}
-
-	const query = `INSERT INTO questions (id, participant_id, mentor_ids, title, slack_channel_id, status, slack_thread_ts)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`
-
-	_, err = tx.ExecContext(ctx, query,
-		string(q.ID),
-		string(q.ParticipantID),
-		"{"+strings.Join(mentorIDs, ",")+"}",
-		q.Title,
-		string(q.SlackChannelID),
-		string(q.Status),
-		q.SlackThreadTS,
-	)
+	pID, err := uuid.Parse(string(question.ParticipantID))
 	if err != nil {
-		return fmt.Errorf("failed to insert question: %w", err)
+		return err
 	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
+	_, err = r.queries.InsertQuestion(ctx, db.InsertQuestionParams{
+		ID:             qID,
+		ParticipantID:  pID,
+		Title:          question.Title,
+		SlackChannelID: string(question.SlackChannelID),
+		Status:         string(question.Status),
+		SlackThreadTs:  question.SlackThreadTS,
+	})
+	return err
 }
 
-// FindByThreadTS retrieves a Question by its Slack channel ID and thread timestamp.
-func (r *QuestionRepository) FindByThreadTS(ctx context.Context, channelID, threadTS string) (*entities.Question, error) {
-	const query = `SELECT id, participant_id, mentor_ids, title, slack_channel_id, status, slack_thread_ts
-		FROM questions
-		WHERE slack_channel_id = $1 AND slack_thread_ts = $2`
-
-	var (
-		id            string
-		participantID string
-		mentorIDsRaw  string
-		title         string
-		slackChannel  string
-		status        string
-		slackThreadTS string
-	)
-
-	err := r.db.QueryRowContext(ctx, query, channelID, threadTS).Scan(
-		&id,
-		&participantID,
-		&mentorIDsRaw,
-		&title,
-		&slackChannel,
-		&status,
-		&slackThreadTS,
-	)
+func (r *QuestionRepository) GetByID(ctx context.Context, id entities.QuestionID) (*entities.Question, error) {
+	uid, err := uuid.Parse(string(id))
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to query question: %w", err)
+		return nil, err
 	}
+	row, err := r.queries.GetQuestionByID(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	return toQuestionEntity(row), nil
+}
 
-	mentorIDs := parseMentorIDs(mentorIDsRaw)
+func (r *QuestionRepository) GetByThreadTS(ctx context.Context, channelID entities.SlackChannelID, threadTS string) (*entities.Question, error) {
+	row, err := r.queries.GetQuestionByThreadTS(ctx, db.GetQuestionByThreadTSParams{
+		SlackChannelID: string(channelID),
+		SlackThreadTs:  threadTS,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return toQuestionEntity(row), nil
+}
 
+func (r *QuestionRepository) GetAwaitingByChannelAndThread(ctx context.Context, channelID entities.SlackChannelID, threadTS string) (*entities.Question, error) {
+	row, err := r.queries.GetAwaitingQuestionByChannelAndThread(ctx, db.GetAwaitingQuestionByChannelAndThreadParams{
+		SlackChannelID: string(channelID),
+		SlackThreadTs:  threadTS,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return toQuestionEntity(row), nil
+}
+
+func (r *QuestionRepository) UpdateStatus(ctx context.Context, id entities.QuestionID, status entities.QuestionStatus) error {
+	uid, err := uuid.Parse(string(id))
+	if err != nil {
+		return err
+	}
+	return r.queries.UpdateQuestionStatus(ctx, db.UpdateQuestionStatusParams{
+		Status: string(status),
+		ID:     uid,
+	})
+}
+
+func (r *QuestionRepository) AssignMentor(ctx context.Context, questionID entities.QuestionID, mentorUserID entities.MentorID) error {
+	qID, err := uuid.Parse(string(questionID))
+	if err != nil {
+		return err
+	}
+	mID, err := uuid.Parse(string(mentorUserID))
+	if err != nil {
+		return err
+	}
+	return r.queries.InsertQuestionMentorAssignment(ctx, db.InsertQuestionMentorAssignmentParams{
+		QuestionID:   qID,
+		MentorUserID: mID,
+	})
+}
+
+func toQuestionEntity(row db.Questions) *entities.Question {
 	return &entities.Question{
-		ID:             entities.QuestionID(id),
-		ParticipantID:  entities.ParticipantID(participantID),
-		MentorIDs:      mentorIDs,
-		Title:          title,
-		SlackChannelID: entities.SlackChannelID(slackChannel),
-		Status:         entities.QuestionStatus(status),
-		SlackThreadTS:  slackThreadTS,
-	}, nil
-}
-
-// parseMentorIDs converts a PostgreSQL array string like "{a,b,c}" into a slice of MentorID.
-func parseMentorIDs(raw string) []entities.MentorID {
-	trimmed := strings.Trim(raw, "{}")
-	if trimmed == "" {
-		return nil
+		ID:             entities.QuestionID(row.ID.String()),
+		ParticipantID:  entities.ParticipantID(row.ParticipantID.String()),
+		Title:          row.Title,
+		SlackChannelID: entities.SlackChannelID(row.SlackChannelID),
+		Status:         entities.QuestionStatus(row.Status),
+		SlackThreadTS:  row.SlackThreadTs,
 	}
-
-	parts := strings.Split(trimmed, ",")
-	mentorIDs := make([]entities.MentorID, 0, len(parts))
-	for _, p := range parts {
-		cleaned := strings.TrimSpace(p)
-		if cleaned != "" {
-			mentorIDs = append(mentorIDs, entities.MentorID(cleaned))
-		}
-	}
-
-	return mentorIDs
 }
