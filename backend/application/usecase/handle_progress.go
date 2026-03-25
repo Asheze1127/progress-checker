@@ -10,13 +10,12 @@ import (
 )
 
 // HandleProgressInput represents the input for the handle progress use case.
+// Text contains the raw text from the Slack slash command.
 type HandleProgressInput struct {
 	SlackUserID string
 	TeamID      string
 	ChannelID   string
-	Phase       string
-	SOS         bool
-	Comment     string
+	Text        string
 }
 
 // HandleProgressUseCase orchestrates the handling of a progress command.
@@ -36,7 +35,7 @@ func NewHandleProgressUseCase(repo entities.ProgressRepository, poster *service.
 }
 
 // Execute runs the handle progress use case.
-// It builds the entity, validates it, saves it, and posts to Slack.
+// It builds the entity, saves it (validation happens in the repository), and posts to Slack.
 func (uc *HandleProgressUseCase) Execute(ctx context.Context, input HandleProgressInput) error {
 	if input.SlackUserID == "" {
 		return fmt.Errorf("slack_user_id is required")
@@ -44,37 +43,29 @@ func (uc *HandleProgressUseCase) Execute(ctx context.Context, input HandleProgre
 	if input.ChannelID == "" {
 		return fmt.Errorf("channel_id is required")
 	}
-	if input.Phase == "" {
-		return fmt.Errorf("phase is required")
-	}
 
 	now := time.Now().UTC()
 
-	// 1. Build entity
+	// Build entity from raw text input
 	progressLog := &entities.ProgressLog{
 		ID:            entities.ProgressLogID(uc.idGen.Generate()),
 		ParticipantID: entities.ParticipantID(input.SlackUserID),
 		ProgressBodies: []entities.ProgressBody{
 			{
-				Phase:       entities.ProgressPhase(input.Phase),
-				SOS:         input.SOS,
-				Comment:     input.Comment,
+				Phase:       entities.ProgressPhase(input.Text),
+				SOS:         false,
+				Comment:     input.Text,
 				SubmittedAt: now,
 			},
 		},
 	}
 
-	// 2. Validate entity
-	if err := progressLog.Validate(); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
-	}
-
-	// 3. Save to repository
+	// Save to repository (validation is done in the repository layer)
 	if err := uc.repo.Save(ctx, progressLog); err != nil {
 		return fmt.Errorf("failed to save progress log: %w", err)
 	}
 
-	// 4. Post to Slack via service
+	// Post to Slack via service
 	if err := uc.poster.PostProgress(ctx, input.ChannelID, input.TeamID, progressLog); err != nil {
 		return err
 	}

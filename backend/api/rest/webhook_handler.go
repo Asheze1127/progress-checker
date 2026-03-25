@@ -1,30 +1,23 @@
 package rest
 
 import (
-	"context"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 )
 
 const progressCommand = "/progress"
 
-// ProgressCommandHandler defines the interface for handling progress commands.
-type ProgressCommandHandler interface {
-	Execute(ctx context.Context, input usecase.HandleProgressInput) error
-}
-
 // WebhookHandler handles incoming Slack webhook requests.
 type WebhookHandler struct {
-	progressHandler ProgressCommandHandler
+	progressUseCase *usecase.HandleProgressUseCase
 }
 
 // NewWebhookHandler creates a new WebhookHandler with the given dependencies.
-func NewWebhookHandler(progressHandler ProgressCommandHandler) *WebhookHandler {
+func NewWebhookHandler(progressUseCase *usecase.HandleProgressUseCase) *WebhookHandler {
 	return &WebhookHandler{
-		progressHandler: progressHandler,
+		progressUseCase: progressUseCase,
 	}
 }
 
@@ -48,27 +41,23 @@ func (h *WebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	switch command {
 	case progressCommand:
-		h.handleProgress(r.Context(), w, userID, teamID, channelID, text)
+		h.handleProgress(w, r, userID, teamID, channelID, text)
 	default:
 		http.Error(w, "unsupported command: "+command, http.StatusBadRequest)
 	}
 }
 
-// handleProgress parses the progress text and delegates to the use case.
-// Expected text format: "phase:<phase> [sos:true] [comment:<comment>]"
-func (h *WebhookHandler) handleProgress(ctx context.Context, w http.ResponseWriter, userID, teamID, channelID, text string) {
-	phase, sos, comment := parseProgressText(text)
-
+// handleProgress passes the raw Slack text directly to the use case.
+// Slack sends the user's input as-is in the text field, so no custom parsing is needed.
+func (h *WebhookHandler) handleProgress(w http.ResponseWriter, r *http.Request, userID, teamID, channelID, text string) {
 	input := usecase.HandleProgressInput{
 		SlackUserID: userID,
 		TeamID:      teamID,
 		ChannelID:   channelID,
-		Phase:       phase,
-		SOS:         sos,
-		Comment:     comment,
+		Text:        text,
 	}
 
-	if err := h.progressHandler.Execute(ctx, input); err != nil {
+	if err := h.progressUseCase.Execute(r.Context(), input); err != nil {
 		log.Printf("ERROR: failed to handle progress command: %v", err)
 		http.Error(w, "failed to process progress command", http.StatusInternalServerError)
 		return
@@ -77,36 +66,4 @@ func (h *WebhookHandler) handleProgress(ctx context.Context, w http.ResponseWrit
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"response_type":"in_channel","text":"進捗報告を受け付けました"}`))
-}
-
-// parseProgressText parses the text field from the /progress slash command.
-// Format: "phase:<phase> [sos:true] [comment:<comment>]"
-// Example: "phase:coding sos:true comment:Working on feature X"
-func parseProgressText(text string) (phase string, sos bool, comment string) {
-	parts := strings.Fields(text)
-
-	var commentParts []string
-	collectingComment := false
-
-	for _, part := range parts {
-		if collectingComment {
-			commentParts = append(commentParts, part)
-			continue
-		}
-
-		if strings.HasPrefix(part, "phase:") {
-			phase = strings.TrimPrefix(part, "phase:")
-		} else if strings.HasPrefix(part, "sos:") {
-			sos = strings.TrimPrefix(part, "sos:") == "true"
-		} else if strings.HasPrefix(part, "comment:") {
-			collectingComment = true
-			firstWord := strings.TrimPrefix(part, "comment:")
-			if firstWord != "" {
-				commentParts = append(commentParts, firstWord)
-			}
-		}
-	}
-
-	comment = strings.Join(commentParts, " ")
-	return phase, sos, comment
 }

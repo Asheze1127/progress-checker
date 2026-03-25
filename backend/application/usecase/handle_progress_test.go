@@ -66,31 +66,16 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 				SlackUserID: "U12345",
 				TeamID:      "team-alpha",
 				ChannelID:   "C12345",
-				Phase:       "coding",
-				SOS:         false,
-				Comment:     "Working on feature X",
+				Text:        "Working on feature X",
 			},
 			wantSlackMsg:  "進捗報告",
-			wantChannelID: "C12345",
-		},
-		{
-			name: "successful progress command with SOS",
-			input: HandleProgressInput{
-				SlackUserID: "U12345",
-				TeamID:      "team-alpha",
-				ChannelID:   "C12345",
-				Phase:       "testing",
-				SOS:         true,
-				Comment:     "Need help with tests",
-			},
-			wantSlackMsg:  ":sos:",
 			wantChannelID: "C12345",
 		},
 		{
 			name: "missing slack_user_id",
 			input: HandleProgressInput{
 				ChannelID: "C12345",
-				Phase:     "coding",
+				Text:      "some text",
 			},
 			wantErr:        true,
 			wantErrContain: "slack_user_id is required",
@@ -99,30 +84,10 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 			name: "missing channel_id",
 			input: HandleProgressInput{
 				SlackUserID: "U12345",
-				Phase:       "coding",
+				Text:        "some text",
 			},
 			wantErr:        true,
 			wantErrContain: "channel_id is required",
-		},
-		{
-			name: "missing phase",
-			input: HandleProgressInput{
-				SlackUserID: "U12345",
-				ChannelID:   "C12345",
-			},
-			wantErr:        true,
-			wantErrContain: "phase is required",
-		},
-		{
-			name: "invalid phase",
-			input: HandleProgressInput{
-				SlackUserID: "U12345",
-				TeamID:      "team-alpha",
-				ChannelID:   "C12345",
-				Phase:       "invalid_phase",
-			},
-			wantErr:        true,
-			wantErrContain: "validation failed",
 		},
 		{
 			name: "repository save error",
@@ -130,8 +95,7 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 				SlackUserID: "U12345",
 				TeamID:      "team-alpha",
 				ChannelID:   "C12345",
-				Phase:       "coding",
-				Comment:     "progress update",
+				Text:        "progress update",
 			},
 			repoErr:        errors.New("database connection error"),
 			wantErr:        true,
@@ -143,8 +107,7 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 				SlackUserID: "U12345",
 				TeamID:      "team-alpha",
 				ChannelID:   "C12345",
-				Phase:       "coding",
-				Comment:     "progress update",
+				Text:        "progress update",
 			},
 			slackErr:       errors.New("slack api error"),
 			wantErr:        true,
@@ -185,20 +148,6 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 			if repo.savedLog.ParticipantID != entities.ParticipantID(tt.input.SlackUserID) {
 				t.Fatalf("expected ParticipantID %q, got %q", tt.input.SlackUserID, repo.savedLog.ParticipantID)
 			}
-			if len(repo.savedLog.ProgressBodies) != 1 {
-				t.Fatalf("expected 1 progress body, got %d", len(repo.savedLog.ProgressBodies))
-			}
-
-			body := repo.savedLog.ProgressBodies[0]
-			if string(body.Phase) != tt.input.Phase {
-				t.Fatalf("expected phase %q, got %q", tt.input.Phase, body.Phase)
-			}
-			if body.SOS != tt.input.SOS {
-				t.Fatalf("expected SOS %v, got %v", tt.input.SOS, body.SOS)
-			}
-			if body.Comment != tt.input.Comment {
-				t.Fatalf("expected comment %q, got %q", tt.input.Comment, body.Comment)
-			}
 
 			// Verify Slack was called
 			if slackClient.postedChannelID != tt.wantChannelID {
@@ -222,9 +171,7 @@ func TestHandleProgressUseCaseSlackMessageFormat(t *testing.T) {
 		SlackUserID: "U12345",
 		TeamID:      "team-alpha",
 		ChannelID:   "C12345",
-		Phase:       "coding",
-		SOS:         false,
-		Comment:     "Implementing feature",
+		Text:        "Implementing feature",
 	}
 
 	err := uc.Execute(context.Background(), input)
@@ -235,43 +182,12 @@ func TestHandleProgressUseCaseSlackMessageFormat(t *testing.T) {
 	expectedParts := []string{
 		"進捗報告",
 		"チーム: team-alpha",
-		"フェーズ: coding",
-		"コメント: Implementing feature",
+		"Implementing feature",
 	}
 
 	for _, part := range expectedParts {
 		if !strings.Contains(slackClient.postedText, part) {
 			t.Fatalf("slack message %q does not contain %q", slackClient.postedText, part)
 		}
-	}
-
-	if strings.Contains(slackClient.postedText, ":sos:") {
-		t.Fatal("slack message should not contain :sos: when SOS is false")
-	}
-}
-
-func TestHandleProgressUseCaseSOSFormat(t *testing.T) {
-	repo := &mockProgressRepository{}
-	slackClient := &mockSlackClient{}
-	idGen := &mockIDGenerator{id: "test-id"}
-
-	uc := newTestUseCase(repo, slackClient, idGen)
-
-	input := HandleProgressInput{
-		SlackUserID: "U12345",
-		TeamID:      "team-alpha",
-		ChannelID:   "C12345",
-		Phase:       "testing",
-		SOS:         true,
-		Comment:     "Need help",
-	}
-
-	err := uc.Execute(context.Background(), input)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if !strings.Contains(slackClient.postedText, ":sos:") {
-		t.Fatal("slack message should contain :sos: when SOS is true")
 	}
 }
