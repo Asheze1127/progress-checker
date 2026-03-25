@@ -1,4 +1,5 @@
 import * as cdk from "aws-cdk-lib";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import type * as ecs from "aws-cdk-lib/aws-ecs";
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
@@ -14,6 +15,7 @@ export type EdgeLoadBalancersProps = {
   apiContainerPort: number;
   apiHealthCheckPath: string;
   healthCheckSuccessCodes: string;
+  publicAlbCertificateArn: string;
 };
 
 export type EdgeLoadBalancers = {
@@ -35,6 +37,21 @@ export function createEdgeLoadBalancers(scope: Construct, props: EdgeLoadBalance
     .addListener("PublicHttpListener", {
       open: false,
       port: 80,
+      defaultAction: elbv2.ListenerAction.redirect({
+        permanent: true,
+        port: "443",
+        protocol: "HTTPS",
+      }),
+    });
+
+  const certificate = acm.Certificate.fromCertificateArn(scope, "PublicAlbCertificate", props.publicAlbCertificateArn);
+
+  publicAlb
+    .addListener("PublicHttpsListener", {
+      certificates: [certificate],
+      open: false,
+      port: 443,
+      protocol: elbv2.ApplicationProtocol.HTTPS,
     })
     .addTargets("PublicApiTargets", {
       healthCheck: {

@@ -34,6 +34,11 @@ export class ProgressBoardStack extends cdk.Stack {
       type: "String",
     });
 
+    const publicAlbCertificateArn = new cdk.CfnParameter(this, "PublicAlbCertificateArn", {
+      description: "ACM certificate ARN for the public ALB HTTPS listener.",
+      type: "String",
+    });
+
     const databaseName = new cdk.CfnParameter(this, "DatabaseName", {
       default: configuration.databaseName,
       description: "PostgreSQL database name for the application.",
@@ -97,6 +102,7 @@ export class ProgressBoardStack extends cdk.Stack {
       internalAlbSecurityGroup: network.internalAlbSecurityGroup,
       issueApiRecordName: configuration.issueApiRecordName,
       privateHostedZoneName: configuration.privateHostedZoneName,
+      publicAlbCertificateArn: publicAlbCertificateArn.valueAsString,
       publicAlbSecurityGroup: network.publicAlbSecurityGroup,
       publicWebAclName: configuration.publicWebAclName,
       vpc: network.vpc,
