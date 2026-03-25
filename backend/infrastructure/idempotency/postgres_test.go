@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/Asheze1127/progress-checker/backend/pkg/middleware"
+	"github.com/Asheze1127/progress-checker/backend/api/middleware"
 )
 
 // TestPostgresStoreImplementsInterface verifies that PostgresStore satisfies

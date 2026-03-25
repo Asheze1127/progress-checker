@@ -5,7 +5,12 @@ import (
 	"context"
 	"database/sql"
 	"time"
+
+	"github.com/Asheze1127/progress-checker/backend/api/middleware"
 )
+
+// Compile-time check that PostgresStore implements middleware.IdempotencyStore.
+var _ middleware.IdempotencyStore = (*PostgresStore)(nil)
 
 // PostgresStore is a PostgreSQL-backed implementation of middleware.IdempotencyStore.
 // It uses the idempotency_keys table for persistence across multiple instances.
