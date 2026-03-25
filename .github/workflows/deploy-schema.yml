@@ -4,16 +4,19 @@ on:
   push:
     branches:
       - main
+      - production
     paths:
       - "backend/database/**"
 
 concurrency:
-  group: deploy-schema
+  group: deploy-schema-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
-  deploy-schema:
+  deploy-staging:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: staging
     permissions:
       contents: read
     steps:
@@ -42,6 +45,21 @@ jobs:
           DB_NAME_STG: ${{ secrets.DB_NAME_STG }}
         run: |
           psqldef -h "$DB_HOST_STG" -U "$DB_USER_STG" -p 5432 "$DB_NAME_STG" < backend/database/postgres/schema.sql
+
+  deploy-production:
+    if: github.ref == 'refs/heads/production'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install psqldef
+        run: |
+          curl -sL https://github.com/sqldef/sqldef/releases/latest/download/psqldef_linux_amd64.tar.gz | tar xz
+          sudo mv psqldef /usr/local/bin/
+          psqldef --version
 
       - name: Dry-run schema against production
         env:
