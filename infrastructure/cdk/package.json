@@ -1,0 +1,33 @@
+{
+  "name": "@progress-checker/infrastructure-cdk",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AWS CDK infrastructure for KCL Progress Board.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "format": "biome format . --write",
+    "format:check": "biome format .",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "lint": "npm run format:check --silent && biome lint . && npm run typecheck --silent",
+    "lint:fix": "biome lint --write .",
+    "synth": "npm run synth:stg --silent && npm run synth:prod --silent",
+    "synth:stg": "npm run build --silent && cdk synth -c stage=stg",
+    "synth:prod": "npm run build --silent && cdk synth -c stage=prod",
+    "test": "npm run build --silent && node --test dist/test/**/*.test.js",
+    "cdk:lint": "npm run lint --silent && npm run synth --silent --",
+    "cdk:plan:stg": "npm run build --silent && cdk diff --all -c stage=stg",
+    "cdk:plan:prod": "npm run build --silent && cdk diff --all -c stage=prod",
+    "cdk:apply:stg": "npm run build --silent && cdk deploy --all -c stage=stg",
+    "cdk:apply:prod": "npm run build --silent && cdk deploy --all -c stage=prod"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.244.0",
+    "constructs": "^10.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "aws-cdk": "^2.1112.0",
+    "typescript": "^5.9.3"
+  }
+}
