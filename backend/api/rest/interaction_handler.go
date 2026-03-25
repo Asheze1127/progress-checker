@@ -5,19 +5,29 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 	slackpkg "github.com/Asheze1127/progress-checker/backend/pkg/slack"
 )
 
 // InteractionHandler handles Slack interactive component callbacks.
 type InteractionHandler struct {
-	questionActionService *application.QuestionActionService
+	resolveQuestion  *usecase.ResolveQuestionUsecase
+	continueQuestion *usecase.ContinueQuestionUsecase
+	escalateQuestion *usecase.EscalateQuestionUsecase
 }
 
 // NewInteractionHandler creates a new InteractionHandler.
-func NewInteractionHandler(svc *application.QuestionActionService) *InteractionHandler {
-	return &InteractionHandler{questionActionService: svc}
+func NewInteractionHandler(
+	resolve *usecase.ResolveQuestionUsecase,
+	cont *usecase.ContinueQuestionUsecase,
+	escalate *usecase.EscalateQuestionUsecase,
+) *InteractionHandler {
+	return &InteractionHandler{
+		resolveQuestion:  resolve,
+		continueQuestion: cont,
+		escalateQuestion: escalate,
+	}
 }
 
 // slackInteractionPayload represents the top-level Slack interaction callback.
@@ -88,11 +98,11 @@ func (h *InteractionHandler) HandleInteraction(w http.ResponseWriter, r *http.Re
 	var err error
 	switch action.ActionID {
 	case slackpkg.ActionIDQuestionResolved:
-		err = h.questionActionService.ResolveQuestion(ctx, questionID)
+		err = h.resolveQuestion.Execute(ctx, questionID)
 	case slackpkg.ActionIDQuestionContinue:
-		err = h.questionActionService.ContinueQuestion(ctx, questionID)
+		err = h.continueQuestion.Execute(ctx, questionID)
 	case slackpkg.ActionIDQuestionEscalate:
-		err = h.questionActionService.EscalateToMentor(ctx, questionID)
+		err = h.escalateQuestion.Execute(ctx, questionID)
 	default:
 		log.Printf("unknown action_id %q from user %s", action.ActionID, payload.User.ID)
 		w.WriteHeader(http.StatusOK)

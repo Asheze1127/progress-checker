@@ -9,16 +9,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
 // --- Test doubles ---
 
 type mockQuestionRepo struct {
-	question    *entities.Question
-	findErr     error
-	updateErr   error
+	question      *entities.Question
+	findErr       error
+	updateErr     error
 	updatedID     entities.QuestionID
 	updatedStatus entities.QuestionStatus
 }
@@ -46,9 +47,15 @@ func (n *mockSlackNotifier) PostToMentorChannel(_ context.Context, q *entities.Q
 	return n.postErr
 }
 
+// Compile-time interface checks.
+var _ entities.QuestionRepository = (*mockQuestionRepo)(nil)
+var _ service.SlackNotifier = (*mockSlackNotifier)(nil)
+
 func newTestHandler(repo *mockQuestionRepo, notifier *mockSlackNotifier) *InteractionHandler {
-	svc := application.NewQuestionActionService(repo, notifier)
-	return NewInteractionHandler(svc)
+	resolve := usecase.NewResolveQuestionUsecase(repo)
+	cont := usecase.NewContinueQuestionUsecase(repo)
+	escalate := usecase.NewEscalateQuestionUsecase(repo, notifier)
+	return NewInteractionHandler(resolve, cont, escalate)
 }
 
 func buildPayload(actionID, questionID string) string {

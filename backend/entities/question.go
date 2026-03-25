@@ -77,3 +77,26 @@ func (q Question) Validate() error {
 
 	return errors.Join(errs...)
 }
+
+// validTransitions defines the allowed status transitions for a question.
+var validTransitions = map[QuestionStatus][]QuestionStatus{
+	QuestionStatusOpen:           {QuestionStatusResolved, QuestionStatusInProgress, QuestionStatusAssignedMentor},
+	QuestionStatusInProgress:     {QuestionStatusResolved, QuestionStatusAssignedMentor},
+	QuestionStatusAssignedMentor: {QuestionStatusResolved},
+	QuestionStatusResolved:       {},
+}
+
+// CanTransitionTo returns true if the question can move from its current status
+// to the given target status.
+func (q *Question) CanTransitionTo(status QuestionStatus) bool {
+	allowed, ok := validTransitions[q.Status]
+	if !ok {
+		return false
+	}
+	for _, s := range allowed {
+		if s == status {
+			return true
+		}
+	}
+	return false
+}
