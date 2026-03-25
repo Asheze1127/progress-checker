@@ -34,19 +34,10 @@ func (m *mockSlackClient) PostMessage(_ context.Context, channelID string, text 
 	return m.err
 }
 
-// mockIDGenerator is a test double for service.IDGenerator.
-type mockIDGenerator struct {
-	id string
-}
-
-func (m *mockIDGenerator) Generate() string {
-	return m.id
-}
-
-func newTestUseCase(repo entities.ProgressRepository, slackClient service.SlackClient, idGen service.IDGenerator) *HandleProgressUseCase {
+func newTestUseCase(repo entities.ProgressRepository, slackClient service.SlackClient) *HandleProgressUseCase {
 	formatter := service.NewProgressFormatter()
 	poster := service.NewSlackPoster(slackClient, formatter)
-	return NewHandleProgressUseCase(repo, poster, idGen)
+	return NewHandleProgressUseCase(repo, poster)
 }
 
 func TestHandleProgressUseCaseExecute(t *testing.T) {
@@ -66,7 +57,9 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 				SlackUserID: "U12345",
 				TeamID:      "team-alpha",
 				ChannelID:   "C12345",
-				Text:        "Working on feature X",
+				Phase:       entities.ProgressPhaseCoding,
+				SOS:         false,
+				Comment:     "Working on feature X",
 			},
 			wantSlackMsg:  "進捗報告",
 			wantChannelID: "C12345",
@@ -75,7 +68,8 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 			name: "missing slack_user_id",
 			input: HandleProgressInput{
 				ChannelID: "C12345",
-				Text:      "some text",
+				Phase:     entities.ProgressPhaseCoding,
+				Comment:   "some text",
 			},
 			wantErr:        true,
 			wantErrContain: "slack_user_id is required",
@@ -84,7 +78,8 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 			name: "missing channel_id",
 			input: HandleProgressInput{
 				SlackUserID: "U12345",
-				Text:        "some text",
+				Phase:       entities.ProgressPhaseCoding,
+				Comment:     "some text",
 			},
 			wantErr:        true,
 			wantErrContain: "channel_id is required",
@@ -95,7 +90,8 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 				SlackUserID: "U12345",
 				TeamID:      "team-alpha",
 				ChannelID:   "C12345",
-				Text:        "progress update",
+				Phase:       entities.ProgressPhaseCoding,
+				Comment:     "progress update",
 			},
 			repoErr:        errors.New("database connection error"),
 			wantErr:        true,
@@ -107,7 +103,8 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 				SlackUserID: "U12345",
 				TeamID:      "team-alpha",
 				ChannelID:   "C12345",
-				Text:        "progress update",
+				Phase:       entities.ProgressPhaseCoding,
+				Comment:     "progress update",
 			},
 			slackErr:       errors.New("slack api error"),
 			wantErr:        true,
@@ -119,9 +116,8 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := &mockProgressRepository{err: tt.repoErr}
 			slackClient := &mockSlackClient{err: tt.slackErr}
-			idGen := &mockIDGenerator{id: "test-progress-id"}
 
-			uc := newTestUseCase(repo, slackClient, idGen)
+			uc := newTestUseCase(repo, slackClient)
 			err := uc.Execute(context.Background(), tt.input)
 
 			if tt.wantErr {
@@ -142,8 +138,8 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 			if repo.savedLog == nil {
 				t.Fatal("expected progress log to be saved")
 			}
-			if repo.savedLog.ID != "test-progress-id" {
-				t.Fatalf("expected ID %q, got %q", "test-progress-id", repo.savedLog.ID)
+			if repo.savedLog.ID == "" {
+				t.Fatal("expected progress log to have a generated ID")
 			}
 			if repo.savedLog.ParticipantID != entities.ParticipantID(tt.input.SlackUserID) {
 				t.Fatalf("expected ParticipantID %q, got %q", tt.input.SlackUserID, repo.savedLog.ParticipantID)
@@ -163,15 +159,16 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 func TestHandleProgressUseCaseSlackMessageFormat(t *testing.T) {
 	repo := &mockProgressRepository{}
 	slackClient := &mockSlackClient{}
-	idGen := &mockIDGenerator{id: "test-id"}
 
-	uc := newTestUseCase(repo, slackClient, idGen)
+	uc := newTestUseCase(repo, slackClient)
 
 	input := HandleProgressInput{
 		SlackUserID: "U12345",
 		TeamID:      "team-alpha",
 		ChannelID:   "C12345",
-		Text:        "Implementing feature",
+		Phase:       entities.ProgressPhaseCoding,
+		SOS:         false,
+		Comment:     "Implementing feature",
 	}
 
 	err := uc.Execute(context.Background(), input)
@@ -182,7 +179,8 @@ func TestHandleProgressUseCaseSlackMessageFormat(t *testing.T) {
 	expectedParts := []string{
 		"進捗報告",
 		"チーム: team-alpha",
-		"Implementing feature",
+		"フェーズ: coding",
+		"コメント: Implementing feature",
 	}
 
 	for _, part := range expectedParts {

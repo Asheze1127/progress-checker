@@ -11,16 +11,7 @@ import (
 	"github.com/Asheze1127/progress-checker/backend/infrastructure/postgres"
 	slackinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/slack"
 	"github.com/Asheze1127/progress-checker/backend/util"
-	"github.com/google/uuid"
 )
-
-// uuidGenerator wraps the google/uuid library to implement service.IDGenerator.
-type uuidGenerator struct{}
-
-// Generate creates a new UUID v4 string.
-func (g *uuidGenerator) Generate() string {
-	return uuid.New().String()
-}
 
 // wireRouter builds all dependencies and returns the configured HTTP router.
 func wireRouter(cfg *util.Config) (*http.ServeMux, error) {
@@ -37,14 +28,13 @@ func wireRouter(cfg *util.Config) (*http.ServeMux, error) {
 	}
 
 	repo := postgres.NewProgressRepository(db)
-	idGen := &uuidGenerator{}
 
 	// Wire application services
 	formatter := service.NewProgressFormatter()
 	poster := service.NewSlackPoster(slackClient, formatter)
 
 	// Wire use case
-	handleProgressUC := usecase.NewHandleProgressUseCase(repo, poster, idGen)
+	handleProgressUC := usecase.NewHandleProgressUseCase(repo, poster)
 
 	// Wire HTTP handlers
 	webhookHandler := rest.NewWebhookHandler(handleProgressUC)

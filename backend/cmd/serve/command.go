@@ -10,7 +10,10 @@ import (
 
 // Run starts the HTTP server with all dependencies wired.
 func Run() error {
-	cfg := util.LoadConfig()
+	cfg, err := util.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
 
 	router, err := wireRouter(cfg)
 	if err != nil {

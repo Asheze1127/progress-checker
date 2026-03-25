@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
+	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
 const progressCommand = "/progress"
@@ -37,24 +38,30 @@ func (h *WebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	userID := r.FormValue("user_id")
 	teamID := r.FormValue("team_id")
 	channelID := r.FormValue("channel_id")
-	text := r.FormValue("text")
 
 	switch command {
 	case progressCommand:
-		h.handleProgress(w, r, userID, teamID, channelID, text)
+		h.handleProgress(w, r, userID, teamID, channelID)
 	default:
 		http.Error(w, "unsupported command: "+command, http.StatusBadRequest)
 	}
 }
 
-// handleProgress passes the raw Slack text directly to the use case.
-// Slack sends the user's input as-is in the text field, so no custom parsing is needed.
-func (h *WebhookHandler) handleProgress(w http.ResponseWriter, r *http.Request, userID, teamID, channelID, text string) {
+// handleProgress extracts structured fields from the Slack modal submission
+// and passes them to the use case. Slack sends phase, sos, and comment as
+// separate form values from the modal UI.
+func (h *WebhookHandler) handleProgress(w http.ResponseWriter, r *http.Request, userID, teamID, channelID string) {
+	phase := r.FormValue("phase")
+	sos := r.FormValue("sos") == "true"
+	comment := r.FormValue("comment")
+
 	input := usecase.HandleProgressInput{
 		SlackUserID: userID,
 		TeamID:      teamID,
 		ChannelID:   channelID,
-		Text:        text,
+		Phase:       entities.ProgressPhase(phase),
+		SOS:         sos,
+		Comment:     comment,
 	}
 
 	if err := h.progressUseCase.Execute(r.Context(), input); err != nil {
