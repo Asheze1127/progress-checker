@@ -8,12 +8,6 @@ import (
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
-// QuestionRepository defines the persistence interface for Question entities.
-type QuestionRepository interface {
-	Save(ctx context.Context, q *entities.Question) error
-	FindByThreadTS(ctx context.Context, channelID, threadTS string) (*entities.Question, error)
-}
-
 // MessageQueue defines the interface for sending messages to a queue.
 type MessageQueue interface {
 	Send(ctx context.Context, queueName string, message []byte) error
@@ -26,13 +20,13 @@ type IDGenerator interface {
 
 // QuestionService handles application-level logic for question operations.
 type QuestionService struct {
-	repo        QuestionRepository
+	repo        entities.QuestionRepository
 	queue       MessageQueue
 	idGenerator IDGenerator
 }
 
 // NewQuestionService creates a new QuestionService with the given dependencies.
-func NewQuestionService(repo QuestionRepository, queue MessageQueue, idGenerator IDGenerator) *QuestionService {
+func NewQuestionService(repo entities.QuestionRepository, queue MessageQueue, idGenerator IDGenerator) *QuestionService {
 	return &QuestionService{
 		repo:        repo,
 		queue:       queue,
@@ -73,10 +67,6 @@ func (s *QuestionService) HandleNewQuestion(ctx context.Context, input NewQuesti
 		SlackChannelID: entities.SlackChannelID(input.SlackChannelID),
 		Status:         entities.QuestionStatusOpen,
 		SlackThreadTS:  threadTS,
-	}
-
-	if err := question.Validate(); err != nil {
-		return fmt.Errorf("invalid question: %w", err)
 	}
 
 	if err := s.repo.Save(ctx, question); err != nil {

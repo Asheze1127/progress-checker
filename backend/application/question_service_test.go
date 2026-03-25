@@ -127,12 +127,19 @@ func TestHandleNewQuestion_Success(t *testing.T) {
 }
 
 func TestHandleNewQuestion_ValidationError(t *testing.T) {
-	repo := &mockQuestionRepository{}
+	repo := &mockQuestionRepository{
+		saveFunc: func(ctx context.Context, q *entities.Question) error {
+			if err := q.Validate(); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
 	queue := &mockMessageQueue{}
 	idGen := &mockIDGenerator{ids: []string{"question-123", "thread-456"}}
 	service := NewQuestionService(repo, queue, idGen)
 
-	// Empty title should cause validation error
+	// Empty title should cause validation error from the repo layer
 	input := NewQuestionInput{
 		ParticipantID:  "user-1",
 		Title:          "",
@@ -143,10 +150,6 @@ func TestHandleNewQuestion_ValidationError(t *testing.T) {
 	err := service.HandleNewQuestion(context.Background(), input)
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
-	}
-
-	if repo.savedQuestion != nil {
-		t.Error("expected no question to be saved on validation error")
 	}
 }
 
