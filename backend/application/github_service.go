@@ -64,10 +64,6 @@ func (s *GitHubService) RegisterRepository(ctx context.Context, teamID string, r
 		UpdatedAt:      now,
 	}
 
-	if err := ghRepo.Validate(); err != nil {
-		return fmt.Errorf("validate github repo: %w", err)
-	}
-
 	if err := s.repo.Save(ctx, ghRepo); err != nil {
 		return fmt.Errorf("save github repo: %w", err)
 	}
