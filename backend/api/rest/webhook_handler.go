@@ -6,14 +6,14 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 )
 
 const progressCommand = "/progress"
 
 // ProgressCommandHandler defines the interface for handling progress commands.
 type ProgressCommandHandler interface {
-	HandleProgressCommand(ctx context.Context, input application.ProgressCommandInput) error
+	Execute(ctx context.Context, input usecase.HandleProgressInput) error
 }
 
 // WebhookHandler handles incoming Slack webhook requests.
@@ -54,12 +54,12 @@ func (h *WebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleProgress parses the progress text and delegates to the application service.
+// handleProgress parses the progress text and delegates to the use case.
 // Expected text format: "phase:<phase> [sos:true] [comment:<comment>]"
 func (h *WebhookHandler) handleProgress(ctx context.Context, w http.ResponseWriter, userID, teamID, channelID, text string) {
 	phase, sos, comment := parseProgressText(text)
 
-	input := application.ProgressCommandInput{
+	input := usecase.HandleProgressInput{
 		SlackUserID: userID,
 		TeamID:      teamID,
 		ChannelID:   channelID,
@@ -68,7 +68,7 @@ func (h *WebhookHandler) handleProgress(ctx context.Context, w http.ResponseWrit
 		Comment:     comment,
 	}
 
-	if err := h.progressHandler.HandleProgressCommand(ctx, input); err != nil {
+	if err := h.progressHandler.Execute(ctx, input); err != nil {
 		log.Printf("ERROR: failed to handle progress command: %v", err)
 		http.Error(w, "failed to process progress command", http.StatusInternalServerError)
 		return

@@ -7,7 +7,8 @@ import (
 	"os"
 
 	"github.com/Asheze1127/progress-checker/backend/api/rest"
-	"github.com/Asheze1127/progress-checker/backend/application"
+	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	slackinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/slack"
 )
 
@@ -50,10 +51,14 @@ func Run() error {
 	idGen := &uuidGenerator{}
 
 	// Wire application services
-	progressService := application.NewProgressService(repo, slackClient, idGen)
+	formatter := service.NewProgressFormatter()
+	poster := service.NewSlackPoster(slackClient, formatter)
+
+	// Wire use case
+	handleProgressUC := usecase.NewHandleProgressUseCase(repo, poster, idGen)
 
 	// Wire HTTP handlers
-	webhookHandler := rest.NewWebhookHandler(progressService)
+	webhookHandler := rest.NewWebhookHandler(handleProgressUC)
 	router := rest.NewRouter(webhookHandler)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)

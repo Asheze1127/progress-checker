@@ -9,17 +9,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 )
 
 // mockProgressCommandHandler is a test double for ProgressCommandHandler.
 type mockProgressCommandHandler struct {
-	receivedInput application.ProgressCommandInput
+	receivedInput usecase.HandleProgressInput
 	err           error
 	called        bool
 }
 
-func (m *mockProgressCommandHandler) HandleProgressCommand(_ context.Context, input application.ProgressCommandInput) error {
+func (m *mockProgressCommandHandler) Execute(_ context.Context, input usecase.HandleProgressInput) error {
 	m.called = true
 	m.receivedInput = input
 	return m.err

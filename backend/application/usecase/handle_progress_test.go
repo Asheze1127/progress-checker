@@ -1,4 +1,4 @@
-package application
+package usecase
 
 import (
 	"context"
@@ -6,10 +6,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Asheze1127/progress-checker/backend/application/service"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
-// mockProgressRepository is a test double for ProgressRepository.
+// mockProgressRepository is a test double for entities.ProgressRepository.
 type mockProgressRepository struct {
 	savedLog *entities.ProgressLog
 	err      error
@@ -20,7 +21,7 @@ func (m *mockProgressRepository) Save(_ context.Context, log *entities.ProgressL
 	return m.err
 }
 
-// mockSlackClient is a test double for SlackClient.
+// mockSlackClient is a test double for service.SlackClient.
 type mockSlackClient struct {
 	postedChannelID string
 	postedText      string
@@ -33,7 +34,7 @@ func (m *mockSlackClient) PostMessage(_ context.Context, channelID string, text 
 	return m.err
 }
 
-// mockIDGenerator is a test double for IDGenerator.
+// mockIDGenerator is a test double for service.IDGenerator.
 type mockIDGenerator struct {
 	id string
 }
@@ -42,10 +43,16 @@ func (m *mockIDGenerator) Generate() string {
 	return m.id
 }
 
-func TestHandleProgressCommand(t *testing.T) {
+func newTestUseCase(repo entities.ProgressRepository, slackClient service.SlackClient, idGen service.IDGenerator) *HandleProgressUseCase {
+	formatter := service.NewProgressFormatter()
+	poster := service.NewSlackPoster(slackClient, formatter)
+	return NewHandleProgressUseCase(repo, poster, idGen)
+}
+
+func TestHandleProgressUseCaseExecute(t *testing.T) {
 	tests := []struct {
 		name           string
-		input          ProgressCommandInput
+		input          HandleProgressInput
 		repoErr        error
 		slackErr       error
 		wantErr        bool
@@ -55,7 +62,7 @@ func TestHandleProgressCommand(t *testing.T) {
 	}{
 		{
 			name: "successful progress command",
-			input: ProgressCommandInput{
+			input: HandleProgressInput{
 				SlackUserID: "U12345",
 				TeamID:      "team-alpha",
 				ChannelID:   "C12345",
@@ -68,7 +75,7 @@ func TestHandleProgressCommand(t *testing.T) {
 		},
 		{
 			name: "successful progress command with SOS",
-			input: ProgressCommandInput{
+			input: HandleProgressInput{
 				SlackUserID: "U12345",
 				TeamID:      "team-alpha",
 				ChannelID:   "C12345",
@@ -81,7 +88,7 @@ func TestHandleProgressCommand(t *testing.T) {
 		},
 		{
 			name: "missing slack_user_id",
-			input: ProgressCommandInput{
+			input: HandleProgressInput{
 				ChannelID: "C12345",
 				Phase:     "coding",
 			},
@@ -90,7 +97,7 @@ func TestHandleProgressCommand(t *testing.T) {
 		},
 		{
 			name: "missing channel_id",
-			input: ProgressCommandInput{
+			input: HandleProgressInput{
 				SlackUserID: "U12345",
 				Phase:       "coding",
 			},
@@ -99,7 +106,7 @@ func TestHandleProgressCommand(t *testing.T) {
 		},
 		{
 			name: "missing phase",
-			input: ProgressCommandInput{
+			input: HandleProgressInput{
 				SlackUserID: "U12345",
 				ChannelID:   "C12345",
 			},
@@ -108,7 +115,7 @@ func TestHandleProgressCommand(t *testing.T) {
 		},
 		{
 			name: "invalid phase",
-			input: ProgressCommandInput{
+			input: HandleProgressInput{
 				SlackUserID: "U12345",
 				TeamID:      "team-alpha",
 				ChannelID:   "C12345",
@@ -119,7 +126,7 @@ func TestHandleProgressCommand(t *testing.T) {
 		},
 		{
 			name: "repository save error",
-			input: ProgressCommandInput{
+			input: HandleProgressInput{
 				SlackUserID: "U12345",
 				TeamID:      "team-alpha",
 				ChannelID:   "C12345",
@@ -132,7 +139,7 @@ func TestHandleProgressCommand(t *testing.T) {
 		},
 		{
 			name: "slack post error",
-			input: ProgressCommandInput{
+			input: HandleProgressInput{
 				SlackUserID: "U12345",
 				TeamID:      "team-alpha",
 				ChannelID:   "C12345",
@@ -148,11 +155,11 @@ func TestHandleProgressCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := &mockProgressRepository{err: tt.repoErr}
-			slack := &mockSlackClient{err: tt.slackErr}
+			slackClient := &mockSlackClient{err: tt.slackErr}
 			idGen := &mockIDGenerator{id: "test-progress-id"}
 
-			svc := NewProgressService(repo, slack, idGen)
-			err := svc.HandleProgressCommand(context.Background(), tt.input)
+			uc := newTestUseCase(repo, slackClient, idGen)
+			err := uc.Execute(context.Background(), tt.input)
 
 			if tt.wantErr {
 				if err == nil {
@@ -194,24 +201,24 @@ func TestHandleProgressCommand(t *testing.T) {
 			}
 
 			// Verify Slack was called
-			if slack.postedChannelID != tt.wantChannelID {
-				t.Fatalf("expected channel %q, got %q", tt.wantChannelID, slack.postedChannelID)
+			if slackClient.postedChannelID != tt.wantChannelID {
+				t.Fatalf("expected channel %q, got %q", tt.wantChannelID, slackClient.postedChannelID)
 			}
-			if tt.wantSlackMsg != "" && !strings.Contains(slack.postedText, tt.wantSlackMsg) {
-				t.Fatalf("slack message %q does not contain %q", slack.postedText, tt.wantSlackMsg)
+			if tt.wantSlackMsg != "" && !strings.Contains(slackClient.postedText, tt.wantSlackMsg) {
+				t.Fatalf("slack message %q does not contain %q", slackClient.postedText, tt.wantSlackMsg)
 			}
 		})
 	}
 }
 
-func TestHandleProgressCommandSlackMessageFormat(t *testing.T) {
+func TestHandleProgressUseCaseSlackMessageFormat(t *testing.T) {
 	repo := &mockProgressRepository{}
-	slack := &mockSlackClient{}
+	slackClient := &mockSlackClient{}
 	idGen := &mockIDGenerator{id: "test-id"}
 
-	svc := NewProgressService(repo, slack, idGen)
+	uc := newTestUseCase(repo, slackClient, idGen)
 
-	input := ProgressCommandInput{
+	input := HandleProgressInput{
 		SlackUserID: "U12345",
 		TeamID:      "team-alpha",
 		ChannelID:   "C12345",
@@ -220,7 +227,7 @@ func TestHandleProgressCommandSlackMessageFormat(t *testing.T) {
 		Comment:     "Implementing feature",
 	}
 
-	err := svc.HandleProgressCommand(context.Background(), input)
+	err := uc.Execute(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -233,25 +240,24 @@ func TestHandleProgressCommandSlackMessageFormat(t *testing.T) {
 	}
 
 	for _, part := range expectedParts {
-		if !strings.Contains(slack.postedText, part) {
-			t.Fatalf("slack message %q does not contain %q", slack.postedText, part)
+		if !strings.Contains(slackClient.postedText, part) {
+			t.Fatalf("slack message %q does not contain %q", slackClient.postedText, part)
 		}
 	}
 
-	// Verify SOS emoji is NOT present when SOS is false
-	if strings.Contains(slack.postedText, ":sos:") {
+	if strings.Contains(slackClient.postedText, ":sos:") {
 		t.Fatal("slack message should not contain :sos: when SOS is false")
 	}
 }
 
-func TestHandleProgressCommandSOSFormat(t *testing.T) {
+func TestHandleProgressUseCaseSOSFormat(t *testing.T) {
 	repo := &mockProgressRepository{}
-	slack := &mockSlackClient{}
+	slackClient := &mockSlackClient{}
 	idGen := &mockIDGenerator{id: "test-id"}
 
-	svc := NewProgressService(repo, slack, idGen)
+	uc := newTestUseCase(repo, slackClient, idGen)
 
-	input := ProgressCommandInput{
+	input := HandleProgressInput{
 		SlackUserID: "U12345",
 		TeamID:      "team-alpha",
 		ChannelID:   "C12345",
@@ -260,12 +266,12 @@ func TestHandleProgressCommandSOSFormat(t *testing.T) {
 		Comment:     "Need help",
 	}
 
-	err := svc.HandleProgressCommand(context.Background(), input)
+	err := uc.Execute(context.Background(), input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(slack.postedText, ":sos:") {
+	if !strings.Contains(slackClient.postedText, ":sos:") {
 		t.Fatal("slack message should contain :sos: when SOS is true")
 	}
 }
