@@ -281,7 +281,7 @@ describe("handler", () => {
 
     const event = createSqsEvent([createValidMessage()]);
 
-    await expect(handler(event, mockContext, mockCallback)).rejects.toThrow("Model unavailable");
+    await expect(handler(event, mockContext, mockCallback)).rejects.toThrow("Failed to process 1 record(s)");
   });
 
   it("should handle events with no records", async () => {
