@@ -4,16 +4,16 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	ghsvc "github.com/Asheze1127/progress-checker/backend/application/service"
 )
 
 // InternalHandler handles internal API requests (accessible via Internal ALB).
 type InternalHandler struct {
-	service *application.GitHubService
+	service *ghsvc.GitHubService
 }
 
 // NewInternalHandler creates a new InternalHandler.
-func NewInternalHandler(service *application.GitHubService) *InternalHandler {
+func NewInternalHandler(service *ghsvc.GitHubService) *InternalHandler {
 	return &InternalHandler{service: service}
 }
 

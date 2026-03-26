@@ -5,16 +5,16 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	ghsvc "github.com/Asheze1127/progress-checker/backend/application/service"
 )
 
 // GitHubHandler handles REST API requests for GitHub repository management.
 type GitHubHandler struct {
-	service *application.GitHubService
+	service *ghsvc.GitHubService
 }
 
 // NewGitHubHandler creates a new GitHubHandler.
-func NewGitHubHandler(service *application.GitHubService) *GitHubHandler {
+func NewGitHubHandler(service *ghsvc.GitHubService) *GitHubHandler {
 	return &GitHubHandler{service: service}
 }
 

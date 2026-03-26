@@ -1,11 +1,11 @@
-package application_test
+package service_test
 
 import (
 	"context"
 	"fmt"
 	"testing"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	"github.com/Asheze1127/progress-checker/backend/application/service"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
@@ -94,9 +94,9 @@ func (m *mockGitHubIssueCreator) CreateIssue(_ context.Context, _, _, _, _, _ st
 	return m.issueURL, m.err
 }
 
-func newTestService(repo *mockGitHubRepoRepository, ghClient *mockGitHubIssueCreator) *application.GitHubService {
+func newTestService(repo *mockGitHubRepoRepository, ghClient *mockGitHubIssueCreator) *service.GitHubService {
 	idCounter := 0
-	return application.NewGitHubService(
+	return service.NewGitHubService(
 		repo,
 		&mockEncryptor{},
 		ghClient,
