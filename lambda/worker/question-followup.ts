@@ -1,6 +1,7 @@
 import { generateText } from "ai";
 import { bedrock } from "@ai-sdk/amazon-bedrock";
 import type { SQSEvent, SQSHandler, SQSRecord } from "aws-lambda";
+import { postSlackMessage } from "./shared/slack";
 
 // Bedrock model identifier for Claude 3.5 Sonnet v2
 const BEDROCK_MODEL_ID = "anthropic.claude-3-5-sonnet-20241022-v2:0";
@@ -48,11 +49,6 @@ export interface FollowupMessage {
   slack_channel_id: string;
   slack_thread_ts: string;
   thread_messages: ThreadMessage[];
-}
-
-interface SlackPostResult {
-  ok: boolean;
-  error?: string;
 }
 
 // AI-generated content disclaimer appended to every response
@@ -110,36 +106,6 @@ export function detectResponseIntent(responseText: string): "followup_needed" | 
 }
 
 /**
- * Post a message to a Slack thread.
- */
-async function postSlackMessage(channelId: string, threadTs: string, text: string): Promise<SlackPostResult> {
-  const slackToken = process.env.SLACK_BOT_TOKEN;
-  if (!slackToken) {
-    throw new Error("SLACK_BOT_TOKEN environment variable is not set");
-  }
-
-  const response = await fetch("https://slack.com/api/chat.postMessage", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      Authorization: `Bearer ${slackToken}`,
-    },
-    body: JSON.stringify({
-      channel: channelId,
-      thread_ts: threadTs,
-      text,
-    }),
-  });
-
-  const result = (await response.json()) as SlackPostResult;
-  if (!result.ok) {
-    throw new Error(`Slack API error: ${result.error ?? "unknown"}`);
-  }
-
-  return result;
-}
-
-/**
  * Update the question session status in the session store.
  */
 async function updateQuestionSessionStatus(questionId: string, status: string): Promise<void> {
@@ -171,7 +137,7 @@ export async function processFollowupQuestion(message: FollowupMessage): Promise
 
   const responseWithDisclaimer = aiResponse + AI_DISCLAIMER;
 
-  await postSlackMessage(slack_channel_id, slack_thread_ts, responseWithDisclaimer);
+  await postSlackMessage({ channelId: slack_channel_id, threadTs: slack_thread_ts, text: responseWithDisclaimer });
 
   const intent = detectResponseIntent(aiResponse);
 

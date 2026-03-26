@@ -162,6 +162,8 @@ describe("handler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    process.env.SLACK_BOT_TOKEN = "xoxb-test-token";
+
     (generateText as Mock).mockResolvedValue({ text: MOCK_LLM_RESPONSE });
 
     mockFetch = vi.fn();

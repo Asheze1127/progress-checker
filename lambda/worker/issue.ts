@@ -1,6 +1,7 @@
 import { generateText } from "ai";
 import { bedrock } from "@ai-sdk/amazon-bedrock";
 import type { SQSEvent, SQSHandler } from "aws-lambda";
+import { postSlackMessage } from "./shared/slack";
 
 interface ThreadMessage {
   user: string;
@@ -28,7 +29,6 @@ interface IssueApiResponse {
 
 const ISSUE_API_HOSTNAME = process.env.ISSUE_API_HOSTNAME ?? "";
 const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN ?? "";
-const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN ?? "";
 const LLM_MODEL_ID = "anthropic.claude-3-5-sonnet-20241022-v2:0";
 
 const SYSTEM_PROMPT = [
@@ -135,30 +135,6 @@ async function createGitHubIssue(channelId: string, title: string, body: string)
   return result as IssueApiResponse;
 }
 
-async function postSlackMessage(channelId: string, threadTs: string, text: string): Promise<void> {
-  const response = await fetch("https://slack.com/api/chat.postMessage", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
-    },
-    body: JSON.stringify({
-      channel: channelId,
-      thread_ts: threadTs,
-      text,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Slack API returned ${String(response.status)}`);
-  }
-
-  const result = (await response.json()) as { ok: boolean; error?: string };
-  if (!result.ok) {
-    throw new Error(`Slack API error: ${result.error ?? "unknown"}`);
-  }
-}
-
 async function processIssueCreation(message: IssueMessage): Promise<void> {
   console.log(
     JSON.stringify({
@@ -180,7 +156,7 @@ async function processIssueCreation(message: IssueMessage): Promise<void> {
 
   console.log(JSON.stringify({ event: "issue_created", issueUrl }));
 
-  await postSlackMessage(message.channel_id, message.thread_ts, `GitHub Issue created: ${issueUrl}`);
+  await postSlackMessage({ channelId: message.channel_id, threadTs: message.thread_ts, text: `GitHub Issue created: ${issueUrl}` });
 
   console.log(JSON.stringify({ event: "issue_creation_completed", issueUrl }));
 }

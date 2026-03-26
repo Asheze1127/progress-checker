@@ -188,6 +188,7 @@ describe("processFollowupQuestion", () => {
     process.env.SLACK_BOT_TOKEN = "xoxb-test-token";
 
     mockFetch.mockResolvedValue({
+      ok: true,
       json: () => Promise.resolve({ ok: true }),
     });
   });
@@ -239,6 +240,7 @@ describe("processFollowupQuestion", () => {
   it("should throw when Slack API returns an error", async () => {
     mockGenerateText.mockResolvedValue({ text: "response" });
     mockFetch.mockResolvedValue({
+      ok: true,
       json: () => Promise.resolve({ ok: false, error: "channel_not_found" }),
     });
 
@@ -263,6 +265,7 @@ describe("handler", () => {
     });
 
     mockFetch.mockResolvedValue({
+      ok: true,
       json: () => Promise.resolve({ ok: true }),
     });
   });
