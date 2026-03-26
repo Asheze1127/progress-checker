@@ -46,8 +46,8 @@ func (h *QuestionHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) 
 
 	// Only handle new questions (no thread_ts). Follow-up questions are handled separately.
 	if threadTS != "" {
-		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", contentTypeJSON)
+		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"text":"Follow-up questions are not yet supported."}`))
 		return
 	}
@@ -83,9 +83,7 @@ func (h *QuestionHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", contentTypeJSON)
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"text":"Your question has been received and is being processed."}`))
+	WriteJSON(w, http.StatusOK, map[string]string{"text": "Your question has been received and is being processed."})
 }
 
 const maxTitleLength = 100

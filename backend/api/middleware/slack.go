@@ -10,19 +10,28 @@ import (
 )
 
 // slackDeduplicationKey extracts a deduplication key from a Slack request.
-// Uses trigger_id from the form body to uniquely identify the request.
-// The key is stored on the first request and checked on retries,
-// so every request (not just retries) must go through this check.
+// Uses trigger_id from the form body for slash commands and interactions.
+// Falls back to X-Slack-Request-Timestamp + URL path for Events API callbacks
+// which don't include trigger_id.
 func slackDeduplicationKey(r *http.Request) string {
 	if err := r.ParseForm(); err != nil {
 		return ""
 	}
 
 	triggerID := r.FormValue("trigger_id")
-	if triggerID == "" {
-		return ""
+	if triggerID != "" {
+		return "slack:" + triggerID
 	}
-	return "slack:" + triggerID
+
+	// Fallback for Events API callbacks: use request timestamp + path as key.
+	// Slack retries send X-Slack-Retry-Num header, but the original request
+	// also needs a key, so we use the timestamp which is unique per delivery.
+	ts := r.Header.Get("X-Slack-Request-Timestamp")
+	if ts != "" {
+		return "slack:event:" + ts + ":" + r.URL.Path
+	}
+
+	return ""
 }
 
 // SlackVerification returns middleware that verifies Slack request signatures.

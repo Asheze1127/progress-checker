@@ -2,6 +2,10 @@ package service
 
 import "golang.org/x/crypto/bcrypt"
 
+// bcryptCost is the cost factor for bcrypt hashing.
+// OWASP recommends 12+ for improved resistance to brute-force attacks.
+const bcryptCost = 12
+
 // PasswordHasher handles password hashing and verification using bcrypt.
 type PasswordHasher struct{}
 
@@ -12,7 +16,7 @@ func NewPasswordHasher() *PasswordHasher {
 
 // Hash creates a bcrypt hash of the given password.
 func (h *PasswordHasher) Hash(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
 	if err != nil {
 		return "", err
 	}

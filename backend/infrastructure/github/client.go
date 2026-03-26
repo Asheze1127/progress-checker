@@ -22,11 +22,29 @@ type Client struct {
 	baseURL    string
 }
 
+// allowedBaseURLPrefixes are the trusted base URL prefixes for the GitHub API.
+var allowedBaseURLPrefixes = []string{
+	"https://api.github.com",
+	"http://localhost",
+	"http://127.0.0.1",
+}
+
 // NewClient creates a new GitHub API client.
 // An optional baseURL can be provided for testing; pass empty string for production.
 func NewClient(baseURL string) *Client {
 	effectiveBaseURL := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if effectiveBaseURL == "" {
+		effectiveBaseURL = githubAPIBaseURL
+	}
+
+	trusted := false
+	for _, prefix := range allowedBaseURLPrefixes {
+		if strings.HasPrefix(effectiveBaseURL, prefix) {
+			trusted = true
+			break
+		}
+	}
+	if !trusted {
 		effectiveBaseURL = githubAPIBaseURL
 	}
 

@@ -7,20 +7,20 @@ import (
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
-// ContinueQuestionUsecase sets a question status to in_progress to trigger
+// ContinueQuestionUseCase sets a question status to in_progress to trigger
 // the follow-up conversation flow.
-type ContinueQuestionUsecase struct {
+type ContinueQuestionUseCase struct {
 	questionRepo entities.QuestionRepository
 }
 
-// NewContinueQuestionUsecase creates a new ContinueQuestionUsecase.
-func NewContinueQuestionUsecase(repo entities.QuestionRepository) *ContinueQuestionUsecase {
-	return &ContinueQuestionUsecase{questionRepo: repo}
+// NewContinueQuestionUseCase creates a new ContinueQuestionUseCase.
+func NewContinueQuestionUseCase(repo entities.QuestionRepository) *ContinueQuestionUseCase {
+	return &ContinueQuestionUseCase{questionRepo: repo}
 }
 
 // Execute sets the given question to in_progress. It is idempotent: if the
 // question is already in progress, no update is performed.
-func (u *ContinueQuestionUsecase) Execute(ctx context.Context, questionID entities.QuestionID) error {
+func (u *ContinueQuestionUseCase) Execute(ctx context.Context, questionID entities.QuestionID) error {
 	question, err := u.questionRepo.GetByID(ctx, questionID)
 	if err != nil {
 		return fmt.Errorf("finding question %q: %w", questionID, err)

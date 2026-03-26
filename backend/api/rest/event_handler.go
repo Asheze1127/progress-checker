@@ -5,13 +5,10 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"os"
 
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	slackpkg "github.com/Asheze1127/progress-checker/backend/pkg/slack"
 )
-
-const defaultTriggerEmoji = "ticket"
 
 // IssueTrigger defines the interface for triggering issue creation.
 type IssueTrigger interface {
@@ -25,14 +22,9 @@ type EventHandler struct {
 }
 
 // NewEventHandler creates a new EventHandler with the configured trigger emoji.
-func NewEventHandler(issueTrigger IssueTrigger) *EventHandler {
-	emoji := os.Getenv("ISSUE_TRIGGER_EMOJI")
-	if emoji == "" {
-		emoji = defaultTriggerEmoji
-	}
-
+func NewEventHandler(issueTrigger IssueTrigger, triggerEmoji string) *EventHandler {
 	return &EventHandler{
-		triggerEmoji: emoji,
+		triggerEmoji: triggerEmoji,
 		issueTrigger: issueTrigger,
 	}
 }

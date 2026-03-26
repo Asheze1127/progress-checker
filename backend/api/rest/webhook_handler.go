@@ -43,7 +43,7 @@ func (h *WebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	case progressCommand:
 		h.handleProgress(w, r, userID, teamID, channelID)
 	default:
-		http.Error(w, "unsupported command: "+command, http.StatusBadRequest)
+		http.Error(w, "unsupported command", http.StatusBadRequest)
 	}
 }
 

@@ -190,9 +190,26 @@ export const handler: SQSHandler = async (event: SQSEvent): Promise<void> => {
     }),
   );
 
+  const errors: Array<{ messageId: string; error: unknown }> = [];
+
   for (const record of event.Records) {
-    const message = parseIssueMessage(record.body);
-    await processIssueCreation(message);
+    try {
+      const message = parseIssueMessage(record.body);
+      await processIssueCreation(message);
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          event: "issue_creation_failed",
+          messageId: record.messageId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+      errors.push({ messageId: record.messageId, error });
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Failed to process ${errors.length} record(s)`);
   }
 };
 

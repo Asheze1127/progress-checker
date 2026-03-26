@@ -11,7 +11,7 @@ import (
 func TestEscalateToMentor(t *testing.T) {
 	repo := &stubQuestionRepo{question: newTestQuestion(entities.QuestionStatusOpen)}
 	notifier := &stubSlackNotifier{}
-	uc := NewEscalateQuestionUsecase(repo, notifier)
+	uc := NewEscalateQuestionUseCase(repo, notifier)
 
 	err := uc.Execute(context.Background(), "q-1")
 	if err != nil {
@@ -28,7 +28,7 @@ func TestEscalateToMentor(t *testing.T) {
 func TestEscalateToMentorIdempotent(t *testing.T) {
 	repo := &stubQuestionRepo{question: newTestQuestion(entities.QuestionStatusAssignedMentor)}
 	notifier := &stubSlackNotifier{}
-	uc := NewEscalateQuestionUsecase(repo, notifier)
+	uc := NewEscalateQuestionUseCase(repo, notifier)
 
 	err := uc.Execute(context.Background(), "q-1")
 	if err != nil {
@@ -45,7 +45,7 @@ func TestEscalateToMentorIdempotent(t *testing.T) {
 func TestEscalateToMentorNotifyError(t *testing.T) {
 	repo := &stubQuestionRepo{question: newTestQuestion(entities.QuestionStatusOpen)}
 	notifier := &stubSlackNotifier{postErr: errors.New("slack error")}
-	uc := NewEscalateQuestionUsecase(repo, notifier)
+	uc := NewEscalateQuestionUseCase(repo, notifier)
 
 	err := uc.Execute(context.Background(), "q-1")
 	if err == nil {

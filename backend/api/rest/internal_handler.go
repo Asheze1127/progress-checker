@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	ghsvc "github.com/Asheze1127/progress-checker/backend/application/service"
@@ -38,7 +39,8 @@ func (h *InternalHandler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 
 	issueURL, err := h.service.CreateIssue(r.Context(), req.ChannelID, req.Title, req.Body)
 	if err != nil {
-		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		slog.Error("failed to create issue", slog.String("error", err.Error()))
+		WriteError(w, http.StatusInternalServerError, "failed to create issue")
 		return
 	}
 

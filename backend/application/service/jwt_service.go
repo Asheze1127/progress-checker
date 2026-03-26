@@ -81,9 +81,24 @@ func (s *JWTService) ValidateToken(tokenString string) (*TokenClaims, error) {
 		return nil, ErrInvalidToken
 	}
 
+	userRole := entities.UserRole(role)
+	if !isValidUserRole(userRole) {
+		return nil, ErrInvalidToken
+	}
+
 	return &TokenClaims{
 		UserID:   entities.UserID(sub),
 		UserName: name,
-		UserRole: entities.UserRole(role),
+		UserRole: userRole,
 	}, nil
+}
+
+// isValidUserRole checks if the role is a known user role.
+func isValidUserRole(role entities.UserRole) bool {
+	switch role {
+	case entities.UserRoleMentor, entities.UserRoleParticipant:
+		return true
+	default:
+		return false
+	}
 }

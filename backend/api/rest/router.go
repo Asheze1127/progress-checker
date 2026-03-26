@@ -35,10 +35,10 @@ func NewRouter(
 	mux.Handle("OPTIONS /api/v1/progress", http.HandlerFunc(progressHandler.HandleProgressPreflight))
 
 	// GitHub repo management (with auth)
-	mux.Handle("POST /api/v1/github-repos", authMiddleware(http.HandlerFunc(ghHandler.RegisterRepository)))
-	mux.Handle("GET /api/v1/github-repos", authMiddleware(http.HandlerFunc(ghHandler.ListRepositories)))
-	mux.Handle("DELETE /api/v1/github-repos/{repoId}", authMiddleware(http.HandlerFunc(ghHandler.RemoveRepository)))
-	mux.Handle("PUT /api/v1/github-repos/{repoId}/token", authMiddleware(http.HandlerFunc(ghHandler.UpdateToken)))
+	mux.Handle("POST /api/v1/teams/{teamId}/github-repos", authMiddleware(http.HandlerFunc(ghHandler.RegisterRepository)))
+	mux.Handle("GET /api/v1/teams/{teamId}/github-repos", authMiddleware(http.HandlerFunc(ghHandler.ListRepositories)))
+	mux.Handle("DELETE /api/v1/teams/{teamId}/github-repos/{repoId}", authMiddleware(http.HandlerFunc(ghHandler.RemoveRepository)))
+	mux.Handle("PUT /api/v1/teams/{teamId}/github-repos/{repoId}/token", authMiddleware(http.HandlerFunc(ghHandler.UpdateToken)))
 
 	// Internal API (token-protected - accessed via internal ALB)
 	mux.Handle("POST /internal/issues", internalMiddleware(http.HandlerFunc(internalHandler.CreateIssue)))
@@ -50,5 +50,5 @@ func NewRouter(
 func handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok"}`))
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }

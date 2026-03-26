@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	_ "github.com/lib/pq"
 
@@ -73,23 +74,28 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	handleProgressUC := usecase.NewHandleProgressUseCase(progressRepo, poster)
 	listProgressUC := usecase.NewListProgressUseCase(progressQueryRepo)
 	loginUC := usecase.NewLoginUseCase(userRepo, jwtService, hasher)
-	resolveQuestionUC := usecase.NewResolveQuestionUsecase(questionRepo)
-	continueQuestionUC := usecase.NewContinueQuestionUsecase(questionRepo)
+	resolveQuestionUC := usecase.NewResolveQuestionUseCase(questionRepo)
+	continueQuestionUC := usecase.NewContinueQuestionUseCase(questionRepo)
 	// TODO: Wire a proper SlackNotifier implementation when available.
-	escalateQuestionUC := usecase.NewEscalateQuestionUsecase(questionRepo, nil)
+	escalateQuestionUC := usecase.NewEscalateQuestionUseCase(questionRepo, &service.NoopSlackNotifier{})
 
 	// --- Handlers ---
 	webhookHandler := rest.NewWebhookHandler(handleProgressUC)
 	questionHandler := rest.NewQuestionHandler(
-		usecase.NewHandleNewQuestionUseCase(questionRepo, service.NewQuestionSender(nil)),
+		usecase.NewHandleNewQuestionUseCase(questionRepo, service.NewQuestionSender(&service.NoopMessageQueue{})),
 	)
-	progressHandler := rest.NewProgressHandler(listProgressUC)
+	var corsOrigins []string
+	if cfg.CORSAllowedOrigin != "" {
+		corsOrigins = strings.Split(cfg.CORSAllowedOrigin, ",")
+	}
+	progressHandler := rest.NewProgressHandler(listProgressUC, corsOrigins)
 	authHandler := rest.NewAuthHandler(loginUC)
 	ghHandler := rest.NewGitHubHandler(ghService)
 	internalHandler := rest.NewInternalHandler(ghService)
-	// TODO: Wire SlackThreadFetcher and MessageQueue implementations when available.
+	// TODO: Wire real SlackThreadFetcher and MessageQueue implementations when available.
 	eventHandler := rest.NewEventHandler(
-		usecase.NewTriggerIssueCreationUseCase(nil, nil),
+		usecase.NewTriggerIssueCreationUseCase(&service.NoopSlackThreadFetcher{}, &service.NoopMessageQueue{}),
+		cfg.IssueTriggerEmoji,
 	)
 	interactionHandler := rest.NewInteractionHandler(resolveQuestionUC, continueQuestionUC, escalateQuestionUC)
 

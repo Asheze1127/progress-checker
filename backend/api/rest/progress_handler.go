@@ -39,11 +39,15 @@ type progressListResponse struct {
 // ProgressHandler handles HTTP requests for progress data.
 type ProgressHandler struct {
 	listProgressUC *usecase.ListProgressUseCase
+	allowedOrigins []string
 }
 
 // NewProgressHandler creates a new ProgressHandler.
-func NewProgressHandler(listProgressUC *usecase.ListProgressUseCase) *ProgressHandler {
-	return &ProgressHandler{listProgressUC: listProgressUC}
+func NewProgressHandler(listProgressUC *usecase.ListProgressUseCase, allowedOrigins []string) *ProgressHandler {
+	return &ProgressHandler{
+		listProgressUC: listProgressUC,
+		allowedOrigins: allowedOrigins,
+	}
 }
 
 // HandleListProgress handles GET /api/v1/progress requests.
@@ -53,7 +57,7 @@ func (h *ProgressHandler) HandleListProgress(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	setCORSHeaders(w)
+	h.setCORSHeaders(w, r)
 
 	teamID := r.URL.Query().Get("team_id")
 
@@ -70,15 +74,25 @@ func (h *ProgressHandler) HandleListProgress(w http.ResponseWriter, r *http.Requ
 
 // HandleProgressPreflight handles CORS preflight requests for the progress endpoint.
 func (h *ProgressHandler) HandleProgressPreflight(w http.ResponseWriter, r *http.Request) {
-	setCORSHeaders(w)
+	h.setCORSHeaders(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }
 
 // setCORSHeaders adds CORS headers to the response for cross-origin access.
-func setCORSHeaders(w http.ResponseWriter) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+func (h *ProgressHandler) setCORSHeaders(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return
+	}
+
+	for _, allowed := range h.allowedOrigins {
+		if origin == allowed {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			return
+		}
+	}
 }
 
 // toProgressListResponse converts domain objects to the API response format.

@@ -10,7 +10,7 @@ import (
 
 func TestContinueQuestion(t *testing.T) {
 	repo := &stubQuestionRepo{question: newTestQuestion(entities.QuestionStatusOpen)}
-	uc := NewContinueQuestionUsecase(repo)
+	uc := NewContinueQuestionUseCase(repo)
 
 	err := uc.Execute(context.Background(), "q-1")
 	if err != nil {
@@ -23,7 +23,7 @@ func TestContinueQuestion(t *testing.T) {
 
 func TestContinueQuestionIdempotent(t *testing.T) {
 	repo := &stubQuestionRepo{question: newTestQuestion(entities.QuestionStatusInProgress)}
-	uc := NewContinueQuestionUsecase(repo)
+	uc := NewContinueQuestionUseCase(repo)
 
 	err := uc.Execute(context.Background(), "q-1")
 	if err != nil {
@@ -36,7 +36,7 @@ func TestContinueQuestionIdempotent(t *testing.T) {
 
 func TestContinueQuestionFindError(t *testing.T) {
 	repo := &stubQuestionRepo{findErr: errors.New("not found")}
-	uc := NewContinueQuestionUsecase(repo)
+	uc := NewContinueQuestionUseCase(repo)
 
 	err := uc.Execute(context.Background(), "q-1")
 	if err == nil {

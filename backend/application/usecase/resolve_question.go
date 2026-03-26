@@ -7,19 +7,19 @@ import (
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
-// ResolveQuestionUsecase marks a question as resolved.
-type ResolveQuestionUsecase struct {
+// ResolveQuestionUseCase marks a question as resolved.
+type ResolveQuestionUseCase struct {
 	questionRepo entities.QuestionRepository
 }
 
-// NewResolveQuestionUsecase creates a new ResolveQuestionUsecase.
-func NewResolveQuestionUsecase(repo entities.QuestionRepository) *ResolveQuestionUsecase {
-	return &ResolveQuestionUsecase{questionRepo: repo}
+// NewResolveQuestionUseCase creates a new ResolveQuestionUseCase.
+func NewResolveQuestionUseCase(repo entities.QuestionRepository) *ResolveQuestionUseCase {
+	return &ResolveQuestionUseCase{questionRepo: repo}
 }
 
 // Execute marks the given question as resolved. It is idempotent: if the
 // question is already resolved, no update is performed.
-func (u *ResolveQuestionUsecase) Execute(ctx context.Context, questionID entities.QuestionID) error {
+func (u *ResolveQuestionUseCase) Execute(ctx context.Context, questionID entities.QuestionID) error {
 	question, err := u.questionRepo.GetByID(ctx, questionID)
 	if err != nil {
 		return fmt.Errorf("finding question %q: %w", questionID, err)

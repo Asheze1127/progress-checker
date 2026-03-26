@@ -22,11 +22,19 @@ func (m *mockUserRepository) FindByEmail(ctx context.Context, email string) (*en
 	return nil, errors.New("user not found")
 }
 
-func (m *mockUserRepository) FindByID(ctx context.Context, id entities.UserID) (*entities.User, error) {
+func (m *mockUserRepository) GetByID(ctx context.Context, id entities.UserID) (*entities.User, error) {
 	if m.findByIDFunc != nil {
 		return m.findByIDFunc(ctx, id)
 	}
 	return nil, errors.New("user not found")
+}
+
+func (m *mockUserRepository) GetByEmail(_ context.Context, _ string) (*entities.User, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockUserRepository) GetBySlackUserID(_ context.Context, _ entities.SlackUserID) (*entities.User, error) {
+	return nil, errors.New("not implemented")
 }
 
 func hashPassword(t *testing.T, password string) string {

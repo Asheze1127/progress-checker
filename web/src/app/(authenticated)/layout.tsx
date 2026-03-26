@@ -25,6 +25,7 @@ export default function AuthenticatedLayout({ children }: AuthLayoutProps) {
       const token = getSession();
 
       if (!token) {
+        setIsLoading(false);
         router.replace("/login");
         return;
       }

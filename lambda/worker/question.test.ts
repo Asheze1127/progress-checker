@@ -1,5 +1,4 @@
-import { describe, it, beforeEach } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, beforeEach, expect, vi } from "vitest";
 import type { KnownBlock } from "@slack/web-api";
 import {
   processNewQuestion,
@@ -60,16 +59,13 @@ describe("processNewQuestion", () => {
 
     await processNewQuestion(message, deps);
 
-    // Verify AI was called with the question text
-    assert.equal(aiCalls.length, 1);
-    assert.equal(aiCalls[0], message.text);
+    expect(aiCalls).toHaveLength(1);
+    expect(aiCalls[0]).toBe(message.text);
 
-    // Verify Slack was called with correct channel and thread
-    assert.equal(slackCalls.length, 1);
-    assert.equal(slackCalls[0].channelId, message.slack_channel_id);
-    assert.equal(slackCalls[0].threadTs, message.slack_thread_ts);
-    assert.equal(
-      slackCalls[0].text,
+    expect(slackCalls).toHaveLength(1);
+    expect(slackCalls[0].channelId).toBe(message.slack_channel_id);
+    expect(slackCalls[0].threadTs).toBe(message.slack_thread_ts);
+    expect(slackCalls[0].text).toBe(
       "Here is the AI response to your question.",
     );
   });
@@ -81,10 +77,10 @@ describe("processNewQuestion", () => {
     await processNewQuestion(message, deps);
 
     const blocks = slackCalls[0].blocks;
-    assert.equal(blocks.length, 3);
-    assert.equal(blocks[0].type, "section");
-    assert.equal(blocks[1].type, "context");
-    assert.equal(blocks[2].type, "actions");
+    expect(blocks).toHaveLength(3);
+    expect(blocks[0].type).toBe("section");
+    expect(blocks[1].type).toBe("context");
+    expect(blocks[2].type).toBe("actions");
   });
 
   it("should propagate AI generation errors", async () => {
@@ -94,13 +90,8 @@ describe("processNewQuestion", () => {
       throw new Error("Bedrock service unavailable");
     };
 
-    await assert.rejects(
-      () => processNewQuestion(message, deps),
-      (error: unknown) => {
-        assert.ok(error instanceof Error);
-        assert.ok(error.message.includes("Bedrock service unavailable"));
-        return true;
-      },
+    await expect(processNewQuestion(message, deps)).rejects.toThrow(
+      "Bedrock service unavailable",
     );
   });
 
@@ -111,13 +102,8 @@ describe("processNewQuestion", () => {
       throw new Error("Slack API error: channel_not_found");
     };
 
-    await assert.rejects(
-      () => processNewQuestion(message, deps),
-      (error: unknown) => {
-        assert.ok(error instanceof Error);
-        assert.ok(error.message.includes("channel_not_found"));
-        return true;
-      },
+    await expect(processNewQuestion(message, deps)).rejects.toThrow(
+      "channel_not_found",
     );
   });
 });
@@ -126,20 +112,17 @@ describe("buildResponseBlocks", () => {
   it("should return section, context, and actions blocks", () => {
     const blocks = buildResponseBlocks("Test response", "q-001");
 
-    assert.equal(blocks.length, 3);
-    assert.equal(blocks[0].type, "section");
-    assert.equal(blocks[1].type, "context");
-    assert.equal(blocks[2].type, "actions");
+    expect(blocks).toHaveLength(3);
+    expect(blocks[0].type).toBe("section");
+    expect(blocks[1].type).toBe("context");
+    expect(blocks[2].type).toBe("actions");
   });
 
   it("should include AI disclaimer in context block", () => {
     const blocks = buildResponseBlocks("Test response", "q-001");
 
     const contextBlock = blocks[1] as { elements: Array<{ text: string }> };
-    assert.ok(
-      contextBlock.elements[0].text.includes("AIによる自動生成"),
-      "Disclaimer should mention AI-generated content",
-    );
+    expect(contextBlock.elements[0].text).toContain("AIによる自動生成");
   });
 
   it("should include resolve, continue, and escalate action buttons", () => {
@@ -148,16 +131,15 @@ describe("buildResponseBlocks", () => {
     const actionsBlock = blocks[2] as {
       elements: Array<{ action_id: string; value: string }>;
     };
-    assert.equal(actionsBlock.elements.length, 3);
+    expect(actionsBlock.elements).toHaveLength(3);
 
     const actionIds = actionsBlock.elements.map((e) => e.action_id);
-    assert.ok(actionIds.includes("question_resolve"));
-    assert.ok(actionIds.includes("question_continue"));
-    assert.ok(actionIds.includes("question_escalate"));
+    expect(actionIds).toContain("question_resolve");
+    expect(actionIds).toContain("question_continue");
+    expect(actionIds).toContain("question_escalate");
 
-    // All buttons should carry the question ID
     for (const element of actionsBlock.elements) {
-      assert.equal(element.value, "q-001");
+      expect(element.value).toBe("q-001");
     }
   });
 
@@ -165,6 +147,6 @@ describe("buildResponseBlocks", () => {
     const blocks = buildResponseBlocks("My detailed answer", "q-002");
 
     const sectionBlock = blocks[0] as { text: { text: string } };
-    assert.equal(sectionBlock.text.text, "My detailed answer");
+    expect(sectionBlock.text.text).toBe("My detailed answer");
   });
 });

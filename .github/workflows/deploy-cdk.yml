@@ -7,6 +7,7 @@ on:
       - production
     paths:
       - 'infrastructure/cdk/**'
+      - 'lambda/**'
 
 concurrency:
   group: deploy-cdk-${{ github.ref_name }}

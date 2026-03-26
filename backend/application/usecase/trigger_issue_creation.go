@@ -76,10 +76,6 @@ func (uc *TriggerIssueCreationUseCase) Execute(ctx context.Context, input Trigge
 		return fmt.Errorf("invalid input: %w", err)
 	}
 
-	if uc.threadFetcher == nil || uc.queue == nil {
-		return fmt.Errorf("issue creation dependencies not configured")
-	}
-
 	messages, err := uc.threadFetcher.FetchThreadMessages(ctx, input.ChannelID, input.ThreadTS)
 	if err != nil {
 		return fmt.Errorf("failed to fetch thread messages: %w", err)

@@ -12,16 +12,16 @@ import (
 
 // InteractionHandler handles Slack interactive component callbacks.
 type InteractionHandler struct {
-	resolveQuestion  *usecase.ResolveQuestionUsecase
-	continueQuestion *usecase.ContinueQuestionUsecase
-	escalateQuestion *usecase.EscalateQuestionUsecase
+	resolveQuestion  *usecase.ResolveQuestionUseCase
+	continueQuestion *usecase.ContinueQuestionUseCase
+	escalateQuestion *usecase.EscalateQuestionUseCase
 }
 
 // NewInteractionHandler creates a new InteractionHandler.
 func NewInteractionHandler(
-	resolve *usecase.ResolveQuestionUsecase,
-	cont *usecase.ContinueQuestionUsecase,
-	escalate *usecase.EscalateQuestionUsecase,
+	resolve *usecase.ResolveQuestionUseCase,
+	cont *usecase.ContinueQuestionUseCase,
+	escalate *usecase.EscalateQuestionUseCase,
 ) *InteractionHandler {
 	return &InteractionHandler{
 		resolveQuestion:  resolve,

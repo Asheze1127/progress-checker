@@ -1,5 +1,8 @@
+/** Ordered phases of a team's hackathon progress */
+export const PHASES = ["idea", "design", "coding", "testing", "demo"] as const;
+
 /** Phase of a team's hackathon progress */
-export type Phase = "idea" | "design" | "coding" | "testing" | "demo";
+export type Phase = (typeof PHASES)[number];
 
 /** A single progress entry body submitted by a participant */
 export interface ProgressBody {

@@ -1,0 +1,6 @@
+# Compiled TypeScript output
+worker/*.js
+worker/*.js.map
+worker/*.d.ts
+
+node_modules/

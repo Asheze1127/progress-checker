@@ -1,23 +1,16 @@
 /**
  * Type definitions for the team progress timeline feature.
+ * Shared types (Phase, ProgressBody, PHASES) are defined in progress.ts.
  */
 
-export const PHASES = ["idea", "design", "coding", "testing", "demo"] as const;
-
-export type Phase = (typeof PHASES)[number];
-
-export interface ProgressBody {
-  phase: Phase;
-  sos: boolean;
-  comment: string;
-  submitted_at: string;
-}
+export type { Phase, ProgressBody } from "./progress";
+export { PHASES } from "./progress";
 
 export interface TimelineEntry {
   id: string;
   participant_id: string;
   participant_name: string;
-  progress_bodies: ProgressBody[];
+  progress_bodies: import("./progress").ProgressBody[];
   created_at: string;
 }
 

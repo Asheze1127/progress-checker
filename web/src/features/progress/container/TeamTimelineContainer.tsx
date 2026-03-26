@@ -3,24 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import type { TeamTimeline } from "../model/timeline";
 import { Timeline } from "../element/Timeline";
+import { fetchAPI } from "@/lib/fetcher/api";
 
 interface TeamTimelineContainerProps {
   teamId: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-
 /**
  * Fetches team timeline data from the API.
  */
 async function fetchTeamTimeline(teamId: string): Promise<TeamTimeline> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/progress?team_id=${encodeURIComponent(teamId)}`);
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch team timeline: ${response.status} ${response.statusText}`);
-  }
-
-  return response.json() as Promise<TeamTimeline>;
+  return fetchAPI<TeamTimeline>(`/api/v1/progress?team_id=${encodeURIComponent(teamId)}`);
 }
 
 /**

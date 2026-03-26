@@ -16,13 +16,12 @@ func WriteJSON(w http.ResponseWriter, status int, data any) {
 	}
 }
 
-// WriteError writes a JSON error response with the given status code and message.
-func WriteError(w http.ResponseWriter, status int, message string) {
-	resp := map[string]string{"error": message}
-	WriteJSON(w, status, resp)
-}
-
 // errorResponse represents a JSON error response.
 type errorResponse struct {
 	Error string `json:"error"`
+}
+
+// WriteError writes a JSON error response with the given status code and message.
+func WriteError(w http.ResponseWriter, status int, message string) {
+	WriteJSON(w, status, errorResponse{Error: message})
 }
