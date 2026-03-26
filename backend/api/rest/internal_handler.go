@@ -4,16 +4,16 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	ghsvc "github.com/Asheze1127/progress-checker/backend/application/service"
 )
 
 // InternalHandler handles internal API requests (accessible via Internal ALB).
 type InternalHandler struct {
-	service *application.GitHubService
+	service *ghsvc.GitHubService
 }
 
 // NewInternalHandler creates a new InternalHandler.
-func NewInternalHandler(service *application.GitHubService) *InternalHandler {
+func NewInternalHandler(service *ghsvc.GitHubService) *InternalHandler {
 	return &InternalHandler{service: service}
 }
 
@@ -32,15 +32,15 @@ type createIssueResponse struct {
 func (h *InternalHandler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 	var req createIssueRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	issueURL, err := h.service.CreateIssue(r.Context(), req.ChannelID, req.Title, req.Body)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, createIssueResponse{IssueURL: issueURL})
+	WriteJSON(w, http.StatusCreated, createIssueResponse{IssueURL: issueURL})
 }
