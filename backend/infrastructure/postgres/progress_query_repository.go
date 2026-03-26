@@ -46,48 +46,56 @@ func (r *ProgressQueryRepository) ListLatestByTeamID(ctx context.Context, teamID
 	return toTeamProgressListByID(rows), nil
 }
 
+// progressRow is an intermediate representation shared by both sqlc query row types.
+type progressRow struct {
+	TeamID        uuid.UUID
+	TeamName      string
+	ProgressLogID uuid.UUID
+	ParticipantID uuid.UUID
+	BodyID        uuid.NullUUID
+	Phase         db.NullProgressPhase
+	Sos           sql.NullBool
+	Comment       sql.NullString
+	SubmittedAt   sql.NullTime
+}
+
 func toTeamProgressList(rows []db.GetLatestProgressByTeamRow) []entities.TeamProgress {
-	teamMap := make(map[uuid.UUID]*entities.TeamProgress)
-	var orderedIDs []uuid.UUID
-
-	for _, row := range rows {
-		tp, exists := teamMap[row.TeamID]
-		if !exists {
-			tp = &entities.TeamProgress{
-				TeamID:   entities.TeamID(row.TeamID.String()),
-				TeamName: row.TeamName,
-			}
-			teamMap[row.TeamID] = tp
-			orderedIDs = append(orderedIDs, row.TeamID)
-		}
-
-		if !row.BodyID.Valid {
-			continue
-		}
-
-		if tp.LatestProgress == nil {
-			tp.LatestProgress = &entities.ProgressLog{
-				ID:            entities.ProgressLogID(row.ProgressLogID.String()),
-				ParticipantID: entities.ParticipantID(row.ParticipantID.String()),
-			}
-		}
-
-		if row.Phase.Valid {
-			tp.LatestProgress.ProgressBodies = append(
-				tp.LatestProgress.ProgressBodies,
-				toProgressBody(row.Phase, row.Sos, row.Comment, row.SubmittedAt),
-			)
+	converted := make([]progressRow, len(rows))
+	for i, r := range rows {
+		converted[i] = progressRow{
+			TeamID:        r.TeamID,
+			TeamName:      r.TeamName,
+			ProgressLogID: r.ProgressLogID,
+			ParticipantID: r.ParticipantID,
+			BodyID:        r.BodyID,
+			Phase:         r.Phase,
+			Sos:           r.Sos,
+			Comment:       r.Comment,
+			SubmittedAt:   r.SubmittedAt,
 		}
 	}
-
-	results := make([]entities.TeamProgress, 0, len(orderedIDs))
-	for _, id := range orderedIDs {
-		results = append(results, *teamMap[id])
-	}
-	return results
+	return toTeamProgressListFrom(converted)
 }
 
 func toTeamProgressListByID(rows []db.GetLatestProgressByTeamIDRow) []entities.TeamProgress {
+	converted := make([]progressRow, len(rows))
+	for i, r := range rows {
+		converted[i] = progressRow{
+			TeamID:        r.TeamID,
+			TeamName:      r.TeamName,
+			ProgressLogID: r.ProgressLogID,
+			ParticipantID: r.ParticipantID,
+			BodyID:        r.BodyID,
+			Phase:         r.Phase,
+			Sos:           r.Sos,
+			Comment:       r.Comment,
+			SubmittedAt:   r.SubmittedAt,
+		}
+	}
+	return toTeamProgressListFrom(converted)
+}
+
+func toTeamProgressListFrom(rows []progressRow) []entities.TeamProgress {
 	teamMap := make(map[uuid.UUID]*entities.TeamProgress)
 	var orderedIDs []uuid.UUID
 
