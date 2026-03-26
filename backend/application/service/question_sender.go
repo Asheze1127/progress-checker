@@ -33,6 +33,10 @@ func NewQuestionSender(queue port.MessageQueue) *QuestionSender {
 
 // SendNewQuestion sends a new question message to the SQS queue.
 func (s *QuestionSender) SendNewQuestion(ctx context.Context, msg QuestionNewMessage) error {
+	if s.queue == nil {
+		return fmt.Errorf("message queue not configured")
+	}
+
 	msg.Type = "question_new"
 
 	msgBytes, err := json.Marshal(msg)
