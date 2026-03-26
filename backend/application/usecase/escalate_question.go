@@ -39,14 +39,12 @@ func (u *EscalateQuestionUseCase) Execute(ctx context.Context, questionID entiti
 		return fmt.Errorf("question %q cannot transition from %q to %q", questionID, question.Status, entities.QuestionStatusAssignedMentor)
 	}
 
-	// Notify first, then persist — if notification fails, we don't leave
-	// the question in assigned_mentor status without a notification.
-	if err := u.slackNotifier.PostToMentorChannel(ctx, question); err != nil {
-		return fmt.Errorf("posting question %q to mentor channel: %w", questionID, err)
-	}
-
 	if err := u.questionRepo.UpdateStatus(ctx, questionID, entities.QuestionStatusAssignedMentor); err != nil {
 		return fmt.Errorf("updating question %q to assigned_mentor: %w", questionID, err)
+	}
+
+	if err := u.slackNotifier.PostToMentorChannel(ctx, question); err != nil {
+		return fmt.Errorf("posting question %q to mentor channel: %w", questionID, err)
 	}
 
 	return nil

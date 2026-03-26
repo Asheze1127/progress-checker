@@ -27,6 +27,7 @@ interface IssueApiResponse {
 }
 
 const ISSUE_API_HOSTNAME = process.env.ISSUE_API_HOSTNAME ?? "";
+const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN ?? "";
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN ?? "";
 const LLM_MODEL_ID = "anthropic.claude-3-5-sonnet-20241022-v2:0";
 
@@ -114,7 +115,10 @@ async function createGitHubIssue(channelId: string, title: string, body: string)
 
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Internal-Token": INTERNAL_API_TOKEN,
+    },
     body: JSON.stringify({
       channel_id: channelId,
       title,

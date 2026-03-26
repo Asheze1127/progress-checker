@@ -10,7 +10,7 @@ export interface TimelineEntry {
   id: string;
   participant_id: string;
   participant_name: string;
-  progress_bodies: import("./progress").ProgressBody[];
+  progress_bodies: ProgressBody[];
   created_at: string;
 }
 

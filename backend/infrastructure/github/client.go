@@ -25,8 +25,10 @@ type Client struct {
 // allowedBaseURLPrefixes are the trusted base URL prefixes for the GitHub API.
 var allowedBaseURLPrefixes = []string{
 	"https://api.github.com",
-	"http://localhost",
-	"http://127.0.0.1",
+	"http://localhost:",
+	"http://localhost/",
+	"http://127.0.0.1:",
+	"http://127.0.0.1/",
 }
 
 // NewClient creates a new GitHub API client.
