@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "rootDir": ".",
+    "outDir": ".",
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["worker/**/*.ts"],
+  "exclude": ["worker/**/*.test.ts"]
+}

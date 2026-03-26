@@ -76,7 +76,7 @@ func TestQuestionValidate(t *testing.T) {
 				Status:         QuestionStatus("invalid"),
 				SlackThreadTS:  "1742731200.000100",
 			},
-			wantErrStrings: []string{"question.status must be one of open, in_progress, assigned_mentor, resolved"},
+			wantErrStrings: []string{"question.status must be one of open, in_progress, awaiting_user, assigned_mentor, resolved"},
 		},
 		{
 			name: "empty status",
@@ -87,7 +87,7 @@ func TestQuestionValidate(t *testing.T) {
 				SlackChannelID: SlackChannelID("channel-1"),
 				SlackThreadTS:  "1742731200.000100",
 			},
-			wantErrStrings: []string{"question.status must be one of open, in_progress, assigned_mentor, resolved"},
+			wantErrStrings: []string{"question.status must be one of open, in_progress, awaiting_user, assigned_mentor, resolved"},
 		},
 		{
 			name: "empty slack_thread_ts",
@@ -144,6 +144,39 @@ func TestQuestionValidate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.question.Validate()
 			assertValidationResult(t, err, tt.wantErrStrings)
+		})
+	}
+}
+
+func TestCanTransitionTo(t *testing.T) {
+	tests := []struct {
+		name   string
+		from   QuestionStatus
+		to     QuestionStatus
+		expect bool
+	}{
+		{"open to resolved", QuestionStatusOpen, QuestionStatusResolved, true},
+		{"open to in_progress", QuestionStatusOpen, QuestionStatusInProgress, true},
+		{"open to assigned_mentor", QuestionStatusOpen, QuestionStatusAssignedMentor, true},
+		{"in_progress to resolved", QuestionStatusInProgress, QuestionStatusResolved, true},
+		{"in_progress to assigned_mentor", QuestionStatusInProgress, QuestionStatusAssignedMentor, true},
+		{"in_progress to open", QuestionStatusInProgress, QuestionStatusOpen, false},
+		{"assigned_mentor to resolved", QuestionStatusAssignedMentor, QuestionStatusResolved, true},
+		{"assigned_mentor to open", QuestionStatusAssignedMentor, QuestionStatusOpen, false},
+		{"assigned_mentor to in_progress", QuestionStatusAssignedMentor, QuestionStatusInProgress, false},
+		{"resolved to open", QuestionStatusResolved, QuestionStatusOpen, false},
+		{"resolved to in_progress", QuestionStatusResolved, QuestionStatusInProgress, false},
+		{"resolved to assigned_mentor", QuestionStatusResolved, QuestionStatusAssignedMentor, false},
+		{"invalid status", QuestionStatus("invalid"), QuestionStatusResolved, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			q := &Question{Status: tt.from}
+			got := q.CanTransitionTo(tt.to)
+			if got != tt.expect {
+				t.Errorf("CanTransitionTo(%q -> %q) = %v, want %v", tt.from, tt.to, got, tt.expect)
+			}
 		})
 	}
 }

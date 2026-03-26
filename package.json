@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "packageManager": "npm@10.9.2",
   "workspaces": [
-    "infrastructure/cdk"
+    "infrastructure/cdk",
+    "web"
   ],
   "scripts": {
     "format": "npm run format --workspaces --if-present && biome format --write package.json biome.json",

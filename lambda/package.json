@@ -1,0 +1,23 @@
+{
+  "name": "@progress-checker/lambda",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Lambda workers for progress-checker.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "test": "node --test worker/*.test.js"
+  },
+  "dependencies": {
+    "@ai-sdk/amazon-bedrock": "^2.2.8",
+    "@aws-sdk/client-sqs": "^3.835.0",
+    "@slack/web-api": "^7.9.1",
+    "ai": "^4.3.16"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.149",
+    "@types/node": "^22.15.0",
+    "typescript": "^5.9.3"
+  }
+}
