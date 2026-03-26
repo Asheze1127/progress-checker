@@ -1,8 +1,8 @@
 import { bedrock } from "@ai-sdk/amazon-bedrock";
 import type { KnownBlock } from "@slack/web-api";
-import { WebClient } from "@slack/web-api";
 import { generateText } from "ai";
 import type { SQSEvent, SQSHandler } from "aws-lambda";
+import { postSlackMessage } from "./shared/slack";
 
 // --- Types ---
 
@@ -38,14 +38,6 @@ Provide clear, actionable answers. When the question is ambiguous, ask a focused
 Always respond in the same language as the question.`;
 
 // --- Slack helpers ---
-
-function createSlackClient(): WebClient {
-  const token = process.env.SLACK_BOT_TOKEN;
-  if (!token) {
-    throw new Error("SLACK_BOT_TOKEN environment variable is not set");
-  }
-  return new WebClient(token);
-}
 
 interface ActionButton {
   type: "button";
@@ -160,13 +152,7 @@ function createProductionDependencies(): Dependencies {
       text: string,
       blocks: KnownBlock[],
     ): Promise<void> => {
-      const slackClient = createSlackClient();
-      await slackClient.chat.postMessage({
-        channel: channelId,
-        thread_ts: threadTs,
-        text,
-        blocks,
-      });
+      await postSlackMessage({ channelId, threadTs, text, blocks });
     },
   };
 }
