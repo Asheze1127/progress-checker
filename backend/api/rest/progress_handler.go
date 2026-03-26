@@ -1,7 +1,7 @@
 package rest
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -59,7 +59,7 @@ func (h *ProgressHandler) HandleListProgress(w http.ResponseWriter, r *http.Requ
 
 	results, err := h.listProgressUC.Execute(r.Context(), teamID)
 	if err != nil {
-		log.Printf("failed to list latest progress: %v", err)
+		slog.Error("failed to list latest progress", slog.String("error", err.Error()))
 		WriteError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
