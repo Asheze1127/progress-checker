@@ -1,5 +1,4 @@
-// Package rest provides HTTP handlers and middleware for the REST API.
-package rest
+package middleware
 
 import (
 	"bytes"
