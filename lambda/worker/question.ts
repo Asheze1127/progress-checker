@@ -63,7 +63,7 @@ export function buildResponseBlocks(
     {
       type: "button",
       text: { type: "plain_text", text: "解決済み" },
-      action_id: "question_resolve",
+      action_id: "question_resolved",
       style: "primary",
       value: questionId,
     },

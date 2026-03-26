@@ -134,7 +134,7 @@ describe("buildResponseBlocks", () => {
     expect(actionsBlock.elements).toHaveLength(3);
 
     const actionIds = actionsBlock.elements.map((e) => e.action_id);
-    expect(actionIds).toContain("question_resolve");
+    expect(actionIds).toContain("question_resolved");
     expect(actionIds).toContain("question_continue");
     expect(actionIds).toContain("question_escalate");
 
