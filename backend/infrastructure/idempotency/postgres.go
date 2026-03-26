@@ -5,8 +5,8 @@ import (
 	"context"
 	"time"
 
+	db "github.com/Asheze1127/progress-checker/backend/database/postgres/generated"
 	idempotencysvc "github.com/Asheze1127/progress-checker/backend/service/idempotency"
-	"github.com/Asheze1127/progress-checker/backend/infrastructure/sqlcgen"
 )
 
 // Compile-time check that PostgresStore implements idempotencysvc.Store.
@@ -15,23 +15,23 @@ var _ idempotencysvc.Store = (*PostgresStore)(nil)
 // PostgresStore is a PostgreSQL-backed implementation of idempotencysvc.Store
 // using sqlc-generated queries.
 type PostgresStore struct {
-	queries *sqlcgen.Queries
+	queries *db.Queries
 }
 
 // NewPostgresStore creates a new PostgresStore backed by the given sqlc DBTX.
-func NewPostgresStore(db sqlcgen.DBTX) *PostgresStore {
-	return &PostgresStore{queries: sqlcgen.New(db)}
+func NewPostgresStore(database db.DBTX) *PostgresStore {
+	return &PostgresStore{queries: db.New(database)}
 }
 
 // Exists checks whether the given key exists and has not expired.
 func (s *PostgresStore) Exists(ctx context.Context, key string) (bool, error) {
-	return s.queries.IdempotencyKeyExists(ctx, key)
+	return s.queries.CheckIdempotencyKeyExists(ctx, key)
 }
 
 // Set stores the key with the specified TTL.
 func (s *PostgresStore) Set(ctx context.Context, key string, ttl time.Duration) error {
-	return s.queries.InsertIdempotencyKey(ctx, sqlcgen.InsertIdempotencyKeyParams{
-		Key:         key,
-		TtlInterval: ttl.Microseconds(),
+	return s.queries.SetIdempotencyKey(ctx, db.SetIdempotencyKeyParams{
+		Key:       key,
+		ExpiresAt: time.Now().Add(ttl),
 	})
 }
