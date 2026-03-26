@@ -32,13 +32,13 @@ type createIssueResponse struct {
 func (h *InternalHandler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 	var req createIssueRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "invalid request body")
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
 
 	issueURL, err := h.service.CreateIssue(r.Context(), req.ChannelID, req.Title, req.Body)
 	if err != nil {
-		WriteError(w, http.StatusBadRequest, err.Error())
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
 

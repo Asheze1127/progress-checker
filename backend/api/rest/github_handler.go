@@ -45,18 +45,18 @@ type updateTokenRequest struct {
 func (h *GitHubHandler) RegisterRepository(w http.ResponseWriter, r *http.Request) {
 	teamID := extractPathParam(r.URL.Path, "teams")
 	if teamID == "" {
-		WriteError(w, http.StatusBadRequest, "team_id is required in path")
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required in path"})
 		return
 	}
 
 	var req registerRepoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "invalid request body")
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
 
 	if err := h.service.RegisterRepository(r.Context(), teamID, req.GitHubRepoURL, req.PersonalAccessToken); err != nil {
-		WriteError(w, http.StatusBadRequest, err.Error())
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
 
@@ -67,13 +67,13 @@ func (h *GitHubHandler) RegisterRepository(w http.ResponseWriter, r *http.Reques
 func (h *GitHubHandler) ListRepositories(w http.ResponseWriter, r *http.Request) {
 	teamID := extractPathParam(r.URL.Path, "teams")
 	if teamID == "" {
-		WriteError(w, http.StatusBadRequest, "team_id is required in path")
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required in path"})
 		return
 	}
 
 	repos, err := h.service.ListRepositories(r.Context(), teamID)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, err.Error())
+		WriteJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
 
@@ -95,16 +95,16 @@ func (h *GitHubHandler) RemoveRepository(w http.ResponseWriter, r *http.Request)
 	repoID := extractPathParam(r.URL.Path, "github-repos")
 
 	if teamID == "" {
-		WriteError(w, http.StatusBadRequest, "team_id is required in path")
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required in path"})
 		return
 	}
 	if repoID == "" {
-		WriteError(w, http.StatusBadRequest, "repo_id is required in path")
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "repo_id is required in path"})
 		return
 	}
 
 	if err := h.service.RemoveRepository(r.Context(), teamID, repoID); err != nil {
-		WriteError(w, http.StatusBadRequest, err.Error())
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
 
@@ -117,22 +117,22 @@ func (h *GitHubHandler) UpdateToken(w http.ResponseWriter, r *http.Request) {
 	repoID := extractPathParam(r.URL.Path, "github-repos")
 
 	if teamID == "" {
-		WriteError(w, http.StatusBadRequest, "team_id is required in path")
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required in path"})
 		return
 	}
 	if repoID == "" {
-		WriteError(w, http.StatusBadRequest, "repo_id is required in path")
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "repo_id is required in path"})
 		return
 	}
 
 	var req updateTokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		WriteError(w, http.StatusBadRequest, "invalid request body")
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
 
 	if err := h.service.UpdateToken(r.Context(), teamID, repoID, req.PersonalAccessToken); err != nil {
-		WriteError(w, http.StatusBadRequest, err.Error())
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
 
