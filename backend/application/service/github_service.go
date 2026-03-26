@@ -6,24 +6,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	"github.com/Asheze1127/progress-checker/backend/application/port"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
 // GitHubService handles GitHub repository management and Issue creation.
 type GitHubService struct {
-	repo       application.GitHubRepoRepository
-	encryptor  application.TokenEncryptor
-	ghClient   application.GitHubIssueCreator
+	repo       port.GitHubRepoRepository
+	encryptor  port.TokenEncryptor
+	ghClient   port.GitHubIssueCreator
 	idProvider func() string
 }
 
 // NewGitHubService creates a new GitHubService.
 // idProvider generates unique IDs for new GitHubRepo entities.
 func NewGitHubService(
-	repo application.GitHubRepoRepository,
-	encryptor application.TokenEncryptor,
-	ghClient application.GitHubIssueCreator,
+	repo port.GitHubRepoRepository,
+	encryptor port.TokenEncryptor,
+	ghClient port.GitHubIssueCreator,
 	idProvider func() string,
 ) *GitHubService {
 	return &GitHubService{
