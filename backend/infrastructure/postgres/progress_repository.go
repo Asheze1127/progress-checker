@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	db "github.com/Asheze1127/progress-checker/backend/database/postgres/generated"
 	"github.com/Asheze1127/progress-checker/backend/entities"
@@ -33,15 +32,6 @@ func (r *ProgressRepository) Save(ctx context.Context, log *entities.ProgressLog
 		return err
 	}
 
-	logID, err := uuid.Parse(string(log.ID))
-	if err != nil {
-		return fmt.Errorf("invalid progress log ID %q: %w", log.ID, err)
-	}
-	participantID, err := uuid.Parse(string(log.ParticipantID))
-	if err != nil {
-		return fmt.Errorf("invalid participant ID %q: %w", log.ParticipantID, err)
-	}
-
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -55,7 +45,7 @@ func (r *ProgressRepository) Save(ctx context.Context, log *entities.ProgressLog
 		ParticipantID: participantID,
 	})
 	if err != nil {
-		return fmt.Errorf("inserting progress log %q: %w", log.ID, err)
+		return err
 	}
 
 	for _, body := range log.ProgressBodies {
@@ -69,7 +59,7 @@ func (r *ProgressRepository) Save(ctx context.Context, log *entities.ProgressLog
 			SubmittedAt:   body.SubmittedAt,
 		})
 		if err != nil {
-			return fmt.Errorf("inserting progress body (phase=%s) for log %q: %w", body.Phase, log.ID, err)
+			return err
 		}
 	}
 

@@ -188,6 +188,12 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 	return string(ns.UserRole), nil
 }
 
+type ChannelPurposeAssignments struct {
+	SlackChannelID string    `json:"slack_channel_id"`
+	Purpose        string    `json:"purpose"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
 type IdempotencyKeys struct {
 	Key       string    `json:"key"`
 	CreatedAt time.Time `json:"created_at"`
@@ -241,12 +247,6 @@ type Questions struct {
 	SlackThreadTs  string    `json:"slack_thread_ts"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
-}
-
-type SlackChannelPurposes struct {
-	SlackChannelID string    `json:"slack_channel_id"`
-	Purpose        string    `json:"purpose"`
-	CreatedAt      time.Time `json:"created_at"`
 }
 
 type SlackChannels struct {
