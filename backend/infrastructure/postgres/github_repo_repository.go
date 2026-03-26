@@ -5,16 +5,16 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	"github.com/Asheze1127/progress-checker/backend/application/port"
 	db "github.com/Asheze1127/progress-checker/backend/database/postgres/generated"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 	"github.com/google/uuid"
 )
 
 // Compile-time interface check.
-var _ application.GitHubRepoRepository = (*GitHubRepoRepository)(nil)
+var _ port.GitHubRepoRepository = (*GitHubRepoRepository)(nil)
 
-// GitHubRepoRepository implements application.GitHubRepoRepository using sqlc-generated queries.
+// GitHubRepoRepository implements port.GitHubRepoRepository using sqlc-generated queries.
 type GitHubRepoRepository struct {
 	queries *db.Queries
 }
