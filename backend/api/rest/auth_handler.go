@@ -39,49 +39,44 @@ type userResponse struct {
 	Role string `json:"role"`
 }
 
-// errorResponse represents a JSON error response.
-type errorResponse struct {
-	Error string `json:"error"`
-}
-
 // HandleLogin handles POST /api/v1/auth/login requests.
 func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		writeJSONError(w, "method not allowed", http.StatusMethodNotAllowed)
+		WriteError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONError(w, "invalid request body", http.StatusBadRequest)
+		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	req.Email = strings.TrimSpace(req.Email)
 
 	if req.Email == "" || req.Password == "" {
-		writeJSONError(w, "email and password are required", http.StatusBadRequest)
+		WriteError(w, http.StatusBadRequest, "email and password are required")
 		return
 	}
 
 	result, err := h.loginUseCase.Execute(r.Context(), req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, usecase.ErrInvalidCredentials) {
-			writeJSONError(w, "invalid email or password", http.StatusUnauthorized)
+			WriteError(w, http.StatusUnauthorized, "invalid email or password")
 			return
 		}
 		if errors.Is(err, usecase.ErrUserNotMentor) {
-			writeJSONError(w, "only mentors can log in", http.StatusForbidden)
+			WriteError(w, http.StatusForbidden, "only mentors can log in")
 			return
 		}
-		writeJSONError(w, "internal server error", http.StatusInternalServerError)
+		WriteError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 
-	writeJSON(w, loginResponse{
+	WriteJSON(w, http.StatusOK, loginResponse{
 		Token: result.Token,
 		User:  toUserResponse(result.User),
-	}, http.StatusOK)
+	})
 }
 
 // toUserResponse converts an entity User to a userResponse.
@@ -91,20 +86,4 @@ func toUserResponse(user entities.User) userResponse {
 		Name: user.Name,
 		Role: string(user.Role),
 	}
-}
-
-// writeJSON writes a JSON response with the given status code.
-func writeJSON(w http.ResponseWriter, data interface{}, statusCode int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
-	}
-}
-
-// writeJSONError writes a JSON error response with the given status code.
-func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(errorResponse{Error: message})
 }
