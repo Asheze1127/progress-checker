@@ -4,17 +4,17 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 )
 
 // QuestionHandler handles HTTP requests for the /question slash command webhook.
 type QuestionHandler struct {
-	service *application.QuestionService
+	handleNewQuestionUC *usecase.HandleNewQuestionUseCase
 }
 
-// NewQuestionHandler creates a new QuestionHandler with the given service.
-func NewQuestionHandler(service *application.QuestionService) *QuestionHandler {
-	return &QuestionHandler{service: service}
+// NewQuestionHandler creates a new QuestionHandler with the given use case.
+func NewQuestionHandler(handleNewQuestionUC *usecase.HandleNewQuestionUseCase) *QuestionHandler {
+	return &QuestionHandler{handleNewQuestionUC: handleNewQuestionUC}
 }
 
 const (
@@ -70,14 +70,14 @@ func (h *QuestionHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	input := application.NewQuestionInput{
+	input := usecase.HandleNewQuestionInput{
 		ParticipantID:  userID,
 		Title:          truncateTitle(text),
 		Text:           text,
 		SlackChannelID: channelID,
 	}
 
-	if err := h.service.HandleNewQuestion(r.Context(), input); err != nil {
+	if err := h.handleNewQuestionUC.Execute(r.Context(), input); err != nil {
 		log.Printf("ERROR: failed to handle new question: %v", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return

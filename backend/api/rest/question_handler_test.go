@@ -9,18 +9,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Asheze1127/progress-checker/backend/application"
+	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
 // testQuestionRepository is a test double for QuestionRepository.
 type testQuestionRepository struct {
-	savedQuestion *entities.Question
+	saveErr error
 }
 
-func (m *testQuestionRepository) Save(ctx context.Context, q *entities.Question) error {
-	m.savedQuestion = q
-	return nil
+func (m *testQuestionRepository) Save(_ context.Context, _ *entities.Question) error {
+	return m.saveErr
 }
 
 func (m *testQuestionRepository) GetByID(_ context.Context, _ entities.QuestionID) (*entities.Question, error) {
@@ -48,66 +48,24 @@ type testMessageQueue struct {
 	sendErr error
 }
 
-func (m *testMessageQueue) Send(ctx context.Context, queueName string, message []byte) error {
+func (m *testMessageQueue) Send(_ context.Context, _ string, _ []byte) error {
 	return m.sendErr
-}
-
-// testIDGenerator is a test double for IDGenerator.
-type testIDGenerator struct {
-	ids   []string
-	index int
-}
-
-func (m *testIDGenerator) Generate() string {
-	if m.index >= len(m.ids) {
-		return "default-id"
-	}
-	id := m.ids[m.index]
-	m.index++
-	return id
 }
 
 func newTestHandler(queueErr error) *QuestionHandler {
 	repo := &testQuestionRepository{}
 	queue := &testMessageQueue{sendErr: queueErr}
-	idGen := &testIDGenerator{ids: []string{"q-1", "t-1"}}
-	service := application.NewQuestionService(repo, queue, idGen)
-	return NewQuestionHandler(service)
+	sender := service.NewQuestionSender(queue)
+	uc := usecase.NewHandleNewQuestionUseCase(repo, sender)
+	return NewQuestionHandler(uc)
 }
 
 func newTestHandlerWithFailingRepo() *QuestionHandler {
-	repo := &failingQuestionRepository{}
+	repo := &testQuestionRepository{saveErr: errors.New("database error")}
 	queue := &testMessageQueue{}
-	idGen := &testIDGenerator{ids: []string{"q-1", "t-1"}}
-	service := application.NewQuestionService(repo, queue, idGen)
-	return NewQuestionHandler(service)
-}
-
-// failingQuestionRepository always returns an error on Save.
-type failingQuestionRepository struct{}
-
-func (m *failingQuestionRepository) Save(ctx context.Context, q *entities.Question) error {
-	return errors.New("database error")
-}
-
-func (m *failingQuestionRepository) GetByID(_ context.Context, _ entities.QuestionID) (*entities.Question, error) {
-	return nil, nil
-}
-
-func (m *failingQuestionRepository) GetByThreadTS(_ context.Context, _ entities.SlackChannelID, _ string) (*entities.Question, error) {
-	return nil, nil
-}
-
-func (m *failingQuestionRepository) GetAwaitingByChannelAndThread(_ context.Context, _ entities.SlackChannelID, _ string) (*entities.Question, error) {
-	return nil, nil
-}
-
-func (m *failingQuestionRepository) UpdateStatus(_ context.Context, _ entities.QuestionID, _ entities.QuestionStatus) error {
-	return nil
-}
-
-func (m *failingQuestionRepository) AssignMentor(_ context.Context, _ entities.QuestionID, _ entities.MentorID) error {
-	return nil
+	sender := service.NewQuestionSender(queue)
+	uc := usecase.NewHandleNewQuestionUseCase(repo, sender)
+	return NewQuestionHandler(uc)
 }
 
 func makeSlackForm(command, text, userID, channelID, threadTS string) string {
