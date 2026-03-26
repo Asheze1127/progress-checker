@@ -40,6 +40,15 @@ func (r *ProgressRepository) Save(ctx context.Context, log *entities.ProgressLog
 
 	qtx := r.queries.WithTx(tx)
 
+	logID, err := uuid.Parse(string(log.ID))
+	if err != nil {
+		return err
+	}
+	participantID, err := uuid.Parse(string(log.ParticipantID))
+	if err != nil {
+		return err
+	}
+
 	_, err = qtx.InsertProgressLog(ctx, db.InsertProgressLogParams{
 		ID:            logID,
 		ParticipantID: participantID,
