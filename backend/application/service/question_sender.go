@@ -4,12 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-)
 
-// MessageQueue defines the interface for sending messages to a queue.
-type MessageQueue interface {
-	Send(ctx context.Context, queueName string, message []byte) error
-}
+	"github.com/Asheze1127/progress-checker/backend/application/port"
+)
 
 const queueNameQuestionNew = "question:new"
 
@@ -26,11 +23,11 @@ type QuestionNewMessage struct {
 
 // QuestionSender sends question-related messages to SQS.
 type QuestionSender struct {
-	queue MessageQueue
+	queue port.MessageQueue
 }
 
 // NewQuestionSender creates a new QuestionSender with the given message queue.
-func NewQuestionSender(queue MessageQueue) *QuestionSender {
+func NewQuestionSender(queue port.MessageQueue) *QuestionSender {
 	return &QuestionSender{queue: queue}
 }
 
