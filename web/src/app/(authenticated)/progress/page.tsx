@@ -1,12 +1,10 @@
-/**
- * Progress overview page placeholder.
- * Displays a summary of all team progress.
- */
+import { ProgressDashboardContainer } from "@/features/progress/container/ProgressDashboardContainer";
+
 export default function ProgressPage() {
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Progress Overview</h1>
-      <p className="text-muted-foreground">Team progress will be displayed here.</p>
+    <div className="container mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">進捗一覧</h1>
+      <ProgressDashboardContainer />
     </div>
   );
 }
