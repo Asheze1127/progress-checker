@@ -95,7 +95,7 @@ func (uc *TriggerIssueCreationUseCase) Execute(ctx context.Context, input Trigge
 		return fmt.Errorf("failed to marshal queue message: %w", err)
 	}
 
-	if err := uc.queue.Publish(ctx, issueQueueName, body); err != nil {
+	if err := uc.queue.Send(ctx, issueQueueName, body); err != nil {
 		return fmt.Errorf("failed to publish to queue: %w", err)
 	}
 

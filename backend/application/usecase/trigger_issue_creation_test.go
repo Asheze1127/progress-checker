@@ -25,7 +25,7 @@ type spyMessageQueue struct {
 	err         error
 }
 
-func (s *spyMessageQueue) Publish(_ context.Context, queueName string, message []byte) error {
+func (s *spyMessageQueue) Send(_ context.Context, queueName string, message []byte) error {
 	s.calledQueue = queueName
 	s.calledBody = message
 	return s.err

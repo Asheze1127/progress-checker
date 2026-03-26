@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
-// Client implements the service.MessageQueue interface using AWS SQS.
+// Client implements the port.MessageQueue interface using AWS SQS.
 type Client struct {
 	api *sqs.Client
 }
