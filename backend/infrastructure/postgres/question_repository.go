@@ -21,6 +21,7 @@ func NewQuestionRepository(database *sql.DB) *QuestionRepository {
 	return &QuestionRepository{queries: db.New(database)}
 }
 
+// Save validates and persists a Question entity.
 func (r *QuestionRepository) Save(ctx context.Context, question *entities.Question) error {
 	if err := question.Validate(); err != nil {
 		return err
@@ -44,6 +45,7 @@ func (r *QuestionRepository) Save(ctx context.Context, question *entities.Questi
 	return err
 }
 
+// GetByID retrieves a question by its ID.
 func (r *QuestionRepository) GetByID(ctx context.Context, id entities.QuestionID) (*entities.Question, error) {
 	uid, err := uuid.Parse(string(id))
 	if err != nil {
@@ -56,6 +58,7 @@ func (r *QuestionRepository) GetByID(ctx context.Context, id entities.QuestionID
 	return toQuestionEntity(row), nil
 }
 
+// GetByThreadTS retrieves a question by its Slack channel and thread timestamp.
 func (r *QuestionRepository) GetByThreadTS(ctx context.Context, channelID entities.SlackChannelID, threadTS string) (*entities.Question, error) {
 	row, err := r.queries.GetQuestionByThreadTS(ctx, db.GetQuestionByThreadTSParams{
 		SlackChannelID: string(channelID),
@@ -67,6 +70,8 @@ func (r *QuestionRepository) GetByThreadTS(ctx context.Context, channelID entiti
 	return toQuestionEntity(row), nil
 }
 
+// GetAwaitingByChannelAndThread retrieves a question with status "awaiting_user"
+// matching the given Slack channel and thread.
 func (r *QuestionRepository) GetAwaitingByChannelAndThread(ctx context.Context, channelID entities.SlackChannelID, threadTS string) (*entities.Question, error) {
 	row, err := r.queries.GetAwaitingQuestionByChannelAndThread(ctx, db.GetAwaitingQuestionByChannelAndThreadParams{
 		SlackChannelID: string(channelID),
@@ -78,6 +83,7 @@ func (r *QuestionRepository) GetAwaitingByChannelAndThread(ctx context.Context, 
 	return toQuestionEntity(row), nil
 }
 
+// UpdateStatus updates the status of a question.
 func (r *QuestionRepository) UpdateStatus(ctx context.Context, id entities.QuestionID, status entities.QuestionStatus) error {
 	uid, err := uuid.Parse(string(id))
 	if err != nil {
@@ -89,6 +95,7 @@ func (r *QuestionRepository) UpdateStatus(ctx context.Context, id entities.Quest
 	})
 }
 
+// AssignMentor records a mentor assignment for a question.
 func (r *QuestionRepository) AssignMentor(ctx context.Context, questionID entities.QuestionID, mentorUserID entities.MentorID) error {
 	qID, err := uuid.Parse(string(questionID))
 	if err != nil {

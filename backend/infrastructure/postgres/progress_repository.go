@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/Asheze1127/progress-checker/backend/database/postgres/generated"
+	db "github.com/Asheze1127/progress-checker/backend/database/postgres/generated"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 	"github.com/google/uuid"
 )
@@ -39,15 +39,6 @@ func (r *ProgressRepository) Save(ctx context.Context, log *entities.ProgressLog
 	defer tx.Rollback()
 
 	qtx := r.queries.WithTx(tx)
-
-	logID, err := uuid.Parse(string(log.ID))
-	if err != nil {
-		return err
-	}
-	participantID, err := uuid.Parse(string(log.ParticipantID))
-	if err != nil {
-		return err
-	}
 
 	_, err = qtx.InsertProgressLog(ctx, db.InsertProgressLogParams{
 		ID:            logID,
