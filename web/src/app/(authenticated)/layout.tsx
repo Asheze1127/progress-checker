@@ -1,26 +1,68 @@
-/**
- * Layout wrapper for authenticated routes.
- * Will be extended with auth checks and navigation.
- */
-export default function AuthenticatedLayout({
-  children,
-}: Readonly<{
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getSession } from "@/lib/auth/session";
+
+const VALIDATE_SESSION_URL = "/api/v1/auth/validate";
+
+interface AuthLayoutProps {
   children: React.ReactNode;
-}>) {
-  return (
-    <div className="min-h-screen">
-      <header className="border-b px-6 py-4">
-        <nav className="flex items-center gap-6">
-          <span className="font-bold">Progress Checker</span>
-          <a href="/progress" className="text-sm text-muted-foreground hover:text-foreground">
-            Progress
-          </a>
-          <a href="/questions" className="text-sm text-muted-foreground hover:text-foreground">
-            Questions
-          </a>
-        </nav>
-      </header>
-      <main className="p-6">{children}</main>
-    </div>
-  );
+}
+
+/**
+ * AuthenticatedLayout wraps pages that require authentication.
+ * It checks for a valid session on mount and redirects to /login if not authenticated.
+ */
+export default function AuthenticatedLayout({ children }: AuthLayoutProps) {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = getSession();
+
+      if (!token) {
+        router.replace("/login");
+        return;
+      }
+
+      try {
+        const response = await fetch(VALIDATE_SESSION_URL, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          router.replace("/login");
+          return;
+        }
+
+        setIsAuthenticated(true);
+      } catch {
+        router.replace("/login");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return <>{children}</>;
 }

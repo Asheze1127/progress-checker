@@ -52,3 +52,8 @@ func (u User) Validate() error {
 
 	return errors.Join(errs...)
 }
+
+// IsMentor returns true if the user has the mentor role.
+func (u User) IsMentor() bool {
+	return u.Role == UserRoleMentor
+}

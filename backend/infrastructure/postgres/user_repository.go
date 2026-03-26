@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	db "github.com/Asheze1127/progress-checker/backend/database/postgres/generated"
 	"github.com/Asheze1127/progress-checker/backend/entities"
@@ -13,12 +14,16 @@ var _ entities.UserRepository = (*UserRepository)(nil)
 
 // UserRepository queries users from PostgreSQL.
 type UserRepository struct {
+	db      *sql.DB
 	queries *db.Queries
 }
 
 // NewUserRepository creates a new UserRepository backed by the given database connection.
 func NewUserRepository(database *sql.DB) *UserRepository {
-	return &UserRepository{queries: db.New(database)}
+	return &UserRepository{
+		db:      database,
+		queries: db.New(database),
+	}
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, id entities.UserID) (*entities.User, error) {
@@ -47,6 +52,26 @@ func (r *UserRepository) GetBySlackUserID(ctx context.Context, slackUserID entit
 		return nil, err
 	}
 	return toUserEntity(row), nil
+}
+
+// FindByEmail retrieves a user with their password hash by email address.
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*entities.UserWithPassword, error) {
+	query := `SELECT id, slack_user_id, name, email, role, password_hash FROM users WHERE email = $1`
+
+	var user entities.UserWithPassword
+	err := r.db.QueryRowContext(ctx, query, email).Scan(
+		&user.ID,
+		&user.SlackUserID,
+		&user.Name,
+		&user.Email,
+		&user.Role,
+		&user.PasswordHash,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("find user by email: %w", err)
+	}
+
+	return &user, nil
 }
 
 func toUserEntity(row db.Users) *entities.User {
