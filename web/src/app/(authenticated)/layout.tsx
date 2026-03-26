@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
+import { QueryProvider } from "@/lib/providers/QueryProvider";
 
 const VALIDATE_SESSION_URL = "/api/v1/auth/validate";
 
@@ -64,5 +65,5 @@ export default function AuthenticatedLayout({ children }: AuthLayoutProps) {
     return null;
   }
 
-  return <>{children}</>;
+  return <QueryProvider>{children}</QueryProvider>;
 }
