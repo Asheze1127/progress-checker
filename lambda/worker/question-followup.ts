@@ -248,11 +248,12 @@ export const handler: SQSHandler = async (event: SQSEvent): Promise<void> => {
     }),
   );
 
+  const errors: Array<{ messageId: string; error: unknown }> = [];
+
   for (const record of event.Records) {
     try {
       await processRecord(record);
     } catch (error) {
-      // Handle errors per-record to prevent one failure from blocking others
       console.error(
         JSON.stringify({
           action: "record_processing_error",
@@ -260,7 +261,11 @@ export const handler: SQSHandler = async (event: SQSEvent): Promise<void> => {
           error: error instanceof Error ? error.message : String(error),
         }),
       );
-      throw error;
+      errors.push({ messageId: record.messageId, error });
     }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Failed to process ${errors.length} record(s)`);
   }
 };
