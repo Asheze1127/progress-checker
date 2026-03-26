@@ -21,3 +21,8 @@ func WriteError(w http.ResponseWriter, status int, message string) {
 	resp := map[string]string{"error": message}
 	WriteJSON(w, status, resp)
 }
+
+// errorResponse represents a JSON error response.
+type errorResponse struct {
+	Error string `json:"error"`
+}

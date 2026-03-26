@@ -41,43 +41,39 @@ type updateTokenRequest struct {
 	PersonalAccessToken string `json:"personal_access_token"`
 }
 
-type errorResponse struct {
-	Error string `json:"error"`
-}
-
 // RegisterRepository handles POST /api/v1/teams/:teamId/github-repos
 func (h *GitHubHandler) RegisterRepository(w http.ResponseWriter, r *http.Request) {
 	teamID := extractPathParam(r.URL.Path, "teams")
 	if teamID == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required in path"})
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required in path"})
 		return
 	}
 
 	var req registerRepoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
 
 	if err := h.service.RegisterRepository(r.Context(), teamID, req.GitHubRepoURL, req.PersonalAccessToken); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, registerRepoResponse{Message: "repository registered successfully"})
+	WriteJSON(w, http.StatusCreated, registerRepoResponse{Message: "repository registered successfully"})
 }
 
 // ListRepositories handles GET /api/v1/teams/:teamId/github-repos
 func (h *GitHubHandler) ListRepositories(w http.ResponseWriter, r *http.Request) {
 	teamID := extractPathParam(r.URL.Path, "teams")
 	if teamID == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required in path"})
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required in path"})
 		return
 	}
 
 	repos, err := h.service.ListRepositories(r.Context(), teamID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
+		WriteJSON(w, http.StatusInternalServerError, errorResponse{Error: err.Error()})
 		return
 	}
 
@@ -90,7 +86,7 @@ func (h *GitHubHandler) ListRepositories(w http.ResponseWriter, r *http.Request)
 		})
 	}
 
-	writeJSON(w, http.StatusOK, listReposResponse{Repos: items})
+	WriteJSON(w, http.StatusOK, listReposResponse{Repos: items})
 }
 
 // RemoveRepository handles DELETE /api/v1/teams/:teamId/github-repos/:repoId
@@ -99,20 +95,20 @@ func (h *GitHubHandler) RemoveRepository(w http.ResponseWriter, r *http.Request)
 	repoID := extractPathParam(r.URL.Path, "github-repos")
 
 	if teamID == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required in path"})
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required in path"})
 		return
 	}
 	if repoID == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "repo_id is required in path"})
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "repo_id is required in path"})
 		return
 	}
 
 	if err := h.service.RemoveRepository(r.Context(), teamID, repoID); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"message": "repository removed successfully"})
+	WriteJSON(w, http.StatusOK, map[string]string{"message": "repository removed successfully"})
 }
 
 // UpdateToken handles PUT /api/v1/teams/:teamId/github-repos/:repoId
@@ -121,26 +117,26 @@ func (h *GitHubHandler) UpdateToken(w http.ResponseWriter, r *http.Request) {
 	repoID := extractPathParam(r.URL.Path, "github-repos")
 
 	if teamID == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required in path"})
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "team_id is required in path"})
 		return
 	}
 	if repoID == "" {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "repo_id is required in path"})
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "repo_id is required in path"})
 		return
 	}
 
 	var req updateTokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid request body"})
 		return
 	}
 
 	if err := h.service.UpdateToken(r.Context(), teamID, repoID, req.PersonalAccessToken); err != nil {
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		WriteJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"message": "token updated successfully"})
+	WriteJSON(w, http.StatusOK, map[string]string{"message": "token updated successfully"})
 }
 
 // extractPathParam extracts the value after the given segment in a URL path.
@@ -153,10 +149,4 @@ func extractPathParam(urlPath string, segment string) string {
 		}
 	}
 	return ""
-}
-
-func writeJSON(w http.ResponseWriter, statusCode int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(v)
 }
