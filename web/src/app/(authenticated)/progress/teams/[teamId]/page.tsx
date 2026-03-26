@@ -1,16 +1,15 @@
+import { TeamTimelineContainer } from "@/features/progress/container/TeamTimelineContainer";
+
 /**
- * Team detail page placeholder.
- * Displays detailed progress for a specific team.
+ * Team progress detail page (S-05).
+ * Displays chronological progress posts for a specific team.
  */
-export default function TeamDetailPage({
-  params,
-}: {
-  params: Promise<{ teamId: string }>;
-}) {
+export default async function TeamProgressPage({ params }: { params: Promise<{ teamId: string }> }) {
+  const { teamId } = await params;
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Team Detail</h1>
-      <p className="text-muted-foreground">Team progress details will be displayed here.</p>
+    <div className="container mx-auto p-6">
+      <TeamTimelineContainer teamId={teamId} />
     </div>
   );
 }
