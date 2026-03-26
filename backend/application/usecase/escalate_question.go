@@ -43,6 +43,10 @@ func (u *EscalateQuestionUsecase) Execute(ctx context.Context, questionID entiti
 		return fmt.Errorf("updating question %q to assigned_mentor: %w", questionID, err)
 	}
 
+	if u.slackNotifier == nil {
+		return fmt.Errorf("slack notifier not configured")
+	}
+
 	if err := u.slackNotifier.PostToMentorChannel(ctx, question); err != nil {
 		return fmt.Errorf("posting question %q to mentor channel: %w", questionID, err)
 	}
