@@ -2,7 +2,7 @@ package rest
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
@@ -59,7 +59,7 @@ func (h *InteractionHandler) HandleInteraction(w http.ResponseWriter, r *http.Re
 	}
 
 	if err := r.ParseForm(); err != nil {
-		log.Printf("error parsing form: %v", err)
+		slog.Error("error parsing form", slog.String("error", err.Error()))
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -72,7 +72,7 @@ func (h *InteractionHandler) HandleInteraction(w http.ResponseWriter, r *http.Re
 
 	var payload slackInteractionPayload
 	if err := json.Unmarshal([]byte(rawPayload), &payload); err != nil {
-		log.Printf("error unmarshaling interaction payload: %v", err)
+		slog.Error("error unmarshaling interaction payload", slog.String("error", err.Error()))
 		http.Error(w, "invalid payload", http.StatusBadRequest)
 		return
 	}
@@ -88,7 +88,7 @@ func (h *InteractionHandler) HandleInteraction(w http.ResponseWriter, r *http.Re
 	questionID := entities.QuestionID(action.Value)
 
 	if questionID == "" {
-		log.Printf("interaction from user %s has empty question ID", payload.User.ID)
+		slog.Warn("interaction has empty question ID", slog.String("user_id", payload.User.ID))
 		http.Error(w, "missing question ID", http.StatusBadRequest)
 		return
 	}
@@ -104,13 +104,13 @@ func (h *InteractionHandler) HandleInteraction(w http.ResponseWriter, r *http.Re
 	case slackpkg.ActionIDQuestionEscalate:
 		err = h.escalateQuestion.Execute(ctx, questionID)
 	default:
-		log.Printf("unknown action_id %q from user %s", action.ActionID, payload.User.ID)
+		slog.Warn("unknown action_id", slog.String("action_id", action.ActionID), slog.String("user_id", payload.User.ID))
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
 	if err != nil {
-		log.Printf("error handling action %q for question %q: %v", action.ActionID, questionID, err)
+		slog.Error("error handling action", slog.String("action_id", action.ActionID), slog.String("question_id", string(questionID)), slog.String("error", err.Error()))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

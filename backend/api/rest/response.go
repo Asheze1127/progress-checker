@@ -2,7 +2,7 @@ package rest
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 )
 
@@ -12,7 +12,7 @@ func WriteJSON(w http.ResponseWriter, status int, data any) {
 	w.WriteHeader(status)
 
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		log.Printf("failed to encode JSON response: %v", err)
+		slog.Error("failed to encode JSON response", slog.String("error", err.Error()))
 	}
 }
 

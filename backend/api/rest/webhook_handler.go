@@ -1,7 +1,7 @@
 package rest
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
@@ -65,7 +65,7 @@ func (h *WebhookHandler) handleProgress(w http.ResponseWriter, r *http.Request, 
 	}
 
 	if err := h.progressUseCase.Execute(r.Context(), input); err != nil {
-		log.Printf("ERROR: failed to handle progress command: %v", err)
+		slog.Error("failed to handle progress command", slog.String("error", err.Error()))
 		http.Error(w, "failed to process progress command", http.StatusInternalServerError)
 		return
 	}

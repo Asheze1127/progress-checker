@@ -1,7 +1,7 @@
 package rest
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
@@ -78,7 +78,7 @@ func (h *QuestionHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := h.handleNewQuestionUC.Execute(r.Context(), input); err != nil {
-		log.Printf("ERROR: failed to handle new question: %v", err)
+		slog.Error("failed to handle new question", slog.String("error", err.Error()))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

@@ -3,7 +3,7 @@ package rest
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -66,7 +66,7 @@ func (h *EventHandler) handleURLVerification(w http.ResponseWriter, event slackp
 	w.Header().Set("Content-Type", "application/json")
 	resp := slackpkg.URLVerificationResponse{Challenge: event.Challenge}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		log.Printf("failed to encode url_verification response: %v", err)
+		slog.Error("failed to encode url_verification response", slog.String("error", err.Error()))
 	}
 }
 
@@ -93,7 +93,7 @@ func (h *EventHandler) handleReactionAdded(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := h.issueTrigger.Execute(r.Context(), input); err != nil {
-		log.Printf("failed to trigger issue creation from reaction: %v", err)
+		slog.Error("failed to trigger issue creation from reaction", slog.String("error", err.Error()))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -115,7 +115,7 @@ func (h *EventHandler) handleMessageAction(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := h.issueTrigger.Execute(r.Context(), input); err != nil {
-		log.Printf("failed to trigger issue creation from message action: %v", err)
+		slog.Error("failed to trigger issue creation from message action", slog.String("error", err.Error()))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
