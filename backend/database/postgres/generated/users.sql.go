@@ -12,7 +12,7 @@ import (
 )
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, slack_user_id, name, email, role, created_at, updated_at FROM users WHERE email = $1
+SELECT id, slack_user_id, name, email, role, password_hash, created_at, updated_at FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (Users, error) {
@@ -24,6 +24,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (Users, erro
 		&i.Name,
 		&i.Email,
 		&i.Role,
+		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -31,7 +32,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (Users, erro
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, slack_user_id, name, email, role, created_at, updated_at FROM users WHERE id = $1
+SELECT id, slack_user_id, name, email, role, password_hash, created_at, updated_at FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (Users, error) {
@@ -43,6 +44,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (Users, error) 
 		&i.Name,
 		&i.Email,
 		&i.Role,
+		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -50,7 +52,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (Users, error) 
 }
 
 const getUserBySlackUserID = `-- name: GetUserBySlackUserID :one
-SELECT id, slack_user_id, name, email, role, created_at, updated_at FROM users WHERE slack_user_id = $1
+SELECT id, slack_user_id, name, email, role, password_hash, created_at, updated_at FROM users WHERE slack_user_id = $1
 `
 
 func (q *Queries) GetUserBySlackUserID(ctx context.Context, slackUserID string) (Users, error) {
@@ -62,8 +64,36 @@ func (q *Queries) GetUserBySlackUserID(ctx context.Context, slackUserID string) 
 		&i.Name,
 		&i.Email,
 		&i.Role,
+		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserWithPasswordByEmail = `-- name: GetUserWithPasswordByEmail :one
+SELECT id, slack_user_id, name, email, role, password_hash FROM users WHERE email = $1
+`
+
+type GetUserWithPasswordByEmailRow struct {
+	ID           uuid.UUID `json:"id"`
+	SlackUserID  string    `json:"slack_user_id"`
+	Name         string    `json:"name"`
+	Email        string    `json:"email"`
+	Role         string    `json:"role"`
+	PasswordHash string    `json:"password_hash"`
+}
+
+func (q *Queries) GetUserWithPasswordByEmail(ctx context.Context, email string) (GetUserWithPasswordByEmailRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserWithPasswordByEmail, email)
+	var i GetUserWithPasswordByEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.SlackUserID,
+		&i.Name,
+		&i.Email,
+		&i.Role,
+		&i.PasswordHash,
 	)
 	return i, err
 }

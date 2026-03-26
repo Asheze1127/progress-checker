@@ -56,22 +56,21 @@ func (r *UserRepository) GetBySlackUserID(ctx context.Context, slackUserID entit
 
 // FindByEmail retrieves a user with their password hash by email address.
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*entities.UserWithPassword, error) {
-	query := `SELECT id, slack_user_id, name, email, role, password_hash FROM users WHERE email = $1`
-
-	var user entities.UserWithPassword
-	err := r.db.QueryRowContext(ctx, query, email).Scan(
-		&user.ID,
-		&user.SlackUserID,
-		&user.Name,
-		&user.Email,
-		&user.Role,
-		&user.PasswordHash,
-	)
+	row, err := r.queries.GetUserWithPasswordByEmail(ctx, email)
 	if err != nil {
 		return nil, fmt.Errorf("find user by email: %w", err)
 	}
 
-	return &user, nil
+	return &entities.UserWithPassword{
+		User: entities.User{
+			ID:          entities.UserID(row.ID.String()),
+			SlackUserID: entities.SlackUserID(row.SlackUserID),
+			Name:        row.Name,
+			Email:       row.Email,
+			Role:        entities.UserRole(row.Role),
+		},
+		PasswordHash: row.PasswordHash,
+	}, nil
 }
 
 func toUserEntity(row db.Users) *entities.User {

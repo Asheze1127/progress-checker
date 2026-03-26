@@ -26,6 +26,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (Users, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (Users, error)
 	GetUserBySlackUserID(ctx context.Context, slackUserID string) (Users, error)
+	GetUserWithPasswordByEmail(ctx context.Context, email string) (GetUserWithPasswordByEmailRow, error)
 	InsertGitHubRepo(ctx context.Context, arg InsertGitHubRepoParams) (TeamGithubRepositories, error)
 	InsertProgressBody(ctx context.Context, arg InsertProgressBodyParams) (ProgressBodies, error)
 	InsertProgressLog(ctx context.Context, arg InsertProgressLogParams) (ProgressLogs, error)
