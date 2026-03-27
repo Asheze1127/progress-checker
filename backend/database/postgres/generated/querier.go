@@ -5,34 +5,34 @@
 package db
 
 import (
-  "context"
+	"context"
 
-  "github.com/google/uuid"
+	"github.com/google/uuid"
 )
 
 type Querier interface {
-  DeleteGitHubRepo(ctx context.Context, id uuid.UUID) error
-  GetAwaitingQuestionByChannelAndThread(ctx context.Context, arg GetAwaitingQuestionByChannelAndThreadParams) (Questions, error)
-  GetGitHubRepoByChannelID(ctx context.Context, id string) (TeamGithubRepositories, error)
-  GetGitHubRepoByID(ctx context.Context, id uuid.UUID) (TeamGithubRepositories, error)
-  GetGitHubReposByTeamID(ctx context.Context, teamID uuid.UUID) ([]TeamGithubRepositories, error)
-  GetLatestProgressByTeam(ctx context.Context) ([]GetLatestProgressByTeamRow, error)
-  GetLatestProgressByTeamID(ctx context.Context, id uuid.UUID) ([]GetLatestProgressByTeamIDRow, error)
-  GetQuestionByID(ctx context.Context, id uuid.UUID) (Questions, error)
-  GetQuestionByThreadTS(ctx context.Context, arg GetQuestionByThreadTSParams) (Questions, error)
-  GetTeamByID(ctx context.Context, id uuid.UUID) (Teams, error)
-  GetUserByEmail(ctx context.Context, email string) (Users, error)
-  GetUserByID(ctx context.Context, id uuid.UUID) (Users, error)
-  GetUserBySlackUserID(ctx context.Context, slackUserID string) (Users, error)
-  GetUserWithPasswordByEmail(ctx context.Context, email string) (GetUserWithPasswordByEmailRow, error)
-  InsertGitHubRepo(ctx context.Context, arg InsertGitHubRepoParams) (TeamGithubRepositories, error)
-  InsertProgressBody(ctx context.Context, arg InsertProgressBodyParams) (ProgressBodies, error)
-  InsertProgressLog(ctx context.Context, arg InsertProgressLogParams) (ProgressLogs, error)
-  InsertQuestion(ctx context.Context, arg InsertQuestionParams) (Questions, error)
-  InsertQuestionMentorAssignment(ctx context.Context, arg InsertQuestionMentorAssignmentParams) error
-  ListTeams(ctx context.Context) ([]Teams, error)
-  UpdateGitHubRepoToken(ctx context.Context, arg UpdateGitHubRepoTokenParams) error
-  UpdateQuestionStatus(ctx context.Context, arg UpdateQuestionStatusParams) error
+	DeleteGitHubRepo(ctx context.Context, id uuid.UUID) error
+	GetAwaitingQuestionByChannelAndThread(ctx context.Context, arg GetAwaitingQuestionByChannelAndThreadParams) (Questions, error)
+	GetGitHubRepoByChannelID(ctx context.Context, id string) (TeamGithubRepositories, error)
+	GetGitHubRepoByID(ctx context.Context, id uuid.UUID) (TeamGithubRepositories, error)
+	GetGitHubReposByTeamID(ctx context.Context, teamID uuid.UUID) ([]TeamGithubRepositories, error)
+	GetLatestProgressByTeam(ctx context.Context) ([]GetLatestProgressByTeamRow, error)
+	GetLatestProgressByTeamID(ctx context.Context, id uuid.UUID) ([]GetLatestProgressByTeamIDRow, error)
+	GetQuestionByID(ctx context.Context, id uuid.UUID) (Questions, error)
+	GetQuestionByThreadTS(ctx context.Context, arg GetQuestionByThreadTSParams) (Questions, error)
+	GetTeamByID(ctx context.Context, id uuid.UUID) (Teams, error)
+	GetUserByEmail(ctx context.Context, email string) (Users, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (Users, error)
+	GetUserBySlackUserID(ctx context.Context, slackUserID string) (Users, error)
+	GetUserWithPasswordByEmail(ctx context.Context, email string) (GetUserWithPasswordByEmailRow, error)
+	InsertGitHubRepo(ctx context.Context, arg InsertGitHubRepoParams) (TeamGithubRepositories, error)
+	InsertProgressBody(ctx context.Context, arg InsertProgressBodyParams) (ProgressBodies, error)
+	InsertProgressLog(ctx context.Context, arg InsertProgressLogParams) (ProgressLogs, error)
+	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (Questions, error)
+	InsertQuestionMentorAssignment(ctx context.Context, arg InsertQuestionMentorAssignmentParams) error
+	ListTeams(ctx context.Context) ([]Teams, error)
+	UpdateGitHubRepoToken(ctx context.Context, arg UpdateGitHubRepoTokenParams) error
+	UpdateQuestionStatus(ctx context.Context, arg UpdateQuestionStatusParams) error
 }
 
 var _ Querier = (*Queries)(nil)

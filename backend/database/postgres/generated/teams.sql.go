@@ -6,9 +6,9 @@
 package db
 
 import (
-  "context"
+	"context"
 
-  "github.com/google/uuid"
+	"github.com/google/uuid"
 )
 
 const getTeamByID = `-- name: GetTeamByID :one
@@ -16,15 +16,15 @@ SELECT id, name, created_at, updated_at FROM teams WHERE id = $1
 `
 
 func (q *Queries) GetTeamByID(ctx context.Context, id uuid.UUID) (Teams, error) {
-  row := q.db.QueryRowContext(ctx, getTeamByID, id)
-  var i Teams
-  err := row.Scan(
-    &i.ID,
-    &i.Name,
-    &i.CreatedAt,
-    &i.UpdatedAt,
-  )
-  return i, err
+	row := q.db.QueryRowContext(ctx, getTeamByID, id)
+	var i Teams
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const listTeams = `-- name: ListTeams :many
@@ -32,29 +32,29 @@ SELECT id, name, created_at, updated_at FROM teams ORDER BY name
 `
 
 func (q *Queries) ListTeams(ctx context.Context) ([]Teams, error) {
-  rows, err := q.db.QueryContext(ctx, listTeams)
-  if err != nil {
-    return nil, err
-  }
-  defer rows.Close()
-  items := []Teams{}
-  for rows.Next() {
-    var i Teams
-    if err := rows.Scan(
-      &i.ID,
-      &i.Name,
-      &i.CreatedAt,
-      &i.UpdatedAt,
-    ); err != nil {
-      return nil, err
-    }
-    items = append(items, i)
-  }
-  if err := rows.Close(); err != nil {
-    return nil, err
-  }
-  if err := rows.Err(); err != nil {
-    return nil, err
-  }
-  return items, nil
+	rows, err := q.db.QueryContext(ctx, listTeams)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Teams{}
+	for rows.Next() {
+		var i Teams
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

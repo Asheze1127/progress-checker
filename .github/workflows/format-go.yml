@@ -8,7 +8,7 @@ on:
 
 jobs:
   gofmt-check:
-    name: gofmt (2-space indent)
+    name: gofmt
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,22 +31,14 @@ jobs:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
-      - name: Check Go formatting (2-space indent)
+      - name: Check Go formatting
         if: steps.gomod.outputs.present == 'true'
         run: |
-          unformatted=""
-          for file in $(find backend -name '*.go' -not -path '*/vendor/*'); do
-            expected=$(gofmt "$file" | expand -t 2)
-            actual=$(cat "$file")
-            if [ "$expected" != "$actual" ]; then
-              unformatted="$unformatted\n$file"
-              diff <(echo "$actual") <(echo "$expected") --label "current" --label "expected" -u || true
-            fi
-          done
+          unformatted=$(gofmt -l backend/)
           if [ -n "$unformatted" ]; then
-            echo ""
-            echo "::error::The following Go files are not formatted correctly (run: gofmt -w FILE && expand -t 2 FILE > FILE.tmp && mv FILE.tmp FILE):"
-            echo -e "$unformatted"
+            echo "::error::The following Go files are not formatted (run: gofmt -w <file>):"
+            echo "$unformatted"
+            gofmt -d backend/
             exit 1
           fi
-          echo "All Go files are correctly formatted with 2-space indentation."
+          echo "All Go files are correctly formatted."

@@ -6,9 +6,9 @@
 package db
 
 import (
-  "context"
+	"context"
 
-  "github.com/google/uuid"
+	"github.com/google/uuid"
 )
 
 const getAwaitingQuestionByChannelAndThread = `-- name: GetAwaitingQuestionByChannelAndThread :one
@@ -16,24 +16,24 @@ SELECT id, participant_id, title, slack_channel_id, status, slack_thread_ts, cre
 `
 
 type GetAwaitingQuestionByChannelAndThreadParams struct {
-  SlackChannelID string `json:"slack_channel_id"`
-  SlackThreadTs  string `json:"slack_thread_ts"`
+	SlackChannelID string `json:"slack_channel_id"`
+	SlackThreadTs  string `json:"slack_thread_ts"`
 }
 
 func (q *Queries) GetAwaitingQuestionByChannelAndThread(ctx context.Context, arg GetAwaitingQuestionByChannelAndThreadParams) (Questions, error) {
-  row := q.db.QueryRowContext(ctx, getAwaitingQuestionByChannelAndThread, arg.SlackChannelID, arg.SlackThreadTs)
-  var i Questions
-  err := row.Scan(
-    &i.ID,
-    &i.ParticipantID,
-    &i.Title,
-    &i.SlackChannelID,
-    &i.Status,
-    &i.SlackThreadTs,
-    &i.CreatedAt,
-    &i.UpdatedAt,
-  )
-  return i, err
+	row := q.db.QueryRowContext(ctx, getAwaitingQuestionByChannelAndThread, arg.SlackChannelID, arg.SlackThreadTs)
+	var i Questions
+	err := row.Scan(
+		&i.ID,
+		&i.ParticipantID,
+		&i.Title,
+		&i.SlackChannelID,
+		&i.Status,
+		&i.SlackThreadTs,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getQuestionByID = `-- name: GetQuestionByID :one
@@ -41,19 +41,19 @@ SELECT id, participant_id, title, slack_channel_id, status, slack_thread_ts, cre
 `
 
 func (q *Queries) GetQuestionByID(ctx context.Context, id uuid.UUID) (Questions, error) {
-  row := q.db.QueryRowContext(ctx, getQuestionByID, id)
-  var i Questions
-  err := row.Scan(
-    &i.ID,
-    &i.ParticipantID,
-    &i.Title,
-    &i.SlackChannelID,
-    &i.Status,
-    &i.SlackThreadTs,
-    &i.CreatedAt,
-    &i.UpdatedAt,
-  )
-  return i, err
+	row := q.db.QueryRowContext(ctx, getQuestionByID, id)
+	var i Questions
+	err := row.Scan(
+		&i.ID,
+		&i.ParticipantID,
+		&i.Title,
+		&i.SlackChannelID,
+		&i.Status,
+		&i.SlackThreadTs,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getQuestionByThreadTS = `-- name: GetQuestionByThreadTS :one
@@ -61,24 +61,24 @@ SELECT id, participant_id, title, slack_channel_id, status, slack_thread_ts, cre
 `
 
 type GetQuestionByThreadTSParams struct {
-  SlackChannelID string `json:"slack_channel_id"`
-  SlackThreadTs  string `json:"slack_thread_ts"`
+	SlackChannelID string `json:"slack_channel_id"`
+	SlackThreadTs  string `json:"slack_thread_ts"`
 }
 
 func (q *Queries) GetQuestionByThreadTS(ctx context.Context, arg GetQuestionByThreadTSParams) (Questions, error) {
-  row := q.db.QueryRowContext(ctx, getQuestionByThreadTS, arg.SlackChannelID, arg.SlackThreadTs)
-  var i Questions
-  err := row.Scan(
-    &i.ID,
-    &i.ParticipantID,
-    &i.Title,
-    &i.SlackChannelID,
-    &i.Status,
-    &i.SlackThreadTs,
-    &i.CreatedAt,
-    &i.UpdatedAt,
-  )
-  return i, err
+	row := q.db.QueryRowContext(ctx, getQuestionByThreadTS, arg.SlackChannelID, arg.SlackThreadTs)
+	var i Questions
+	err := row.Scan(
+		&i.ID,
+		&i.ParticipantID,
+		&i.Title,
+		&i.SlackChannelID,
+		&i.Status,
+		&i.SlackThreadTs,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const insertQuestion = `-- name: InsertQuestion :one
@@ -87,35 +87,35 @@ VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, participant_id, title, slack_chann
 `
 
 type InsertQuestionParams struct {
-  ID             uuid.UUID `json:"id"`
-  ParticipantID  uuid.UUID `json:"participant_id"`
-  Title          string    `json:"title"`
-  SlackChannelID string    `json:"slack_channel_id"`
-  Status         string    `json:"status"`
-  SlackThreadTs  string    `json:"slack_thread_ts"`
+	ID             uuid.UUID `json:"id"`
+	ParticipantID  uuid.UUID `json:"participant_id"`
+	Title          string    `json:"title"`
+	SlackChannelID string    `json:"slack_channel_id"`
+	Status         string    `json:"status"`
+	SlackThreadTs  string    `json:"slack_thread_ts"`
 }
 
 func (q *Queries) InsertQuestion(ctx context.Context, arg InsertQuestionParams) (Questions, error) {
-  row := q.db.QueryRowContext(ctx, insertQuestion,
-    arg.ID,
-    arg.ParticipantID,
-    arg.Title,
-    arg.SlackChannelID,
-    arg.Status,
-    arg.SlackThreadTs,
-  )
-  var i Questions
-  err := row.Scan(
-    &i.ID,
-    &i.ParticipantID,
-    &i.Title,
-    &i.SlackChannelID,
-    &i.Status,
-    &i.SlackThreadTs,
-    &i.CreatedAt,
-    &i.UpdatedAt,
-  )
-  return i, err
+	row := q.db.QueryRowContext(ctx, insertQuestion,
+		arg.ID,
+		arg.ParticipantID,
+		arg.Title,
+		arg.SlackChannelID,
+		arg.Status,
+		arg.SlackThreadTs,
+	)
+	var i Questions
+	err := row.Scan(
+		&i.ID,
+		&i.ParticipantID,
+		&i.Title,
+		&i.SlackChannelID,
+		&i.Status,
+		&i.SlackThreadTs,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const insertQuestionMentorAssignment = `-- name: InsertQuestionMentorAssignment :exec
@@ -123,13 +123,13 @@ INSERT INTO question_mentor_assignments (question_id, mentor_user_id) VALUES ($1
 `
 
 type InsertQuestionMentorAssignmentParams struct {
-  QuestionID   uuid.UUID `json:"question_id"`
-  MentorUserID uuid.UUID `json:"mentor_user_id"`
+	QuestionID   uuid.UUID `json:"question_id"`
+	MentorUserID uuid.UUID `json:"mentor_user_id"`
 }
 
 func (q *Queries) InsertQuestionMentorAssignment(ctx context.Context, arg InsertQuestionMentorAssignmentParams) error {
-  _, err := q.db.ExecContext(ctx, insertQuestionMentorAssignment, arg.QuestionID, arg.MentorUserID)
-  return err
+	_, err := q.db.ExecContext(ctx, insertQuestionMentorAssignment, arg.QuestionID, arg.MentorUserID)
+	return err
 }
 
 const updateQuestionStatus = `-- name: UpdateQuestionStatus :exec
@@ -137,11 +137,11 @@ UPDATE questions SET status = $1, updated_at = now() WHERE id = $2
 `
 
 type UpdateQuestionStatusParams struct {
-  Status string    `json:"status"`
-  ID     uuid.UUID `json:"id"`
+	Status string    `json:"status"`
+	ID     uuid.UUID `json:"id"`
 }
 
 func (q *Queries) UpdateQuestionStatus(ctx context.Context, arg UpdateQuestionStatusParams) error {
-  _, err := q.db.ExecContext(ctx, updateQuestionStatus, arg.Status, arg.ID)
-  return err
+	_, err := q.db.ExecContext(ctx, updateQuestionStatus, arg.Status, arg.ID)
+	return err
 }
