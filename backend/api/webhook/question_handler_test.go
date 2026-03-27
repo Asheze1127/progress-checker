@@ -1,4 +1,4 @@
-package rest
+package webhook
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/application/service/question_sender"
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
@@ -55,7 +55,7 @@ func (m *testMessageQueue) Send(_ context.Context, _ string, _ []byte) error {
 func newTestHandler(queueErr error) *QuestionHandler {
 	repo := &testQuestionRepository{}
 	queue := &testMessageQueue{sendErr: queueErr}
-	sender := service.NewQuestionSender(queue)
+	sender := questionsender.NewQuestionSender(queue)
 	uc := usecase.NewHandleNewQuestionUseCase(repo, sender)
 	return NewQuestionHandler(uc)
 }
@@ -63,7 +63,7 @@ func newTestHandler(queueErr error) *QuestionHandler {
 func newTestHandlerWithFailingRepo() *QuestionHandler {
 	repo := &testQuestionRepository{saveErr: errors.New("database error")}
 	queue := &testMessageQueue{}
-	sender := service.NewQuestionSender(queue)
+	sender := questionsender.NewQuestionSender(queue)
 	uc := usecase.NewHandleNewQuestionUseCase(repo, sender)
 	return NewQuestionHandler(uc)
 }

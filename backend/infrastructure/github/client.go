@@ -9,7 +9,12 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	githubissuecreator "github.com/Asheze1127/progress-checker/backend/application/service/github_issue_creator"
 )
+
+// Compile-time check that Client implements githubissuecreator.GitHubIssueCreator.
+var _ githubissuecreator.GitHubIssueCreator = (*Client)(nil)
 
 const (
 	githubAPIBaseURL     = "https://api.github.com"

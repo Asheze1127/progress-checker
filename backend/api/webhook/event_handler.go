@@ -1,4 +1,4 @@
-package rest
+package webhook
 
 import (
 	"context"
@@ -12,26 +12,19 @@ import (
 	"github.com/slack-go/slack/slackevents"
 )
 
-// IssueTrigger defines the interface for triggering issue creation.
 type IssueTrigger interface {
 	Execute(ctx context.Context, input usecase.TriggerIssueCreationInput) error
 }
 
-// EventHandler handles incoming Slack Events API webhooks.
 type EventHandler struct {
 	triggerEmoji string
 	issueTrigger IssueTrigger
 }
 
-// NewEventHandler creates a new EventHandler with the configured trigger emoji.
 func NewEventHandler(issueTrigger IssueTrigger, triggerEmoji string) *EventHandler {
-	return &EventHandler{
-		triggerEmoji: triggerEmoji,
-		issueTrigger: issueTrigger,
-	}
+	return &EventHandler{triggerEmoji: triggerEmoji, issueTrigger: issueTrigger}
 }
 
-// HandleSlackEvents is the HTTP handler for POST /webhook/slack/events.
 func (h *EventHandler) HandleSlackEvents(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -64,7 +57,6 @@ func (h *EventHandler) HandleSlackEvents(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
-
 	switch event.Type {
 	case slackevents.URLVerification:
 		h.handleURLVerification(w, body)
@@ -109,20 +101,17 @@ func (h *EventHandler) handleReactionAdded(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-
 	input := usecase.TriggerIssueCreationInput{
 		ChannelID:     ev.Item.Channel,
 		ThreadTS:      ev.Item.Timestamp,
 		TriggerUserID: ev.User,
 		TriggerType:   "reaction",
 	}
-
 	if err := h.issueTrigger.Execute(r.Context(), input); err != nil {
 		slog.Error("failed to trigger issue creation from reaction", slog.String("error", err.Error()))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -137,19 +126,16 @@ func (h *EventHandler) handleMessageAction(w http.ResponseWriter, r *http.Reques
 	if threadTS == "" {
 		threadTS = payload.Message.TS
 	}
-
 	input := usecase.TriggerIssueCreationInput{
 		ChannelID:     payload.Channel.ID,
 		ThreadTS:      threadTS,
 		TriggerUserID: payload.User.ID,
 		TriggerType:   "message_action",
 	}
-
 	if err := h.issueTrigger.Execute(r.Context(), input); err != nil {
 		slog.Error("failed to trigger issue creation from message action", slog.String("error", err.Error()))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-
 	w.WriteHeader(http.StatusOK)
 }

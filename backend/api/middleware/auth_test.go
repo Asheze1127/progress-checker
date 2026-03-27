@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
@@ -14,7 +14,7 @@ const testJWTSecret = "test-secret-key-for-middleware"
 
 func generateTestToken(t *testing.T, user *entities.User) string {
 	t.Helper()
-	jwtSvc := service.NewJWTService(testJWTSecret)
+	jwtSvc := jwt.NewJWTService(testJWTSecret)
 	token, err := jwtSvc.GenerateToken(user)
 	if err != nil {
 		t.Fatalf("failed to generate test token: %v", err)
@@ -23,7 +23,7 @@ func generateTestToken(t *testing.T, user *entities.User) string {
 }
 
 func TestAuthMiddleware_ValidToken(t *testing.T) {
-	jwtSvc := service.NewJWTService(testJWTSecret)
+	jwtSvc := jwt.NewJWTService(testJWTSecret)
 
 	mentorUser := &entities.User{
 		ID:   "user-1",
@@ -58,7 +58,7 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_MissingAuthHeader(t *testing.T) {
-	jwtSvc := service.NewJWTService(testJWTSecret)
+	jwtSvc := jwt.NewJWTService(testJWTSecret)
 
 	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("handler should not be called")
@@ -75,7 +75,7 @@ func TestAuthMiddleware_MissingAuthHeader(t *testing.T) {
 }
 
 func TestAuthMiddleware_InvalidBearerFormat(t *testing.T) {
-	jwtSvc := service.NewJWTService(testJWTSecret)
+	jwtSvc := jwt.NewJWTService(testJWTSecret)
 
 	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("handler should not be called")
@@ -93,7 +93,7 @@ func TestAuthMiddleware_InvalidBearerFormat(t *testing.T) {
 }
 
 func TestAuthMiddleware_EmptyBearerToken(t *testing.T) {
-	jwtSvc := service.NewJWTService(testJWTSecret)
+	jwtSvc := jwt.NewJWTService(testJWTSecret)
 
 	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("handler should not be called")
@@ -111,7 +111,7 @@ func TestAuthMiddleware_EmptyBearerToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_InvalidToken(t *testing.T) {
-	jwtSvc := service.NewJWTService(testJWTSecret)
+	jwtSvc := jwt.NewJWTService(testJWTSecret)
 
 	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("handler should not be called")
@@ -129,7 +129,7 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 }
 
 func TestAuthMiddleware_NonMentorRole(t *testing.T) {
-	jwtSvc := service.NewJWTService(testJWTSecret)
+	jwtSvc := jwt.NewJWTService(testJWTSecret)
 
 	participantUser := &entities.User{
 		ID:   "user-2",

@@ -7,7 +7,12 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+
+	tokenencryptor "github.com/Asheze1127/progress-checker/backend/application/service/token_encryptor"
 )
+
+// Compile-time check that AESEncryptor implements tokenencryptor.TokenEncryptor.
+var _ tokenencryptor.TokenEncryptor = (*AESEncryptor)(nil)
 
 // AESEncryptor encrypts and decrypts tokens using AES-GCM.
 type AESEncryptor struct {

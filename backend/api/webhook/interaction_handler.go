@@ -1,4 +1,4 @@
-package rest
+package webhook
 
 import (
 	"encoding/json"
@@ -11,24 +11,14 @@ import (
 	"github.com/slack-go/slack"
 )
 
-// InteractionHandler handles Slack interactive component callbacks.
 type InteractionHandler struct {
 	resolveQuestion  *usecase.ResolveQuestionUseCase
 	continueQuestion *usecase.ContinueQuestionUseCase
 	escalateQuestion *usecase.EscalateQuestionUseCase
 }
 
-// NewInteractionHandler creates a new InteractionHandler.
-func NewInteractionHandler(
-	resolve *usecase.ResolveQuestionUseCase,
-	cont *usecase.ContinueQuestionUseCase,
-	escalate *usecase.EscalateQuestionUseCase,
-) *InteractionHandler {
-	return &InteractionHandler{
-		resolveQuestion:  resolve,
-		continueQuestion: cont,
-		escalateQuestion: escalate,
-	}
+func NewInteractionHandler(resolve *usecase.ResolveQuestionUseCase, cont *usecase.ContinueQuestionUseCase, escalate *usecase.EscalateQuestionUseCase) *InteractionHandler {
+	return &InteractionHandler{resolveQuestion: resolve, continueQuestion: cont, escalateQuestion: escalate}
 }
 
 // HandleInteraction is the HTTP handler for POST /webhook/slack/interactions.
@@ -39,13 +29,11 @@ func (h *InteractionHandler) HandleInteraction(w http.ResponseWriter, r *http.Re
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
 	if err := r.ParseForm(); err != nil {
 		slog.Error("error parsing form", slog.String("error", err.Error()))
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-
 	rawPayload := r.FormValue("payload")
 	if rawPayload == "" {
 		http.Error(w, "missing payload", http.StatusBadRequest)
@@ -68,15 +56,12 @@ func (h *InteractionHandler) HandleInteraction(w http.ResponseWriter, r *http.Re
 	// Process only the first action (Slack sends one action per interaction).
 	action := callback.ActionCallback.BlockActions[0]
 	questionID := entities.QuestionID(action.Value)
-
 	if questionID == "" {
 		slog.Warn("interaction has empty question ID", slog.String("user_id", callback.User.ID))
 		http.Error(w, "missing question ID", http.StatusBadRequest)
 		return
 	}
-
 	ctx := r.Context()
-
 	var err error
 	switch action.ActionID {
 	case slackpkg.ActionIDQuestionResolved:
@@ -90,13 +75,10 @@ func (h *InteractionHandler) HandleInteraction(w http.ResponseWriter, r *http.Re
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-
 	if err != nil {
 		slog.Error("error handling action", slog.String("action_id", action.ActionID), slog.String("question_id", string(questionID)), slog.String("error", err.Error()))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-
-	// Slack expects a 200 OK to acknowledge the interaction.
 	w.WriteHeader(http.StatusOK)
 }

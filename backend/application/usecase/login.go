@@ -5,7 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
+	"github.com/Asheze1127/progress-checker/backend/application/service/password_hasher"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
@@ -24,15 +25,15 @@ type LoginResult struct {
 // LoginUseCase handles the login workflow.
 type LoginUseCase struct {
 	userRepo entities.UserRepository
-	jwt      *service.JWTService
-	hasher   *service.PasswordHasher
+	jwt      *jwt.JWTService
+	hasher   *passwordhasher.PasswordHasher
 }
 
 // NewLoginUseCase creates a new LoginUseCase with the given dependencies.
 func NewLoginUseCase(
 	userRepo entities.UserRepository,
-	jwt *service.JWTService,
-	hasher *service.PasswordHasher,
+	jwt *jwt.JWTService,
+	hasher *passwordhasher.PasswordHasher,
 ) *LoginUseCase {
 	return &LoginUseCase{
 		userRepo: userRepo,

@@ -1,16 +1,15 @@
-package service
+package questionsender
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 
-	"github.com/Asheze1127/progress-checker/backend/application/port"
+	"github.com/Asheze1127/progress-checker/backend/application/service/message_queue"
 )
 
 const queueNameQuestionNew = "question:new"
 
-// QuestionNewMessage represents the SQS message format for new questions.
 type QuestionNewMessage struct {
 	Type           string `json:"type"`
 	QuestionID     string `json:"question_id"`
@@ -21,28 +20,22 @@ type QuestionNewMessage struct {
 	SlackThreadTS  string `json:"slack_thread_ts"`
 }
 
-// QuestionSender sends question-related messages to SQS.
 type QuestionSender struct {
-	queue port.MessageQueue
+	queue messagequeue.MessageQueue
 }
 
-// NewQuestionSender creates a new QuestionSender with the given message queue.
-func NewQuestionSender(queue port.MessageQueue) *QuestionSender {
+func NewQuestionSender(queue messagequeue.MessageQueue) *QuestionSender {
 	return &QuestionSender{queue: queue}
 }
 
-// SendNewQuestion sends a new question message to the SQS queue.
 func (s *QuestionSender) SendNewQuestion(ctx context.Context, msg QuestionNewMessage) error {
 	msg.Type = "question_new"
-
 	msgBytes, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
-
 	if err := s.queue.Send(ctx, queueNameQuestionNew, msgBytes); err != nil {
 		return fmt.Errorf("failed to enqueue message: %w", err)
 	}
-
 	return nil
 }

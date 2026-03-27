@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Asheze1127/progress-checker/backend/application/port"
-	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/application/service/message_queue"
+	"github.com/Asheze1127/progress-checker/backend/application/service/thread_fetcher"
 	"github.com/Asheze1127/progress-checker/backend/pkg/slack"
 )
 
@@ -55,14 +55,14 @@ type IssueQueueMessage struct {
 // TriggerIssueCreationUseCase orchestrates fetching thread history and
 // enqueuing an issue creation message.
 type TriggerIssueCreationUseCase struct {
-	threadFetcher service.SlackThreadFetcher
-	queue         port.MessageQueue
+	threadFetcher threadfetcher.SlackThreadFetcher
+	queue         messagequeue.MessageQueue
 }
 
 // NewTriggerIssueCreationUseCase creates a new TriggerIssueCreationUseCase.
 func NewTriggerIssueCreationUseCase(
-	fetcher service.SlackThreadFetcher,
-	queue port.MessageQueue,
+	fetcher threadfetcher.SlackThreadFetcher,
+	queue messagequeue.MessageQueue,
 ) *TriggerIssueCreationUseCase {
 	return &TriggerIssueCreationUseCase{
 		threadFetcher: fetcher,

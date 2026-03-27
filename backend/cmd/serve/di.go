@@ -12,7 +12,16 @@ import (
 
 	"github.com/Asheze1127/progress-checker/backend/api/middleware"
 	"github.com/Asheze1127/progress-checker/backend/api/rest"
-	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/api/webhook"
+	githubsvc "github.com/Asheze1127/progress-checker/backend/application/service/github"
+	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
+	"github.com/Asheze1127/progress-checker/backend/application/service/message_queue"
+	"github.com/Asheze1127/progress-checker/backend/application/service/password_hasher"
+	"github.com/Asheze1127/progress-checker/backend/application/service/progress_formatter"
+	"github.com/Asheze1127/progress-checker/backend/application/service/question_sender"
+	"github.com/Asheze1127/progress-checker/backend/application/service/slack_notifier"
+	"github.com/Asheze1127/progress-checker/backend/application/service/slack_poster"
+	"github.com/Asheze1127/progress-checker/backend/application/service/thread_fetcher"
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/infrastructure/encryption"
 	githubinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/github"
@@ -88,33 +97,33 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	})
 
 	// --- Services ---
-	do.Provide(injector, func(i do.Injector) (*service.ProgressFormatter, error) {
-		return service.NewProgressFormatter(), nil
+	do.Provide(injector, func(i do.Injector) (*progressformatter.ProgressFormatter, error) {
+		return progressformatter.NewProgressFormatter(), nil
 	})
 
-	do.Provide(injector, func(i do.Injector) (*service.SlackPoster, error) {
+	do.Provide(injector, func(i do.Injector) (*slackposter.SlackPoster, error) {
 		client := do.MustInvoke[*slackinfra.Client](i)
-		formatter := do.MustInvoke[*service.ProgressFormatter](i)
-		return service.NewSlackPoster(client, formatter), nil
+		formatter := do.MustInvoke[*progressformatter.ProgressFormatter](i)
+		return slackposter.NewSlackPoster(client, formatter), nil
 	})
 
-	do.Provide(injector, func(i do.Injector) (*service.JWTService, error) {
-		return service.NewJWTService(cfg.JWTSecret), nil
+	do.Provide(injector, func(i do.Injector) (*jwt.JWTService, error) {
+		return jwt.NewJWTService(cfg.JWTSecret), nil
 	})
 
-	do.Provide(injector, func(i do.Injector) (*service.PasswordHasher, error) {
-		return service.NewPasswordHasher(), nil
+	do.Provide(injector, func(i do.Injector) (*passwordhasher.PasswordHasher, error) {
+		return passwordhasher.NewPasswordHasher(), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*pkgslack.Verifier, error) {
 		return pkgslack.NewVerifier(cfg.SlackSigningSecret), nil
 	})
 
-	do.Provide(injector, func(i do.Injector) (*service.GitHubService, error) {
+	do.Provide(injector, func(i do.Injector) (*githubsvc.GitHubService, error) {
 		ghRepoRepo := do.MustInvoke[*postgres.GitHubRepoRepository](i)
 		encryptor := do.MustInvoke[*encryption.AESEncryptor](i)
 		ghClient := do.MustInvoke[*githubinfra.Client](i)
-		return service.NewGitHubService(ghRepoRepo, encryptor, ghClient, func() string {
+		return githubsvc.NewGitHubService(ghRepoRepo, encryptor, ghClient, func() string {
 			return uuid.New().String()
 		}), nil
 	})
@@ -122,7 +131,7 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	// --- Use Cases ---
 	do.Provide(injector, func(i do.Injector) (*usecase.HandleProgressUseCase, error) {
 		progressRepo := do.MustInvoke[*postgres.ProgressRepository](i)
-		poster := do.MustInvoke[*service.SlackPoster](i)
+		poster := do.MustInvoke[*slackposter.SlackPoster](i)
 		return usecase.NewHandleProgressUseCase(progressRepo, poster), nil
 	})
 
@@ -133,8 +142,8 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 
 	do.Provide(injector, func(i do.Injector) (*usecase.LoginUseCase, error) {
 		userRepo := do.MustInvoke[*postgres.UserRepository](i)
-		jwtService := do.MustInvoke[*service.JWTService](i)
-		hasher := do.MustInvoke[*service.PasswordHasher](i)
+		jwtService := do.MustInvoke[*jwt.JWTService](i)
+		hasher := do.MustInvoke[*passwordhasher.PasswordHasher](i)
 		return usecase.NewLoginUseCase(userRepo, jwtService, hasher), nil
 	})
 
@@ -151,31 +160,31 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	do.Provide(injector, func(i do.Injector) (*usecase.EscalateQuestionUseCase, error) {
 		questionRepo := do.MustInvoke[*postgres.QuestionRepository](i)
 		// TODO: Wire a proper SlackNotifier implementation when available.
-		return usecase.NewEscalateQuestionUseCase(questionRepo, &service.NoopSlackNotifier{}), nil
+		return usecase.NewEscalateQuestionUseCase(questionRepo, &slacknotifier.NoopSlackNotifier{}), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*usecase.HandleNewQuestionUseCase, error) {
 		questionRepo := do.MustInvoke[*postgres.QuestionRepository](i)
-		sender := service.NewQuestionSender(&service.NoopMessageQueue{})
+		sender := questionsender.NewQuestionSender(&messagequeue.NoopMessageQueue{})
 		return usecase.NewHandleNewQuestionUseCase(questionRepo, sender), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*usecase.TriggerIssueCreationUseCase, error) {
 		// TODO: Wire real SlackThreadFetcher and MessageQueue implementations when available.
 		return usecase.NewTriggerIssueCreationUseCase(
-			&service.NoopSlackThreadFetcher{}, &service.NoopMessageQueue{},
+			&threadfetcher.NoopSlackThreadFetcher{}, &messagequeue.NoopMessageQueue{},
 		), nil
 	})
 
 	// --- Handlers ---
-	do.Provide(injector, func(i do.Injector) (*rest.WebhookHandler, error) {
+	do.Provide(injector, func(i do.Injector) (*webhook.WebhookHandler, error) {
 		uc := do.MustInvoke[*usecase.HandleProgressUseCase](i)
-		return rest.NewWebhookHandler(uc), nil
+		return webhook.NewWebhookHandler(uc), nil
 	})
 
-	do.Provide(injector, func(i do.Injector) (*rest.QuestionHandler, error) {
+	do.Provide(injector, func(i do.Injector) (*webhook.QuestionHandler, error) {
 		uc := do.MustInvoke[*usecase.HandleNewQuestionUseCase](i)
-		return rest.NewQuestionHandler(uc), nil
+		return webhook.NewQuestionHandler(uc), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*rest.ProgressHandler, error) {
@@ -193,39 +202,39 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	})
 
 	do.Provide(injector, func(i do.Injector) (*rest.GitHubHandler, error) {
-		svc := do.MustInvoke[*service.GitHubService](i)
+		svc := do.MustInvoke[*githubsvc.GitHubService](i)
 		return rest.NewGitHubHandler(svc), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*rest.InternalHandler, error) {
-		svc := do.MustInvoke[*service.GitHubService](i)
+		svc := do.MustInvoke[*githubsvc.GitHubService](i)
 		return rest.NewInternalHandler(svc), nil
 	})
 
-	do.Provide(injector, func(i do.Injector) (*rest.EventHandler, error) {
+	do.Provide(injector, func(i do.Injector) (*webhook.EventHandler, error) {
 		uc := do.MustInvoke[*usecase.TriggerIssueCreationUseCase](i)
-		return rest.NewEventHandler(uc, cfg.IssueTriggerEmoji), nil
+		return webhook.NewEventHandler(uc, cfg.IssueTriggerEmoji), nil
 	})
 
-	do.Provide(injector, func(i do.Injector) (*rest.InteractionHandler, error) {
+	do.Provide(injector, func(i do.Injector) (*webhook.InteractionHandler, error) {
 		resolveUC := do.MustInvoke[*usecase.ResolveQuestionUseCase](i)
 		continueUC := do.MustInvoke[*usecase.ContinueQuestionUseCase](i)
 		escalateUC := do.MustInvoke[*usecase.EscalateQuestionUseCase](i)
-		return rest.NewInteractionHandler(resolveUC, continueUC, escalateUC), nil
+		return webhook.NewInteractionHandler(resolveUC, continueUC, escalateUC), nil
 	})
 
 	// --- Router ---
 	do.Provide(injector, func(i do.Injector) (http.Handler, error) {
-		webhookHandler := do.MustInvoke[*rest.WebhookHandler](i)
-		questionHandler := do.MustInvoke[*rest.QuestionHandler](i)
+		webhookHandler := do.MustInvoke[*webhook.WebhookHandler](i)
+		questionHandler := do.MustInvoke[*webhook.QuestionHandler](i)
 		progressHandler := do.MustInvoke[*rest.ProgressHandler](i)
 		authHandler := do.MustInvoke[*rest.AuthHandler](i)
 		ghHandler := do.MustInvoke[*rest.GitHubHandler](i)
 		internalHandler := do.MustInvoke[*rest.InternalHandler](i)
-		eventHandler := do.MustInvoke[*rest.EventHandler](i)
-		interactionHandler := do.MustInvoke[*rest.InteractionHandler](i)
+		eventHandler := do.MustInvoke[*webhook.EventHandler](i)
+		interactionHandler := do.MustInvoke[*webhook.InteractionHandler](i)
 
-		jwtService := do.MustInvoke[*service.JWTService](i)
+		jwtService := do.MustInvoke[*jwt.JWTService](i)
 		verifier := do.MustInvoke[*pkgslack.Verifier](i)
 
 		return rest.NewRouter(

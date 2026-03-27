@@ -6,7 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/application/service/progress_formatter"
+	"github.com/Asheze1127/progress-checker/backend/application/service/slack_poster"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
@@ -21,7 +22,7 @@ func (m *mockProgressRepository) Save(_ context.Context, log *entities.ProgressL
 	return m.err
 }
 
-// mockSlackClient is a test double for service.SlackClient.
+// mockSlackClient is a test double for slackposter.SlackClient.
 type mockSlackClient struct {
 	postedChannelID string
 	postedText      string
@@ -34,9 +35,9 @@ func (m *mockSlackClient) PostMessage(_ context.Context, channelID string, text 
 	return m.err
 }
 
-func newTestUseCase(repo entities.ProgressRepository, slackClient service.SlackClient) *HandleProgressUseCase {
-	formatter := service.NewProgressFormatter()
-	poster := service.NewSlackPoster(slackClient, formatter)
+func newTestUseCase(repo entities.ProgressRepository, slackClient slackposter.SlackClient) *HandleProgressUseCase {
+	formatter := progressformatter.NewProgressFormatter()
+	poster := slackposter.NewSlackPoster(slackClient, formatter)
 	return NewHandleProgressUseCase(repo, poster)
 }
 
