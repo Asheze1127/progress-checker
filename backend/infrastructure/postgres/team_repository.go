@@ -45,6 +45,14 @@ func (r *TeamRepository) List(ctx context.Context) ([]*entities.Team, error) {
 	return teams, nil
 }
 
+func (r *TeamRepository) GetByName(ctx context.Context, name string) (*entities.Team, error) {
+	row, err := r.queries.GetTeamByName(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return toTeamEntity(row), nil
+}
+
 func (r *TeamRepository) Create(ctx context.Context, name string) (*entities.Team, error) {
 	row, err := r.queries.CreateTeam(ctx, name)
 	if err != nil {

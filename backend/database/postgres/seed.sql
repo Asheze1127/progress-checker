@@ -1,0 +1,12 @@
+-- Seed data for initial staff members.
+-- Staff are the only users created via seed; all other users are created
+-- through the application (mentors via Slack commands, participants via mentor UI).
+--
+-- To add a staff member:
+-- 1. Generate a password hash: go run ./cmd/hashpw <password>
+-- 2. Insert with the hash below.
+--
+-- Example with a placeholder hash (replace with a real bcrypt hash):
+-- INSERT INTO staff (name, email, password_hash, slack_user_id)
+-- VALUES ('Admin', 'admin@example.com', '$2a$12$...', 'U01STAFFID')
+-- ON CONFLICT (email) DO NOTHING;

@@ -13,6 +13,7 @@ import (
 
 type Querier interface {
 	CreateMentor(ctx context.Context, userID uuid.UUID) error
+	CreateMentorTeamAssignment(ctx context.Context, arg CreateMentorTeamAssignmentParams) error
 	CreateParticipant(ctx context.Context, arg CreateParticipantParams) error
 	CreateSetupToken(ctx context.Context, arg CreateSetupTokenParams) (SetupTokens, error)
 	CreateTeam(ctx context.Context, name string) (Teams, error)
@@ -24,6 +25,7 @@ type Querier interface {
 	GetGitHubReposByTeamID(ctx context.Context, teamID uuid.UUID) ([]TeamGithubRepositories, error)
 	GetLatestProgressByTeam(ctx context.Context) ([]GetLatestProgressByTeamRow, error)
 	GetLatestProgressByTeamID(ctx context.Context, id uuid.UUID) ([]GetLatestProgressByTeamIDRow, error)
+	GetMentorTeamIDs(ctx context.Context, mentorUserID uuid.UUID) ([]uuid.UUID, error)
 	GetQuestionByID(ctx context.Context, id uuid.UUID) (Questions, error)
 	GetQuestionByThreadTS(ctx context.Context, arg GetQuestionByThreadTSParams) (Questions, error)
 	GetSetupTokenByHash(ctx context.Context, tokenHash string) (SetupTokens, error)
@@ -31,6 +33,7 @@ type Querier interface {
 	GetStaffByID(ctx context.Context, id uuid.UUID) (Staff, error)
 	GetStaffBySlackUserID(ctx context.Context, slackUserID sql.NullString) (Staff, error)
 	GetTeamByID(ctx context.Context, id uuid.UUID) (Teams, error)
+	GetTeamByName(ctx context.Context, name string) (Teams, error)
 	GetUserByEmail(ctx context.Context, email string) (Users, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (Users, error)
 	GetUserBySlackUserID(ctx context.Context, slackUserID string) (Users, error)

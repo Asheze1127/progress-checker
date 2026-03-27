@@ -19,3 +19,44 @@ func (q *Queries) CreateMentor(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, createMentor, userID)
 	return err
 }
+
+const createMentorTeamAssignment = `-- name: CreateMentorTeamAssignment :exec
+INSERT INTO mentor_team_assignments (mentor_user_id, team_id) VALUES ($1, $2)
+`
+
+type CreateMentorTeamAssignmentParams struct {
+	MentorUserID uuid.UUID `json:"mentor_user_id"`
+	TeamID       uuid.UUID `json:"team_id"`
+}
+
+func (q *Queries) CreateMentorTeamAssignment(ctx context.Context, arg CreateMentorTeamAssignmentParams) error {
+	_, err := q.db.ExecContext(ctx, createMentorTeamAssignment, arg.MentorUserID, arg.TeamID)
+	return err
+}
+
+const getMentorTeamIDs = `-- name: GetMentorTeamIDs :many
+SELECT team_id FROM mentor_team_assignments WHERE mentor_user_id = $1
+`
+
+func (q *Queries) GetMentorTeamIDs(ctx context.Context, mentorUserID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.QueryContext(ctx, getMentorTeamIDs, mentorUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var team_id uuid.UUID
+		if err := rows.Scan(&team_id); err != nil {
+			return nil, err
+		}
+		items = append(items, team_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

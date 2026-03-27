@@ -28,24 +28,6 @@ const (
 	StaffBearerAuthScopes   = "staffBearerAuth.Scopes"
 )
 
-// Defines values for CreateUserRequestRole.
-const (
-	Mentor      CreateUserRequestRole = "mentor"
-	Participant CreateUserRequestRole = "participant"
-)
-
-// Valid indicates whether the value is a known member of the CreateUserRequestRole enum.
-func (e CreateUserRequestRole) Valid() bool {
-	switch e {
-	case Mentor:
-		return true
-	case Participant:
-		return true
-	default:
-		return false
-	}
-}
-
 // CreateIssueRequest defines model for CreateIssueRequest.
 type CreateIssueRequest struct {
 	Body      string `json:"body"`
@@ -68,24 +50,6 @@ type CreateTeamResponse struct {
 	Team TeamResponse `json:"team"`
 }
 
-// CreateUserRequest defines model for CreateUserRequest.
-type CreateUserRequest struct {
-	Email       string                `json:"email"`
-	Name        string                `json:"name"`
-	Role        CreateUserRequestRole `json:"role"`
-	SlackUserId string                `json:"slack_user_id"`
-	TeamId      string                `json:"team_id"`
-}
-
-// CreateUserRequestRole defines model for CreateUserRequest.Role.
-type CreateUserRequestRole string
-
-// CreateUserResponse defines model for CreateUserResponse.
-type CreateUserResponse struct {
-	SetupUrl string       `json:"setup_url"`
-	User     UserResponse `json:"user"`
-}
-
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Error string `json:"error"`
@@ -106,11 +70,6 @@ type ListReposResponse struct {
 // ListTeamsResponse defines model for ListTeamsResponse.
 type ListTeamsResponse struct {
 	Teams []TeamResponse `json:"teams"`
-}
-
-// ListUsersResponse defines model for ListUsersResponse.
-type ListUsersResponse struct {
-	Users []UserResponse `json:"users"`
 }
 
 // LoginRequest defines model for LoginRequest.
@@ -141,6 +100,17 @@ type ProgressBodyResponse struct {
 // ProgressListResponse defines model for ProgressListResponse.
 type ProgressListResponse struct {
 	Data []TeamProgressResponse `json:"data"`
+}
+
+// RegisterParticipantRequest defines model for RegisterParticipantRequest.
+type RegisterParticipantRequest struct {
+	SlackUserId string `json:"slack_user_id"`
+	TeamId      string `json:"team_id"`
+}
+
+// RegisterParticipantResponse defines model for RegisterParticipantResponse.
+type RegisterParticipantResponse struct {
+	User UserResponse `json:"user"`
 }
 
 // RegisterRepoRequest defines model for RegisterRepoRequest.
@@ -216,14 +186,14 @@ type LoginJSONRequestBody = LoginRequest
 // SetupPasswordJSONRequestBody defines body for SetupPassword for application/json ContentType.
 type SetupPasswordJSONRequestBody = SetupPasswordRequest
 
+// RegisterParticipantJSONRequestBody defines body for RegisterParticipant for application/json ContentType.
+type RegisterParticipantJSONRequestBody = RegisterParticipantRequest
+
 // StaffLoginJSONRequestBody defines body for StaffLogin for application/json ContentType.
 type StaffLoginJSONRequestBody = StaffLoginRequest
 
 // StaffCreateTeamJSONRequestBody defines body for StaffCreateTeam for application/json ContentType.
 type StaffCreateTeamJSONRequestBody = CreateTeamRequest
-
-// StaffCreateUserJSONRequestBody defines body for StaffCreateUser for application/json ContentType.
-type StaffCreateUserJSONRequestBody = CreateUserRequest
 
 // RegisterRepositoryJSONRequestBody defines body for RegisterRepository for application/json ContentType.
 type RegisterRepositoryJSONRequestBody = RegisterRepoRequest
@@ -242,6 +212,9 @@ type ServerInterface interface {
 	// Set password using setup token
 	// (POST /api/v1/auth/setup)
 	SetupPassword(c *gin.Context)
+	// Register a participant in a team (mentor only)
+	// (POST /api/v1/participants)
+	RegisterParticipant(c *gin.Context)
 	// List latest progress by team
 	// (GET /api/v1/progress)
 	ListProgress(c *gin.Context, params ListProgressParams)
@@ -254,12 +227,6 @@ type ServerInterface interface {
 	// Create a new team (staff only)
 	// (POST /api/v1/staff/teams)
 	StaffCreateTeam(c *gin.Context)
-	// List all users (staff only)
-	// (GET /api/v1/staff/users)
-	StaffListUsers(c *gin.Context)
-	// Create a new user and generate setup URL (staff only)
-	// (POST /api/v1/staff/users)
-	StaffCreateUser(c *gin.Context)
 	// List GitHub repositories for a team
 	// (GET /api/v1/teams/{teamId}/github-repos)
 	ListRepositories(c *gin.Context, teamId string)
@@ -310,6 +277,21 @@ func (siw *ServerInterfaceWrapper) SetupPassword(c *gin.Context) {
 	}
 
 	siw.Handler.SetupPassword(c)
+}
+
+// RegisterParticipant operation middleware
+func (siw *ServerInterfaceWrapper) RegisterParticipant(c *gin.Context) {
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RegisterParticipant(c)
 }
 
 // ListProgress operation middleware
@@ -381,36 +363,6 @@ func (siw *ServerInterfaceWrapper) StaffCreateTeam(c *gin.Context) {
 	}
 
 	siw.Handler.StaffCreateTeam(c)
-}
-
-// StaffListUsers operation middleware
-func (siw *ServerInterfaceWrapper) StaffListUsers(c *gin.Context) {
-
-	c.Set(StaffBearerAuthScopes, []string{})
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.StaffListUsers(c)
-}
-
-// StaffCreateUser operation middleware
-func (siw *ServerInterfaceWrapper) StaffCreateUser(c *gin.Context) {
-
-	c.Set(StaffBearerAuthScopes, []string{})
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.StaffCreateUser(c)
 }
 
 // ListRepositories operation middleware
@@ -579,12 +531,11 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 	router.POST(options.BaseURL+"/api/v1/auth/login", wrapper.Login)
 	router.POST(options.BaseURL+"/api/v1/auth/setup", wrapper.SetupPassword)
+	router.POST(options.BaseURL+"/api/v1/participants", wrapper.RegisterParticipant)
 	router.GET(options.BaseURL+"/api/v1/progress", wrapper.ListProgress)
 	router.POST(options.BaseURL+"/api/v1/staff/auth/login", wrapper.StaffLogin)
 	router.GET(options.BaseURL+"/api/v1/staff/teams", wrapper.StaffListTeams)
 	router.POST(options.BaseURL+"/api/v1/staff/teams", wrapper.StaffCreateTeam)
-	router.GET(options.BaseURL+"/api/v1/staff/users", wrapper.StaffListUsers)
-	router.POST(options.BaseURL+"/api/v1/staff/users", wrapper.StaffCreateUser)
 	router.GET(options.BaseURL+"/api/v1/teams/:teamId/github-repos", wrapper.ListRepositories)
 	router.POST(options.BaseURL+"/api/v1/teams/:teamId/github-repos", wrapper.RegisterRepository)
 	router.DELETE(options.BaseURL+"/api/v1/teams/:teamId/github-repos/:repoId", wrapper.RemoveRepository)
@@ -658,6 +609,41 @@ type SetupPassword400JSONResponse ErrorResponse
 func (response SetupPassword400JSONResponse) VisitSetupPasswordResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RegisterParticipantRequestObject struct {
+	Body *RegisterParticipantJSONRequestBody
+}
+
+type RegisterParticipantResponseObject interface {
+	VisitRegisterParticipantResponse(w http.ResponseWriter) error
+}
+
+type RegisterParticipant201JSONResponse RegisterParticipantResponse
+
+func (response RegisterParticipant201JSONResponse) VisitRegisterParticipantResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RegisterParticipant400JSONResponse ErrorResponse
+
+func (response RegisterParticipant400JSONResponse) VisitRegisterParticipantResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RegisterParticipant403JSONResponse ErrorResponse
+
+func (response RegisterParticipant403JSONResponse) VisitRegisterParticipantResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -768,57 +754,6 @@ func (response StaffCreateTeam201JSONResponse) VisitStaffCreateTeamResponse(w ht
 type StaffCreateTeam400JSONResponse ErrorResponse
 
 func (response StaffCreateTeam400JSONResponse) VisitStaffCreateTeamResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type StaffListUsersRequestObject struct {
-}
-
-type StaffListUsersResponseObject interface {
-	VisitStaffListUsersResponse(w http.ResponseWriter) error
-}
-
-type StaffListUsers200JSONResponse ListUsersResponse
-
-func (response StaffListUsers200JSONResponse) VisitStaffListUsersResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type StaffListUsers500JSONResponse ErrorResponse
-
-func (response StaffListUsers500JSONResponse) VisitStaffListUsersResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type StaffCreateUserRequestObject struct {
-	Body *StaffCreateUserJSONRequestBody
-}
-
-type StaffCreateUserResponseObject interface {
-	VisitStaffCreateUserResponse(w http.ResponseWriter) error
-}
-
-type StaffCreateUser201JSONResponse CreateUserResponse
-
-func (response StaffCreateUser201JSONResponse) VisitStaffCreateUserResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type StaffCreateUser400JSONResponse ErrorResponse
-
-func (response StaffCreateUser400JSONResponse) VisitStaffCreateUserResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
@@ -967,6 +902,9 @@ type StrictServerInterface interface {
 	// Set password using setup token
 	// (POST /api/v1/auth/setup)
 	SetupPassword(ctx context.Context, request SetupPasswordRequestObject) (SetupPasswordResponseObject, error)
+	// Register a participant in a team (mentor only)
+	// (POST /api/v1/participants)
+	RegisterParticipant(ctx context.Context, request RegisterParticipantRequestObject) (RegisterParticipantResponseObject, error)
 	// List latest progress by team
 	// (GET /api/v1/progress)
 	ListProgress(ctx context.Context, request ListProgressRequestObject) (ListProgressResponseObject, error)
@@ -979,12 +917,6 @@ type StrictServerInterface interface {
 	// Create a new team (staff only)
 	// (POST /api/v1/staff/teams)
 	StaffCreateTeam(ctx context.Context, request StaffCreateTeamRequestObject) (StaffCreateTeamResponseObject, error)
-	// List all users (staff only)
-	// (GET /api/v1/staff/users)
-	StaffListUsers(ctx context.Context, request StaffListUsersRequestObject) (StaffListUsersResponseObject, error)
-	// Create a new user and generate setup URL (staff only)
-	// (POST /api/v1/staff/users)
-	StaffCreateUser(ctx context.Context, request StaffCreateUserRequestObject) (StaffCreateUserResponseObject, error)
 	// List GitHub repositories for a team
 	// (GET /api/v1/teams/{teamId}/github-repos)
 	ListRepositories(ctx context.Context, request ListRepositoriesRequestObject) (ListRepositoriesResponseObject, error)
@@ -1073,6 +1005,39 @@ func (sh *strictHandler) SetupPassword(ctx *gin.Context) {
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(SetupPasswordResponseObject); ok {
 		if err := validResponse.VisitSetupPasswordResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RegisterParticipant operation middleware
+func (sh *strictHandler) RegisterParticipant(ctx *gin.Context) {
+	var request RegisterParticipantRequestObject
+
+	var body RegisterParticipantJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RegisterParticipant(ctx, request.(RegisterParticipantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RegisterParticipant")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(RegisterParticipantResponseObject); ok {
+		if err := validResponse.VisitRegisterParticipantResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -1191,64 +1156,6 @@ func (sh *strictHandler) StaffCreateTeam(ctx *gin.Context) {
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(StaffCreateTeamResponseObject); ok {
 		if err := validResponse.VisitStaffCreateTeamResponse(ctx.Writer); err != nil {
-			ctx.Error(err)
-		}
-	} else if response != nil {
-		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// StaffListUsers operation middleware
-func (sh *strictHandler) StaffListUsers(ctx *gin.Context) {
-	var request StaffListUsersRequestObject
-
-	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.StaffListUsers(ctx, request.(StaffListUsersRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "StaffListUsers")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		ctx.Error(err)
-		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(StaffListUsersResponseObject); ok {
-		if err := validResponse.VisitStaffListUsersResponse(ctx.Writer); err != nil {
-			ctx.Error(err)
-		}
-	} else if response != nil {
-		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// StaffCreateUser operation middleware
-func (sh *strictHandler) StaffCreateUser(ctx *gin.Context) {
-	var request StaffCreateUserRequestObject
-
-	var body StaffCreateUserJSONRequestBody
-	if err := ctx.ShouldBindJSON(&body); err != nil {
-		ctx.Status(http.StatusBadRequest)
-		ctx.Error(err)
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.StaffCreateUser(ctx, request.(StaffCreateUserRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "StaffCreateUser")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		ctx.Error(err)
-		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(StaffCreateUserResponseObject); ok {
-		if err := validResponse.VisitStaffCreateUserResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -1418,34 +1325,33 @@ func (sh *strictHandler) CreateIssue(ctx *gin.Context) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

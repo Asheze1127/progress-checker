@@ -57,6 +57,14 @@ func (r *StaffRepository) GetByID(ctx context.Context, id entities.StaffID) (*en
 	return toStaffEntity(row), nil
 }
 
+func (r *StaffRepository) FindBySlackUserID(ctx context.Context, slackUserID entities.SlackUserID) (*entities.Staff, error) {
+	row, err := r.queries.GetStaffBySlackUserID(ctx, sql.NullString{String: string(slackUserID), Valid: true})
+	if err != nil {
+		return nil, fmt.Errorf("find staff by slack user id: %w", err)
+	}
+	return toStaffEntity(row), nil
+}
+
 func toStaffEntity(row db.Staff) *entities.Staff {
 	var slackUserID *entities.SlackUserID
 	if row.SlackUserID.Valid {

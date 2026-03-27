@@ -17,12 +17,13 @@ import (
 
 // compositeHandler combines individual handlers into openapi.StrictServerInterface.
 type compositeHandler struct {
-	auth     *handlers.AuthHandler
-	progress *handlers.ProgressHandler
-	github   *handlers.GitHubHandler
-	internal *handlers.InternalHandler
-	staff    *handlers.StaffHandler
-	setup    *handlers.SetupHandler
+	auth        *handlers.AuthHandler
+	progress    *handlers.ProgressHandler
+	github      *handlers.GitHubHandler
+	internal    *handlers.InternalHandler
+	staff       *handlers.StaffHandler
+	setup       *handlers.SetupHandler
+	participant *handlers.ParticipantHandler
 }
 
 var _ openapi.StrictServerInterface = (*compositeHandler)(nil)
@@ -47,12 +48,8 @@ func (c *compositeHandler) StaffCreateTeam(ctx context.Context, req openapi.Staf
 	return c.staff.StaffCreateTeam(ctx, req)
 }
 
-func (c *compositeHandler) StaffListUsers(ctx context.Context, req openapi.StaffListUsersRequestObject) (openapi.StaffListUsersResponseObject, error) {
-	return c.staff.StaffListUsers(ctx, req)
-}
-
-func (c *compositeHandler) StaffCreateUser(ctx context.Context, req openapi.StaffCreateUserRequestObject) (openapi.StaffCreateUserResponseObject, error) {
-	return c.staff.StaffCreateUser(ctx, req)
+func (c *compositeHandler) RegisterParticipant(ctx context.Context, req openapi.RegisterParticipantRequestObject) (openapi.RegisterParticipantResponseObject, error) {
+	return c.participant.RegisterParticipant(ctx, req)
 }
 
 func (c *compositeHandler) ListProgress(ctx context.Context, req openapi.ListProgressRequestObject) (openapi.ListProgressResponseObject, error) {
@@ -87,6 +84,8 @@ type RouterConfig struct {
 	InternalHandler    *handlers.InternalHandler
 	StaffHandler       *handlers.StaffHandler
 	SetupHandler       *handlers.SetupHandler
+	ParticipantHandler *handlers.ParticipantHandler
+	CommandHandler     *webhook.CommandHandler
 	WebhookHandler     *webhook.WebhookHandler
 	QuestionHandler    *webhook.QuestionHandler
 	EventHandler       *webhook.EventHandler
@@ -110,12 +109,13 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	// --- OpenAPI routes (auto-registered with security + CORS middleware) ---
 	composite := &compositeHandler{
-		auth:     cfg.AuthHandler,
-		progress: cfg.ProgressHandler,
-		github:   cfg.GitHubHandler,
-		internal: cfg.InternalHandler,
-		staff:    cfg.StaffHandler,
-		setup:    cfg.SetupHandler,
+		auth:        cfg.AuthHandler,
+		progress:    cfg.ProgressHandler,
+		github:      cfg.GitHubHandler,
+		internal:    cfg.InternalHandler,
+		staff:       cfg.StaffHandler,
+		setup:       cfg.SetupHandler,
+		participant: cfg.ParticipantHandler,
 	}
 	si := openapi.NewStrictHandler(composite, nil)
 
@@ -147,6 +147,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		slackGroup.POST("/questions", cfg.QuestionHandler.HandleWebhook)
 		slackGroup.POST("/events", cfg.EventHandler.HandleSlackEvents)
 		slackGroup.POST("/interactions", cfg.InteractionHandler.HandleInteraction)
+		slackGroup.POST("/commands", cfg.CommandHandler.HandleCommand)
 	}
 
 	return r
@@ -189,7 +190,7 @@ func registerPreflightRoutes(r *gin.Engine, allowedOrigins []string) {
 	r.OPTIONS("/api/v1/progress", corsHandler)
 	r.OPTIONS("/api/v1/staff/auth/login", corsHandler)
 	r.OPTIONS("/api/v1/staff/teams", corsHandler)
-	r.OPTIONS("/api/v1/staff/users", corsHandler)
+	r.OPTIONS("/api/v1/participants", corsHandler)
 	r.OPTIONS("/api/v1/teams/:teamId/github-repos", corsHandler)
 	r.OPTIONS("/api/v1/teams/:teamId/github-repos/:repoId", corsHandler)
 	r.OPTIONS("/api/v1/teams/:teamId/github-repos/:repoId/token", corsHandler)
