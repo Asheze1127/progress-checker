@@ -6,8 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { setSession } from "@/lib/auth/session";
-
-const LOGIN_API_URL = "/api/v1/auth/login";
+import { api } from "@/lib/api/client";
 
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
@@ -15,19 +14,6 @@ const loginSchema = z.object({
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
-
-interface LoginResponse {
-  token: string;
-  user: {
-    id: string;
-    name: string;
-    role: string;
-  };
-}
-
-interface LoginError {
-  error: string;
-}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -45,19 +31,15 @@ export default function LoginPage() {
     setServerError(null);
 
     try {
-      const response = await fetch(LOGIN_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+      const { data: result, error } = await api.POST("/api/v1/auth/login", {
+        body: data,
       });
 
-      if (!response.ok) {
-        const errorData: LoginError = await response.json();
-        setServerError(errorData.error || "Login failed");
+      if (error) {
+        setServerError(error.error || "Login failed");
         return;
       }
 
-      const result: LoginResponse = await response.json();
       setSession(result.token);
       router.push("/progress");
     } catch {

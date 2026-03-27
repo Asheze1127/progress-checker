@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -54,7 +55,15 @@ func NewCreateMentorUseCase(
 	}
 }
 
-func (uc *CreateMentorUseCase) Execute(ctx context.Context, callerSlackID, mentorSlackID, teamName string) (*CreateMentorResult, error) {
+func (uc *CreateMentorUseCase) Execute(ctx context.Context, callerSlackID, mentorSlackID, teamName string) (result *CreateMentorResult, err error) {
+	defer func() {
+		attrs := []slog.Attr{slog.String("caller_slack_id", callerSlackID), slog.String("mentor_slack_id", mentorSlackID), slog.String("team_name", teamName)}
+		if err != nil {
+			attrs = append(attrs, slog.String("error", err.Error()))
+		}
+		slog.LogAttrs(ctx, slog.LevelDebug, "CreateMentorUseCase.Execute", attrs...)
+	}()
+
 	if strings.TrimSpace(callerSlackID) == "" {
 		return nil, fmt.Errorf("caller slack ID is required")
 	}
@@ -65,8 +74,15 @@ func (uc *CreateMentorUseCase) Execute(ctx context.Context, callerSlackID, mento
 		return nil, fmt.Errorf("team name is required")
 	}
 
-	// Verify the caller is staff
-	if _, err := uc.staffRepo.FindBySlackUserID(ctx, entities.SlackUserID(callerSlackID)); err != nil {
+	// Verify the caller is staff by fetching their email from Slack
+	callerSlackUser, err := uc.slackClient.GetUserInfo(ctx, callerSlackID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch caller's slack profile: %w", err)
+	}
+	if callerSlackUser.Email == "" {
+		return nil, fmt.Errorf("caller has no email address in Slack profile")
+	}
+	if _, err := uc.staffRepo.FindByEmail(ctx, callerSlackUser.Email); err != nil {
 		return nil, fmt.Errorf("caller is not a registered staff member")
 	}
 

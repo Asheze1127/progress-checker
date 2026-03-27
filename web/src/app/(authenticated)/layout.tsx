@@ -4,54 +4,27 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { QueryProvider } from "@/lib/providers/QueryProvider";
-
-const VALIDATE_SESSION_URL = "/api/v1/auth/validate";
+import { Sidebar } from "@/components/layout/Sidebar";
 
 interface AuthLayoutProps {
   children: React.ReactNode;
 }
 
-/**
- * AuthenticatedLayout wraps pages that require authentication.
- * It checks for a valid session on mount and redirects to /login if not authenticated.
- */
 export default function AuthenticatedLayout({ children }: AuthLayoutProps) {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = getSession();
+    const token = getSession();
 
-      if (!token) {
-        setIsLoading(false);
-        router.replace("/login");
-        return;
-      }
+    if (!token) {
+      router.replace("/login");
+    } else {
+      setIsAuthenticated(true);
+    }
 
-      try {
-        const response = await fetch(VALIDATE_SESSION_URL, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          router.replace("/login");
-          return;
-        }
-
-        setIsAuthenticated(true);
-      } catch {
-        router.replace("/login");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
+    setIsLoading(false);
   }, [router]);
 
   if (isLoading) {
@@ -66,5 +39,12 @@ export default function AuthenticatedLayout({ children }: AuthLayoutProps) {
     return null;
   }
 
-  return <QueryProvider>{children}</QueryProvider>;
+  return (
+    <QueryProvider>
+      <div className="flex min-h-screen bg-gray-50">
+        <Sidebar variant="mentor" />
+        <main className="flex-1 p-6">{children}</main>
+      </div>
+    </QueryProvider>
+  );
 }

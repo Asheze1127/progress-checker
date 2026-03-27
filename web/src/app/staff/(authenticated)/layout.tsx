@@ -6,6 +6,7 @@ import {
   getStaffSession,
   clearStaffSession,
 } from "@/lib/auth/staff-session";
+import { Sidebar } from "@/components/layout/Sidebar";
 
 interface StaffAuthLayoutProps {
   children: React.ReactNode;
@@ -59,5 +60,10 @@ export default function StaffAuthenticatedLayout({
     return null;
   }
 
-  return <>{children}</>;
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar variant="staff" />
+      <main className="flex-1 p-6">{children}</main>
+    </div>
+  );
 }

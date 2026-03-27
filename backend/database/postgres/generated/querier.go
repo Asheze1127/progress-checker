@@ -43,6 +43,7 @@ type Querier interface {
 	InsertProgressLog(ctx context.Context, arg InsertProgressLogParams) (ProgressLogs, error)
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (Questions, error)
 	InsertQuestionMentorAssignment(ctx context.Context, arg InsertQuestionMentorAssignmentParams) error
+	ListParticipantsByTeamID(ctx context.Context, teamID uuid.UUID) ([]ListParticipantsByTeamIDRow, error)
 	ListTeams(ctx context.Context) ([]Teams, error)
 	ListUsers(ctx context.Context) ([]Users, error)
 	MarkSetupTokenUsed(ctx context.Context, id uuid.UUID) error

@@ -6,8 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { setStaffSession } from "@/lib/auth/staff-session";
-
-const STAFF_LOGIN_API_URL = "/api/v1/staff/auth/login";
+import { api } from "@/lib/api/client";
 
 const loginSchema = z.object({
   email: z.string().email("有効なメールアドレスを入力してください"),
@@ -15,18 +14,6 @@ const loginSchema = z.object({
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
-
-interface StaffLoginResponse {
-  token: string;
-  staff: {
-    id: string;
-    name: string;
-  };
-}
-
-interface LoginError {
-  error: string;
-}
 
 export default function StaffLoginPage() {
   const router = useRouter();
@@ -44,19 +31,15 @@ export default function StaffLoginPage() {
     setServerError(null);
 
     try {
-      const response = await fetch(STAFF_LOGIN_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+      const { data: result, error } = await api.POST("/api/v1/staff/auth/login", {
+        body: data,
       });
 
-      if (!response.ok) {
-        const errorData: LoginError = await response.json();
-        setServerError(errorData.error || "ログインに失敗しました");
+      if (error) {
+        setServerError(error.error || "ログインに失敗しました");
         return;
       }
 
-      const result: StaffLoginResponse = await response.json();
       setStaffSession(result.token);
       router.push("/staff/dashboard");
     } catch {

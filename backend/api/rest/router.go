@@ -24,6 +24,8 @@ type compositeHandler struct {
 	staff       *handlers.StaffHandler
 	setup       *handlers.SetupHandler
 	participant *handlers.ParticipantHandler
+	slack       *handlers.SlackHandler
+	team        *handlers.TeamHandler
 }
 
 var _ openapi.StrictServerInterface = (*compositeHandler)(nil)
@@ -76,6 +78,18 @@ func (c *compositeHandler) CreateIssue(ctx context.Context, req openapi.CreateIs
 	return c.internal.CreateIssue(ctx, req)
 }
 
+func (c *compositeHandler) ListSlackUsers(ctx context.Context, req openapi.ListSlackUsersRequestObject) (openapi.ListSlackUsersResponseObject, error) {
+	return c.slack.ListSlackUsers(ctx, req)
+}
+
+func (c *compositeHandler) ListTeamParticipants(ctx context.Context, req openapi.ListTeamParticipantsRequestObject) (openapi.ListTeamParticipantsResponseObject, error) {
+	return c.participant.ListTeamParticipants(ctx, req)
+}
+
+func (c *compositeHandler) ListMentorTeams(ctx context.Context, req openapi.ListMentorTeamsRequestObject) (openapi.ListMentorTeamsResponseObject, error) {
+	return c.team.ListMentorTeams(ctx, req)
+}
+
 // RouterConfig holds all dependencies needed to create the Gin router.
 type RouterConfig struct {
 	AuthHandler        *handlers.AuthHandler
@@ -85,6 +99,8 @@ type RouterConfig struct {
 	StaffHandler       *handlers.StaffHandler
 	SetupHandler       *handlers.SetupHandler
 	ParticipantHandler *handlers.ParticipantHandler
+	SlackHandler       *handlers.SlackHandler
+	TeamHandler        *handlers.TeamHandler
 	CommandHandler     *webhook.CommandHandler
 	WebhookHandler     *webhook.WebhookHandler
 	QuestionHandler    *webhook.QuestionHandler
@@ -116,6 +132,8 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		staff:       cfg.StaffHandler,
 		setup:       cfg.SetupHandler,
 		participant: cfg.ParticipantHandler,
+		slack:       cfg.SlackHandler,
+		team:        cfg.TeamHandler,
 	}
 	si := openapi.NewStrictHandler(composite, nil)
 
@@ -191,6 +209,9 @@ func registerPreflightRoutes(r *gin.Engine, allowedOrigins []string) {
 	r.OPTIONS("/api/v1/staff/auth/login", corsHandler)
 	r.OPTIONS("/api/v1/staff/teams", corsHandler)
 	r.OPTIONS("/api/v1/participants", corsHandler)
+	r.OPTIONS("/api/v1/teams", corsHandler)
+	r.OPTIONS("/api/v1/slack/users", corsHandler)
+	r.OPTIONS("/api/v1/teams/:teamId/participants", corsHandler)
 	r.OPTIONS("/api/v1/teams/:teamId/github-repos", corsHandler)
 	r.OPTIONS("/api/v1/teams/:teamId/github-repos/:repoId", corsHandler)
 	r.OPTIONS("/api/v1/teams/:teamId/github-repos/:repoId/token", corsHandler)

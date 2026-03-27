@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
 	"github.com/Asheze1127/progress-checker/backend/entities"
@@ -44,7 +45,15 @@ func NewLoginUseCase(
 
 // Execute authenticates a user by email and password, verifies mentor role,
 // and generates a JWT token.
-func (uc *LoginUseCase) Execute(ctx context.Context, email, password string) (*LoginResult, error) {
+func (uc *LoginUseCase) Execute(ctx context.Context, email, password string) (result *LoginResult, err error) {
+	defer func() {
+		attrs := []slog.Attr{slog.String("email", email)}
+		if err != nil {
+			attrs = append(attrs, slog.String("error", err.Error()))
+		}
+		slog.LogAttrs(ctx, slog.LevelDebug, "LoginUseCase.Execute", attrs...)
+	}()
+
 	if email == "" {
 		return nil, fmt.Errorf("email is required")
 	}

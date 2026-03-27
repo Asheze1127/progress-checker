@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/Asheze1127/progress-checker/backend/api/middleware"
@@ -37,7 +38,15 @@ func NewRegisterParticipantUseCase(
 	}
 }
 
-func (uc *RegisterParticipantUseCase) Execute(ctx context.Context, slackUserID, teamID string) (*entities.User, error) {
+func (uc *RegisterParticipantUseCase) Execute(ctx context.Context, slackUserID, teamID string) (result *entities.User, err error) {
+	defer func() {
+		attrs := []slog.Attr{slog.String("slack_user_id", slackUserID), slog.String("team_id", teamID)}
+		if err != nil {
+			attrs = append(attrs, slog.String("error", err.Error()))
+		}
+		slog.LogAttrs(ctx, slog.LevelDebug, "RegisterParticipantUseCase.Execute", attrs...)
+	}()
+
 	if strings.TrimSpace(slackUserID) == "" {
 		return nil, fmt.Errorf("slack_user_id is required")
 	}
@@ -52,19 +61,12 @@ func (uc *RegisterParticipantUseCase) Execute(ctx context.Context, slackUserID, 
 	}
 
 	// Verify the mentor is assigned to this team
-	mentorTeamIDs, err := uc.mentorRepo.GetTeamIDs(ctx, mentorUser.ID)
+	mentor, err := uc.mentorRepo.GetByUserID(ctx, mentorUser.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get mentor teams: %w", err)
+		return nil, fmt.Errorf("failed to get mentor: %w", err)
 	}
 
-	authorized := false
-	for _, tid := range mentorTeamIDs {
-		if string(tid) == teamID {
-			authorized = true
-			break
-		}
-	}
-	if !authorized {
+	if !mentor.BelongsToTeam(entities.TeamID(teamID)) {
 		return nil, fmt.Errorf("not authorized for this team")
 	}
 

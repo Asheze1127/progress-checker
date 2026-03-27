@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/Asheze1127/progress-checker/backend/entities"
@@ -39,7 +40,15 @@ func NewSetupPasswordUseCase(
 	}
 }
 
-func (uc *SetupPasswordUseCase) Execute(ctx context.Context, rawToken, password string) error {
+func (uc *SetupPasswordUseCase) Execute(ctx context.Context, rawToken, password string) (err error) {
+	defer func() {
+		attrs := []slog.Attr{slog.Bool("has_token", rawToken != ""), slog.Int("password_len", len(password))}
+		if err != nil {
+			attrs = append(attrs, slog.String("error", err.Error()))
+		}
+		slog.LogAttrs(ctx, slog.LevelDebug, "SetupPasswordUseCase.Execute", attrs...)
+	}()
+
 	if rawToken == "" {
 		return ErrSetupTokenInvalid
 	}

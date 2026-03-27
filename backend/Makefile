@@ -9,12 +9,14 @@ DATABASE_PASS ?= postgres
 
 # Apply schema to the database using psqldef.
 # Installs psqldef automatically if not found.
+GOBIN := $(shell go env GOPATH)/bin
+
 migrate_db:
 	@command -v psqldef >/dev/null 2>&1 || { \
 		echo "Installing psqldef..."; \
 		go install github.com/sqldef/sqldef/cmd/psqldef@latest; \
 	}
-	PGPASSWORD=$(DATABASE_PASS) psqldef \
+	PGPASSWORD=$(DATABASE_PASS) PATH="$(GOBIN):$(PATH)" psqldef \
 		-h $(DATABASE_HOST) \
 		-p $(DATABASE_PORT) \
 		-U $(DATABASE_USER) \

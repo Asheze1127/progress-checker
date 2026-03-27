@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
 	"github.com/Asheze1127/progress-checker/backend/entities"
@@ -31,7 +32,15 @@ func NewStaffLoginUseCase(
 	return &StaffLoginUseCase{staffRepo: staffRepo, jwt: jwt, hasher: hasher}
 }
 
-func (uc *StaffLoginUseCase) Execute(ctx context.Context, email, password string) (*StaffLoginResult, error) {
+func (uc *StaffLoginUseCase) Execute(ctx context.Context, email, password string) (result *StaffLoginResult, err error) {
+	defer func() {
+		attrs := []slog.Attr{slog.String("email", email)}
+		if err != nil {
+			attrs = append(attrs, slog.String("error", err.Error()))
+		}
+		slog.LogAttrs(ctx, slog.LevelDebug, "StaffLoginUseCase.Execute", attrs...)
+	}()
+
 	if email == "" {
 		return nil, fmt.Errorf("email is required")
 	}

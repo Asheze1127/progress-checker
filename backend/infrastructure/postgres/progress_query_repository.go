@@ -50,8 +50,9 @@ func (r *ProgressQueryRepository) ListLatestByTeamID(ctx context.Context, teamID
 type progressRow struct {
 	TeamID        uuid.UUID
 	TeamName      string
-	ProgressLogID uuid.UUID
-	ParticipantID uuid.UUID
+	ProgressLogID uuid.NullUUID
+	ParticipantID uuid.NullUUID
+	LogCreatedAt  sql.NullTime
 	BodyID        uuid.NullUUID
 	Phase         db.NullProgressPhase
 	Sos           sql.NullBool
@@ -67,6 +68,7 @@ func toTeamProgressList(rows []db.GetLatestProgressByTeamRow) []entities.TeamPro
 			TeamName:      r.TeamName,
 			ProgressLogID: r.ProgressLogID,
 			ParticipantID: r.ParticipantID,
+			LogCreatedAt:  r.LogCreatedAt,
 			BodyID:        r.BodyID,
 			Phase:         r.Phase,
 			Sos:           r.Sos,
@@ -85,6 +87,7 @@ func toTeamProgressListByID(rows []db.GetLatestProgressByTeamIDRow) []entities.T
 			TeamName:      r.TeamName,
 			ProgressLogID: r.ProgressLogID,
 			ParticipantID: r.ParticipantID,
+			LogCreatedAt:  r.LogCreatedAt,
 			BodyID:        r.BodyID,
 			Phase:         r.Phase,
 			Sos:           r.Sos,
@@ -114,10 +117,10 @@ func toTeamProgressListFrom(rows []progressRow) []entities.TeamProgress {
 			continue
 		}
 
-		if tp.LatestProgress == nil {
+		if tp.LatestProgress == nil && row.ProgressLogID.Valid {
 			tp.LatestProgress = &entities.ProgressLog{
-				ID:            entities.ProgressLogID(row.ProgressLogID.String()),
-				ParticipantID: entities.ParticipantID(row.ParticipantID.String()),
+				ID:            entities.ProgressLogID(row.ProgressLogID.UUID.String()),
+				ParticipantID: entities.ParticipantID(row.ParticipantID.UUID.String()),
 			}
 		}
 

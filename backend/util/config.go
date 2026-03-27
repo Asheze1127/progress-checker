@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 
+	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 )
 
@@ -38,6 +39,7 @@ var validEncryptionKeyLengths = map[int]bool{16: true, 24: true, 32: true}
 // LoadConfig reads configuration from environment variables.
 // It returns an error if any required environment variable is missing.
 func LoadConfig() (*Config, error) {
+	_ = godotenv.Load()
 	var cfg Config
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, err

@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/Asheze1127/progress-checker/backend/application/service/slack_poster"
@@ -37,7 +38,15 @@ func NewHandleProgressUseCase(repo entities.ProgressRepository, poster *slackpos
 
 // Execute runs the handle progress use case.
 // It builds the entity, saves it, and posts to Slack.
-func (uc *HandleProgressUseCase) Execute(ctx context.Context, input HandleProgressInput) error {
+func (uc *HandleProgressUseCase) Execute(ctx context.Context, input HandleProgressInput) (err error) {
+	defer func() {
+		attrs := []slog.Attr{slog.String("slack_user_id", input.SlackUserID), slog.String("team_id", input.TeamID), slog.String("phase", string(input.Phase))}
+		if err != nil {
+			attrs = append(attrs, slog.String("error", err.Error()))
+		}
+		slog.LogAttrs(ctx, slog.LevelDebug, "HandleProgressUseCase.Execute", attrs...)
+	}()
+
 	if input.SlackUserID == "" {
 		return fmt.Errorf("slack_user_id is required")
 	}

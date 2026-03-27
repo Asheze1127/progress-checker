@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -16,9 +17,17 @@ func SlackVerification(verifier *pkgslack.Verifier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		body, err := verifier.Verify(c.Request)
 		if err != nil {
+			slog.Debug("SlackVerification: signature verification failed", slog.String("path", c.Request.URL.Path), slog.String("error", err.Error()))
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			return
 		}
+
+		slog.Debug("slack request received",
+			slog.String("method", c.Request.Method),
+			slog.String("path", c.Request.URL.Path),
+			slog.String("content_type", c.GetHeader("Content-Type")),
+			slog.String("body", string(body)),
+		)
 
 		c.Request.Body = io.NopCloser(bytes.NewReader(body))
 		c.Next()

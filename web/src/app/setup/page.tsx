@@ -5,8 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-
-const SETUP_API_URL = "/api/v1/auth/setup";
+import { api } from "@/lib/api/client";
 
 const setupSchema = z
   .object({
@@ -71,15 +70,12 @@ function SetupForm() {
     setServerError(null);
 
     try {
-      const response = await fetch(SETUP_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password: data.password }),
+      const { error } = await api.POST("/api/v1/auth/setup", {
+        body: { token, password: data.password },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        setServerError(errorData.error || "パスワードの設定に失敗しました");
+      if (error) {
+        setServerError(error.error || "パスワードの設定に失敗しました");
         return;
       }
 

@@ -183,7 +183,8 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 
 	do.Provide(injector, func(i do.Injector) (*usecase.ListProgressUseCase, error) {
 		progressQueryRepo := do.MustInvoke[*postgres.ProgressQueryRepository](i)
-		return usecase.NewListProgressUseCase(progressQueryRepo), nil
+		mentorRepo := do.MustInvoke[*postgres.MentorRepository](i)
+		return usecase.NewListProgressUseCase(progressQueryRepo, mentorRepo), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*usecase.LoginUseCase, error) {
@@ -310,9 +311,37 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		return handlers.NewStaffHandler(staffLoginUC, createTeamUC, teamRepo), nil
 	})
 
+	do.Provide(injector, func(i do.Injector) (*usecase.ListSlackUsersUseCase, error) {
+		slackClient := do.MustInvoke[*slackinfra.Client](i)
+		return usecase.NewListSlackUsersUseCase(slackClient), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*usecase.ListMentorTeamsUseCase, error) {
+		mentorRepo := do.MustInvoke[*postgres.MentorRepository](i)
+		teamRepo := do.MustInvoke[*postgres.TeamRepository](i)
+		return usecase.NewListMentorTeamsUseCase(mentorRepo, teamRepo), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*handlers.TeamHandler, error) {
+		uc := do.MustInvoke[*usecase.ListMentorTeamsUseCase](i)
+		return handlers.NewTeamHandler(uc), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*handlers.SlackHandler, error) {
+		uc := do.MustInvoke[*usecase.ListSlackUsersUseCase](i)
+		return handlers.NewSlackHandler(uc), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*usecase.ListTeamParticipantsUseCase, error) {
+		participantRepo := do.MustInvoke[*postgres.ParticipantRepository](i)
+		mentorRepo := do.MustInvoke[*postgres.MentorRepository](i)
+		return usecase.NewListTeamParticipantsUseCase(participantRepo, mentorRepo), nil
+	})
+
 	do.Provide(injector, func(i do.Injector) (*handlers.ParticipantHandler, error) {
-		uc := do.MustInvoke[*usecase.RegisterParticipantUseCase](i)
-		return handlers.NewParticipantHandler(uc), nil
+		registerUC := do.MustInvoke[*usecase.RegisterParticipantUseCase](i)
+		listUC := do.MustInvoke[*usecase.ListTeamParticipantsUseCase](i)
+		return handlers.NewParticipantHandler(registerUC, listUC), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*webhook.CommandHandler, error) {
@@ -345,6 +374,8 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 			StaffHandler:       do.MustInvoke[*handlers.StaffHandler](i),
 			SetupHandler:       do.MustInvoke[*handlers.SetupHandler](i),
 			ParticipantHandler: do.MustInvoke[*handlers.ParticipantHandler](i),
+			SlackHandler:       do.MustInvoke[*handlers.SlackHandler](i),
+			TeamHandler:        do.MustInvoke[*handlers.TeamHandler](i),
 			CommandHandler:     do.MustInvoke[*webhook.CommandHandler](i),
 			WebhookHandler:     do.MustInvoke[*webhook.WebhookHandler](i),
 			QuestionHandler:    do.MustInvoke[*webhook.QuestionHandler](i),

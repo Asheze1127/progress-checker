@@ -10,12 +10,41 @@ import (
 
 // ParticipantHandler handles participant registration endpoints.
 type ParticipantHandler struct {
-	registerParticipantUC *usecase.RegisterParticipantUseCase
+	registerParticipantUC    *usecase.RegisterParticipantUseCase
+	listTeamParticipantsUC *usecase.ListTeamParticipantsUseCase
 }
 
 // NewParticipantHandler creates a new ParticipantHandler.
-func NewParticipantHandler(registerParticipantUC *usecase.RegisterParticipantUseCase) *ParticipantHandler {
-	return &ParticipantHandler{registerParticipantUC: registerParticipantUC}
+func NewParticipantHandler(
+	registerParticipantUC *usecase.RegisterParticipantUseCase,
+	listTeamParticipantsUC *usecase.ListTeamParticipantsUseCase,
+) *ParticipantHandler {
+	return &ParticipantHandler{
+		registerParticipantUC:    registerParticipantUC,
+		listTeamParticipantsUC: listTeamParticipantsUC,
+	}
+}
+
+func (h *ParticipantHandler) ListTeamParticipants(ctx context.Context, request openapi.ListTeamParticipantsRequestObject) (openapi.ListTeamParticipantsResponseObject, error) {
+	participants, err := h.listTeamParticipantsUC.Execute(ctx, request.TeamId)
+	if err != nil {
+		if strings.Contains(err.Error(), "not authorized") {
+			return openapi.ListTeamParticipants403JSONResponse{Error: err.Error()}, nil
+		}
+		return openapi.ListTeamParticipants500JSONResponse{Error: "failed to list participants"}, nil
+	}
+
+	resp := make([]openapi.ParticipantResponse, len(participants))
+	for i, p := range participants {
+		resp[i] = openapi.ParticipantResponse{
+			Id:          string(p.ID),
+			SlackUserId: string(p.SlackUserID),
+			Name:        p.Name,
+			Email:       p.Email,
+		}
+	}
+
+	return openapi.ListTeamParticipants200JSONResponse{Participants: resp}, nil
 }
 
 func (h *ParticipantHandler) RegisterParticipant(ctx context.Context, request openapi.RegisterParticipantRequestObject) (openapi.RegisterParticipantResponseObject, error) {

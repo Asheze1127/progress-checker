@@ -3,17 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import type { TeamTimeline } from "../model/timeline";
 import { Timeline } from "../element/Timeline";
-import { fetchAPI } from "@/lib/fetcher/api";
+import { api } from "@/lib/api/client";
 
 interface TeamTimelineContainerProps {
   teamId: string;
-}
-
-/**
- * Fetches team timeline data from the API.
- */
-async function fetchTeamTimeline(teamId: string): Promise<TeamTimeline> {
-  return fetchAPI<TeamTimeline>(`/api/v1/progress?team_id=${encodeURIComponent(teamId)}`);
 }
 
 /**
@@ -30,8 +23,14 @@ export function TeamTimelineContainer({ teamId }: TeamTimelineContainerProps) {
     setError(null);
 
     try {
-      const data = await fetchTeamTimeline(teamId);
-      setTimeline(data);
+      const { data, error: apiError } = await api.GET("/api/v1/progress", {
+        params: { query: { team_id: teamId } },
+      });
+      if (apiError) {
+        setError(apiError.error || "An unexpected error occurred");
+        return;
+      }
+      setTimeline(data as unknown as TeamTimeline);
     } catch (fetchError) {
       const message = fetchError instanceof Error ? fetchError.message : "An unexpected error occurred";
       setError(message);

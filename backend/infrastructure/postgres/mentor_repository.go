@@ -45,6 +45,14 @@ func (r *MentorRepository) AssignTeam(ctx context.Context, userID entities.UserI
 	})
 }
 
+func (r *MentorRepository) GetByUserID(ctx context.Context, userID entities.UserID) (*entities.Mentor, error) {
+	teamIDs, err := r.GetTeamIDs(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return entities.NewMentor(userID, teamIDs), nil
+}
+
 func (r *MentorRepository) GetTeamIDs(ctx context.Context, userID entities.UserID) ([]entities.TeamID, error) {
 	uid, err := uuid.Parse(string(userID))
 	if err != nil {

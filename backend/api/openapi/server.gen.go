@@ -62,9 +62,19 @@ type LatestProgressResponse struct {
 	ProgressBodies []ProgressBodyResponse `json:"progress_bodies"`
 }
 
+// ListParticipantsResponse defines model for ListParticipantsResponse.
+type ListParticipantsResponse struct {
+	Participants []ParticipantResponse `json:"participants"`
+}
+
 // ListReposResponse defines model for ListReposResponse.
 type ListReposResponse struct {
 	Repos []RepoItem `json:"repos"`
+}
+
+// ListSlackUsersResponse defines model for ListSlackUsersResponse.
+type ListSlackUsersResponse struct {
+	Users []SlackUserResponse `json:"users"`
 }
 
 // ListTeamsResponse defines model for ListTeamsResponse.
@@ -87,6 +97,14 @@ type LoginResponse struct {
 // MessageResponse defines model for MessageResponse.
 type MessageResponse struct {
 	Message string `json:"message"`
+}
+
+// ParticipantResponse defines model for ParticipantResponse.
+type ParticipantResponse struct {
+	Email       string `json:"email"`
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	SlackUserId string `json:"slack_user_id"`
 }
 
 // ProgressBodyResponse defines model for ProgressBodyResponse.
@@ -130,6 +148,13 @@ type RepoItem struct {
 type SetupPasswordRequest struct {
 	Password string `json:"password"`
 	Token    string `json:"token"`
+}
+
+// SlackUserResponse defines model for SlackUserResponse.
+type SlackUserResponse struct {
+	Email string `json:"email"`
+	Id    string `json:"id"`
+	Name  string `json:"name"`
 }
 
 // StaffLoginRequest defines model for StaffLoginRequest.
@@ -218,6 +243,9 @@ type ServerInterface interface {
 	// List latest progress by team
 	// (GET /api/v1/progress)
 	ListProgress(c *gin.Context, params ListProgressParams)
+	// List Slack workspace users (mentor only)
+	// (GET /api/v1/slack/users)
+	ListSlackUsers(c *gin.Context)
 	// Authenticate staff and get JWT token
 	// (POST /api/v1/staff/auth/login)
 	StaffLogin(c *gin.Context)
@@ -227,6 +255,9 @@ type ServerInterface interface {
 	// Create a new team (staff only)
 	// (POST /api/v1/staff/teams)
 	StaffCreateTeam(c *gin.Context)
+	// List teams the authenticated mentor belongs to
+	// (GET /api/v1/teams)
+	ListMentorTeams(c *gin.Context)
 	// List GitHub repositories for a team
 	// (GET /api/v1/teams/{teamId}/github-repos)
 	ListRepositories(c *gin.Context, teamId string)
@@ -239,6 +270,9 @@ type ServerInterface interface {
 	// Update GitHub repository token
 	// (PUT /api/v1/teams/{teamId}/github-repos/{repoId}/token)
 	UpdateToken(c *gin.Context, teamId string, repoId string)
+	// List participants in a team (mentor only)
+	// (GET /api/v1/teams/{teamId}/participants)
+	ListTeamParticipants(c *gin.Context, teamId string)
 	// Create a GitHub issue (internal)
 	// (POST /internal/issues)
 	CreateIssue(c *gin.Context)
@@ -322,6 +356,21 @@ func (siw *ServerInterfaceWrapper) ListProgress(c *gin.Context) {
 	siw.Handler.ListProgress(c, params)
 }
 
+// ListSlackUsers operation middleware
+func (siw *ServerInterfaceWrapper) ListSlackUsers(c *gin.Context) {
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListSlackUsers(c)
+}
+
 // StaffLogin operation middleware
 func (siw *ServerInterfaceWrapper) StaffLogin(c *gin.Context) {
 
@@ -363,6 +412,21 @@ func (siw *ServerInterfaceWrapper) StaffCreateTeam(c *gin.Context) {
 	}
 
 	siw.Handler.StaffCreateTeam(c)
+}
+
+// ListMentorTeams operation middleware
+func (siw *ServerInterfaceWrapper) ListMentorTeams(c *gin.Context) {
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListMentorTeams(c)
 }
 
 // ListRepositories operation middleware
@@ -487,6 +551,32 @@ func (siw *ServerInterfaceWrapper) UpdateToken(c *gin.Context) {
 	siw.Handler.UpdateToken(c, teamId, repoId)
 }
 
+// ListTeamParticipants operation middleware
+func (siw *ServerInterfaceWrapper) ListTeamParticipants(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "teamId" -------------
+	var teamId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "teamId", c.Param("teamId"), &teamId, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter teamId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListTeamParticipants(c, teamId)
+}
+
 // CreateIssue operation middleware
 func (siw *ServerInterfaceWrapper) CreateIssue(c *gin.Context) {
 
@@ -533,13 +623,16 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/api/v1/auth/setup", wrapper.SetupPassword)
 	router.POST(options.BaseURL+"/api/v1/participants", wrapper.RegisterParticipant)
 	router.GET(options.BaseURL+"/api/v1/progress", wrapper.ListProgress)
+	router.GET(options.BaseURL+"/api/v1/slack/users", wrapper.ListSlackUsers)
 	router.POST(options.BaseURL+"/api/v1/staff/auth/login", wrapper.StaffLogin)
 	router.GET(options.BaseURL+"/api/v1/staff/teams", wrapper.StaffListTeams)
 	router.POST(options.BaseURL+"/api/v1/staff/teams", wrapper.StaffCreateTeam)
+	router.GET(options.BaseURL+"/api/v1/teams", wrapper.ListMentorTeams)
 	router.GET(options.BaseURL+"/api/v1/teams/:teamId/github-repos", wrapper.ListRepositories)
 	router.POST(options.BaseURL+"/api/v1/teams/:teamId/github-repos", wrapper.RegisterRepository)
 	router.DELETE(options.BaseURL+"/api/v1/teams/:teamId/github-repos/:repoId", wrapper.RemoveRepository)
 	router.PUT(options.BaseURL+"/api/v1/teams/:teamId/github-repos/:repoId/token", wrapper.UpdateToken)
+	router.GET(options.BaseURL+"/api/v1/teams/:teamId/participants", wrapper.ListTeamParticipants)
 	router.POST(options.BaseURL+"/internal/issues", wrapper.CreateIssue)
 }
 
@@ -674,6 +767,31 @@ func (response ListProgress500JSONResponse) VisitListProgressResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListSlackUsersRequestObject struct {
+}
+
+type ListSlackUsersResponseObject interface {
+	VisitListSlackUsersResponse(w http.ResponseWriter) error
+}
+
+type ListSlackUsers200JSONResponse ListSlackUsersResponse
+
+func (response ListSlackUsers200JSONResponse) VisitListSlackUsersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListSlackUsers500JSONResponse ErrorResponse
+
+func (response ListSlackUsers500JSONResponse) VisitListSlackUsersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type StaffLoginRequestObject struct {
 	Body *StaffLoginJSONRequestBody
 }
@@ -756,6 +874,31 @@ type StaffCreateTeam400JSONResponse ErrorResponse
 func (response StaffCreateTeam400JSONResponse) VisitStaffCreateTeamResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListMentorTeamsRequestObject struct {
+}
+
+type ListMentorTeamsResponseObject interface {
+	VisitListMentorTeamsResponse(w http.ResponseWriter) error
+}
+
+type ListMentorTeams200JSONResponse ListTeamsResponse
+
+func (response ListMentorTeams200JSONResponse) VisitListMentorTeamsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListMentorTeams500JSONResponse ErrorResponse
+
+func (response ListMentorTeams500JSONResponse) VisitListMentorTeamsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -868,6 +1011,41 @@ func (response UpdateToken400JSONResponse) VisitUpdateTokenResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListTeamParticipantsRequestObject struct {
+	TeamId string `json:"teamId"`
+}
+
+type ListTeamParticipantsResponseObject interface {
+	VisitListTeamParticipantsResponse(w http.ResponseWriter) error
+}
+
+type ListTeamParticipants200JSONResponse ListParticipantsResponse
+
+func (response ListTeamParticipants200JSONResponse) VisitListTeamParticipantsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListTeamParticipants403JSONResponse ErrorResponse
+
+func (response ListTeamParticipants403JSONResponse) VisitListTeamParticipantsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListTeamParticipants500JSONResponse ErrorResponse
+
+func (response ListTeamParticipants500JSONResponse) VisitListTeamParticipantsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type CreateIssueRequestObject struct {
 	Body *CreateIssueJSONRequestBody
 }
@@ -908,6 +1086,9 @@ type StrictServerInterface interface {
 	// List latest progress by team
 	// (GET /api/v1/progress)
 	ListProgress(ctx context.Context, request ListProgressRequestObject) (ListProgressResponseObject, error)
+	// List Slack workspace users (mentor only)
+	// (GET /api/v1/slack/users)
+	ListSlackUsers(ctx context.Context, request ListSlackUsersRequestObject) (ListSlackUsersResponseObject, error)
 	// Authenticate staff and get JWT token
 	// (POST /api/v1/staff/auth/login)
 	StaffLogin(ctx context.Context, request StaffLoginRequestObject) (StaffLoginResponseObject, error)
@@ -917,6 +1098,9 @@ type StrictServerInterface interface {
 	// Create a new team (staff only)
 	// (POST /api/v1/staff/teams)
 	StaffCreateTeam(ctx context.Context, request StaffCreateTeamRequestObject) (StaffCreateTeamResponseObject, error)
+	// List teams the authenticated mentor belongs to
+	// (GET /api/v1/teams)
+	ListMentorTeams(ctx context.Context, request ListMentorTeamsRequestObject) (ListMentorTeamsResponseObject, error)
 	// List GitHub repositories for a team
 	// (GET /api/v1/teams/{teamId}/github-repos)
 	ListRepositories(ctx context.Context, request ListRepositoriesRequestObject) (ListRepositoriesResponseObject, error)
@@ -929,6 +1113,9 @@ type StrictServerInterface interface {
 	// Update GitHub repository token
 	// (PUT /api/v1/teams/{teamId}/github-repos/{repoId}/token)
 	UpdateToken(ctx context.Context, request UpdateTokenRequestObject) (UpdateTokenResponseObject, error)
+	// List participants in a team (mentor only)
+	// (GET /api/v1/teams/{teamId}/participants)
+	ListTeamParticipants(ctx context.Context, request ListTeamParticipantsRequestObject) (ListTeamParticipantsResponseObject, error)
 	// Create a GitHub issue (internal)
 	// (POST /internal/issues)
 	CreateIssue(ctx context.Context, request CreateIssueRequestObject) (CreateIssueResponseObject, error)
@@ -1072,6 +1259,31 @@ func (sh *strictHandler) ListProgress(ctx *gin.Context, params ListProgressParam
 	}
 }
 
+// ListSlackUsers operation middleware
+func (sh *strictHandler) ListSlackUsers(ctx *gin.Context) {
+	var request ListSlackUsersRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListSlackUsers(ctx, request.(ListSlackUsersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListSlackUsers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(ListSlackUsersResponseObject); ok {
+		if err := validResponse.VisitListSlackUsersResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // StaffLogin operation middleware
 func (sh *strictHandler) StaffLogin(ctx *gin.Context) {
 	var request StaffLoginRequestObject
@@ -1156,6 +1368,31 @@ func (sh *strictHandler) StaffCreateTeam(ctx *gin.Context) {
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(StaffCreateTeamResponseObject); ok {
 		if err := validResponse.VisitStaffCreateTeamResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMentorTeams operation middleware
+func (sh *strictHandler) ListMentorTeams(ctx *gin.Context) {
+	var request ListMentorTeamsRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMentorTeams(ctx, request.(ListMentorTeamsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMentorTeams")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(ListMentorTeamsResponseObject); ok {
+		if err := validResponse.VisitListMentorTeamsResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -1289,6 +1526,33 @@ func (sh *strictHandler) UpdateToken(ctx *gin.Context, teamId string, repoId str
 	}
 }
 
+// ListTeamParticipants operation middleware
+func (sh *strictHandler) ListTeamParticipants(ctx *gin.Context, teamId string) {
+	var request ListTeamParticipantsRequestObject
+
+	request.TeamId = teamId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTeamParticipants(ctx, request.(ListTeamParticipantsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTeamParticipants")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(ListTeamParticipantsResponseObject); ok {
+		if err := validResponse.VisitListTeamParticipantsResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreateIssue operation middleware
 func (sh *strictHandler) CreateIssue(ctx *gin.Context) {
 	var request CreateIssueRequestObject
@@ -1325,33 +1589,36 @@ func (sh *strictHandler) CreateIssue(ctx *gin.Context) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

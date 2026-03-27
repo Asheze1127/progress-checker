@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/Asheze1127/progress-checker/backend/application/service/question_sender"
 	"github.com/Asheze1127/progress-checker/backend/entities"
@@ -33,7 +34,15 @@ func NewHandleNewQuestionUseCase(repo entities.QuestionRepository, sender *quest
 }
 
 // Execute creates a new question, saves it to the database, and enqueues it for processing.
-func (uc *HandleNewQuestionUseCase) Execute(ctx context.Context, input HandleNewQuestionInput) error {
+func (uc *HandleNewQuestionUseCase) Execute(ctx context.Context, input HandleNewQuestionInput) (err error) {
+	defer func() {
+		attrs := []slog.Attr{slog.String("participant_id", input.ParticipantID), slog.String("title", input.Title)}
+		if err != nil {
+			attrs = append(attrs, slog.String("error", err.Error()))
+		}
+		slog.LogAttrs(ctx, slog.LevelDebug, "HandleNewQuestionUseCase.Execute", attrs...)
+	}()
+
 	questionID := uuid.New().String()
 	threadTS := uuid.New().String()
 

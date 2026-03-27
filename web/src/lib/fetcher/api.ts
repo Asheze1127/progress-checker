@@ -1,7 +1,5 @@
 import { getSession } from "@/lib/auth/session";
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+import { env } from "@/lib/env";
 
 /**
  * Generic fetch wrapper for the backend API.
@@ -22,7 +20,7 @@ export async function fetchAPI<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
     ...options,
     headers,
   });

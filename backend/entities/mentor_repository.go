@@ -6,5 +6,6 @@ import "context"
 type MentorRepository interface {
 	Create(ctx context.Context, userID UserID) error
 	AssignTeam(ctx context.Context, userID UserID, teamID TeamID) error
+	GetByUserID(ctx context.Context, userID UserID) (*Mentor, error)
 	GetTeamIDs(ctx context.Context, userID UserID) ([]TeamID, error)
 }

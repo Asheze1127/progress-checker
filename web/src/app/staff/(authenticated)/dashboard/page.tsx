@@ -5,10 +5,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import {
-  getStaffSession,
-  clearStaffSession,
-} from "@/lib/auth/staff-session";
+import { clearStaffSession } from "@/lib/auth/staff-session";
+import { api } from "@/lib/api/client";
 
 interface Team {
   id: string;
@@ -21,18 +19,6 @@ const createTeamSchema = z.object({
 
 type CreateTeamData = z.infer<typeof createTeamSchema>;
 
-function staffFetch(path: string, options?: RequestInit) {
-  const token = getStaffSession();
-  return fetch(path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options?.headers as Record<string, string>),
-    },
-  });
-}
-
 export default function StaffDashboardPage() {
   const router = useRouter();
   const [teams, setTeams] = useState<Team[]>([]);
@@ -44,14 +30,13 @@ export default function StaffDashboardPage() {
 
   const fetchTeams = useCallback(async () => {
     try {
-      const res = await staffFetch("/api/v1/staff/teams");
-      if (res.status === 401 || res.status === 403) {
+      const { data, error, response } = await api.GET("/api/v1/staff/teams");
+      if (response.status === 401 || response.status === 403) {
         clearStaffSession();
         router.push("/staff/login");
         return;
       }
-      if (res.ok) {
-        const data = await res.json();
+      if (data) {
         setTeams(data.teams);
       }
     } catch {
@@ -63,17 +48,15 @@ export default function StaffDashboardPage() {
     fetchTeams();
   }, [fetchTeams]);
 
-  const handleCreateTeam = async (data: CreateTeamData) => {
+  const handleCreateTeam = async (formData: CreateTeamData) => {
     setTeamError(null);
     try {
-      const res = await staffFetch("/api/v1/staff/teams", {
-        method: "POST",
-        body: JSON.stringify(data),
+      const { error } = await api.POST("/api/v1/staff/teams", {
+        body: formData,
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        setTeamError(err.error || "チーム作成に失敗しました");
+      if (error) {
+        setTeamError(error.error || "チーム作成に失敗しました");
         return;
       }
 
@@ -84,28 +67,8 @@ export default function StaffDashboardPage() {
     }
   };
 
-  const handleLogout = () => {
-    clearStaffSession();
-    router.push("/staff/login");
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">
-            Staff Dashboard
-          </h1>
-          <button
-            onClick={handleLogout}
-            className="text-sm text-gray-600 hover:text-gray-900"
-          >
-            ログアウト
-          </button>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-7xl space-y-8">
         <section className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             チーム管理
@@ -157,7 +120,6 @@ export default function StaffDashboardPage() {
             )}
           </div>
         </section>
-      </main>
     </div>
   );
 }

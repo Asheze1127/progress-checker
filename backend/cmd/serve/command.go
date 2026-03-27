@@ -13,13 +13,18 @@ import (
 
 // Run starts the HTTP server with all dependencies wired.
 func Run() error {
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	gin.SetMode(gin.ReleaseMode)
 
 	cfg, err := util.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+
+	logLevel := slog.LevelInfo
+	if os.Getenv("LOG_LEVEL") == "debug" {
+		logLevel = slog.LevelDebug
+	}
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel})))
 
 	router, err := wireRouter(cfg)
 	if err != nil {

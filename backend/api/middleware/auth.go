@@ -13,11 +13,13 @@ import (
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
-// contextKey is an unexported type used for context keys to avoid collisions.
-type contextKey string
+// ginKeyUser is the Gin context key for storing the authenticated user.
+// Using a plain string so that Gin's Value() can find it via c.Get()
+// when *gin.Context is passed as context.Context through oapi-codegen strict handlers.
+const ginKeyUser = "middleware.authenticated_user"
 
-// userContextKey is the context key for storing the authenticated user.
-const userContextKey contextKey = "authenticated_user"
+// ginKeyStaff is the Gin context key for storing the authenticated staff.
+const ginKeyStaff = "middleware.authenticated_staff"
 
 // SecurityMiddleware returns an oapi-codegen MiddlewareFunc that dispatches
 // authentication based on OpenAPI security scopes set by the generated code.
@@ -75,8 +77,7 @@ func handleBearerAuth(c *gin.Context, jwtService *jwt.JWTService) {
 		Role: claims.UserRole,
 	}
 
-	ctx := context.WithValue(c.Request.Context(), userContextKey, user)
-	c.Request = c.Request.WithContext(ctx)
+	c.Set(ginKeyUser, user)
 }
 
 // handleInternalTokenAuth validates the X-Internal-Token header.
@@ -87,9 +88,6 @@ func handleInternalTokenAuth(c *gin.Context, expectedToken string) {
 		return
 	}
 }
-
-// staffContextKey is the context key for storing the authenticated staff.
-const staffContextKey contextKey = "authenticated_staff"
 
 // handleStaffBearerAuth validates the JWT bearer token and stores the staff in context.
 func handleStaffBearerAuth(c *gin.Context, jwtService *jwt.JWTService) {
@@ -115,14 +113,12 @@ func handleStaffBearerAuth(c *gin.Context, jwtService *jwt.JWTService) {
 		Name: claims.UserName,
 	}
 
-	ctx := context.WithValue(c.Request.Context(), staffContextKey, staff)
-	c.Request = c.Request.WithContext(ctx)
+	c.Set(ginKeyStaff, staff)
 }
 
 // StaffFromContext retrieves the authenticated staff from the request context.
-// Returns nil if no staff is present.
 func StaffFromContext(ctx context.Context) *entities.Staff {
-	staff, ok := ctx.Value(staffContextKey).(*entities.Staff)
+	staff, ok := ctx.Value(ginKeyStaff).(*entities.Staff)
 	if !ok {
 		return nil
 	}
@@ -130,9 +126,8 @@ func StaffFromContext(ctx context.Context) *entities.Staff {
 }
 
 // UserFromContext retrieves the authenticated user from the request context.
-// Returns nil if no user is present.
 func UserFromContext(ctx context.Context) *entities.User {
-	user, ok := ctx.Value(userContextKey).(*entities.User)
+	user, ok := ctx.Value(ginKeyUser).(*entities.User)
 	if !ok {
 		return nil
 	}

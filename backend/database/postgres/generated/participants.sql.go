@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -23,4 +24,49 @@ type CreateParticipantParams struct {
 func (q *Queries) CreateParticipant(ctx context.Context, arg CreateParticipantParams) error {
 	_, err := q.db.ExecContext(ctx, createParticipant, arg.UserID, arg.TeamID)
 	return err
+}
+
+const listParticipantsByTeamID = `-- name: ListParticipantsByTeamID :many
+SELECT u.id, u.slack_user_id, u.name, u.email, p.created_at
+FROM participants p
+JOIN users u ON u.id = p.user_id
+WHERE p.team_id = $1
+ORDER BY p.created_at DESC
+`
+
+type ListParticipantsByTeamIDRow struct {
+	ID          uuid.UUID `json:"id"`
+	SlackUserID string    `json:"slack_user_id"`
+	Name        string    `json:"name"`
+	Email       string    `json:"email"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+func (q *Queries) ListParticipantsByTeamID(ctx context.Context, teamID uuid.UUID) ([]ListParticipantsByTeamIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, listParticipantsByTeamID, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListParticipantsByTeamIDRow{}
+	for rows.Next() {
+		var i ListParticipantsByTeamIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SlackUserID,
+			&i.Name,
+			&i.Email,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

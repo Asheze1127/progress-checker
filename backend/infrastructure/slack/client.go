@@ -64,6 +64,28 @@ func (c *Client) GetUserInfo(ctx context.Context, userID string) (*SlackUserInfo
 	}, nil
 }
 
+// GetUsers fetches all non-bot, non-deleted users from the Slack workspace.
+func (c *Client) GetUsers(ctx context.Context) ([]SlackUserInfo, error) {
+	users, err := c.api.GetUsersContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list slack users: %w", err)
+	}
+
+	var result []SlackUserInfo
+	for _, u := range users {
+		if u.IsBot || u.Deleted || u.ID == "USLACKBOT" {
+			continue
+		}
+		result = append(result, SlackUserInfo{
+			ID:       u.ID,
+			RealName: u.RealName,
+			Email:    u.Profile.Email,
+		})
+	}
+
+	return result, nil
+}
+
 // FetchThreadMessages retrieves all replies in a Slack thread.
 func (c *Client) FetchThreadMessages(ctx context.Context, channelID, threadTS string) ([]pkgslack.ThreadMessage, error) {
 	msgs, _, _, err := c.api.GetConversationRepliesContext(ctx, &slack.GetConversationRepliesParameters{
