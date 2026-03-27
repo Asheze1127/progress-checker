@@ -74,10 +74,12 @@ prepare_nodejs_plugin() {
 
 setup_nodejs() {
   corepack enable
+  corepack prepare pnpm@latest --activate
+  # Regenerate asdf shims after corepack installs pnpm into the Node.js bin dir.
   "${asdf_bin}" reshim nodejs
 
   if [ -f package.json ]; then
-    npm install
+    pnpm install
   fi
 }
 
