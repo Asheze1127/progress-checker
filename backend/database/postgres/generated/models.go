@@ -194,12 +194,6 @@ type ChannelPurposeAssignments struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
-type IdempotencyKeys struct {
-	Key       string    `json:"key"`
-	CreatedAt time.Time `json:"created_at"`
-	ExpiresAt time.Time `json:"expires_at"`
-}
-
 type MentorTeamAssignments struct {
 	MentorUserID uuid.UUID `json:"mentor_user_id"`
 	TeamID       uuid.UUID `json:"team_id"`
