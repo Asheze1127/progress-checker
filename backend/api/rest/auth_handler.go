@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Asheze1127/progress-checker/backend/api/openapi"
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
-	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
 // AuthHandler handles authentication-related HTTP endpoints.
@@ -20,33 +20,9 @@ func NewAuthHandler(loginUseCase *usecase.LoginUseCase) *AuthHandler {
 	return &AuthHandler{loginUseCase: loginUseCase}
 }
 
-// loginRequest represents the JSON body of a login request.
-type loginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-// loginResponse represents the JSON response of a successful login.
-type loginResponse struct {
-	Token string       `json:"token"`
-	User  userResponse `json:"user"`
-}
-
-// userResponse represents the user data returned in API responses.
-type userResponse struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Role string `json:"role"`
-}
-
 // HandleLogin handles POST /api/v1/auth/login requests.
 func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		WriteError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
-	var req loginRequest
+	var req openapi.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -73,17 +49,12 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, loginResponse{
+	WriteJSON(w, http.StatusOK, openapi.LoginResponse{
 		Token: result.Token,
-		User:  toUserResponse(result.User),
+		User: openapi.UserResponse{
+			Id:   string(result.User.ID),
+			Name: result.User.Name,
+			Role: string(result.User.Role),
+		},
 	})
-}
-
-// toUserResponse converts an entity User to a userResponse.
-func toUserResponse(user entities.User) userResponse {
-	return userResponse{
-		ID:   string(user.ID),
-		Name: user.Name,
-		Role: string(user.Role),
-	}
 }

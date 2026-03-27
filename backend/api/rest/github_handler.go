@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/Asheze1127/progress-checker/backend/api/openapi"
 	githubsvc "github.com/Asheze1127/progress-checker/backend/application/service/github"
 )
 
@@ -18,30 +19,7 @@ func NewGitHubHandler(service *githubsvc.GitHubService) *GitHubHandler {
 	return &GitHubHandler{service: service}
 }
 
-type registerRepoRequest struct {
-	GitHubRepoURL       string `json:"github_repo_url"`
-	PersonalAccessToken string `json:"personal_access_token"`
-}
-
-type registerRepoResponse struct {
-	Message string `json:"message"`
-}
-
-type listReposResponseItem struct {
-	ID       string `json:"id"`
-	Owner    string `json:"owner"`
-	RepoName string `json:"repo_name"`
-}
-
-type listReposResponse struct {
-	Repos []listReposResponseItem `json:"repos"`
-}
-
-type updateTokenRequest struct {
-	PersonalAccessToken string `json:"personal_access_token"`
-}
-
-// RegisterRepository handles POST /api/v1/teams/{teamId}/github-repos
+// RegisterRepository handles POST /api/v1/teams/{teamId}/github-repos.
 func (h *GitHubHandler) RegisterRepository(w http.ResponseWriter, r *http.Request) {
 	teamID := r.PathValue("teamId")
 	if teamID == "" {
@@ -49,22 +27,22 @@ func (h *GitHubHandler) RegisterRepository(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var req registerRepoRequest
+	var req openapi.RegisterRepoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	if err := h.service.RegisterRepository(r.Context(), teamID, req.GitHubRepoURL, req.PersonalAccessToken); err != nil {
+	if err := h.service.RegisterRepository(r.Context(), teamID, req.GithubRepoUrl, req.PersonalAccessToken); err != nil {
 		slog.Error("failed to register repository", slog.String("error", err.Error()))
 		WriteError(w, http.StatusBadRequest, "failed to register repository")
 		return
 	}
 
-	WriteJSON(w, http.StatusCreated, registerRepoResponse{Message: "repository registered successfully"})
+	WriteJSON(w, http.StatusCreated, openapi.MessageResponse{Message: "repository registered successfully"})
 }
 
-// ListRepositories handles GET /api/v1/teams/{teamId}/github-repos
+// ListRepositories handles GET /api/v1/teams/{teamId}/github-repos.
 func (h *GitHubHandler) ListRepositories(w http.ResponseWriter, r *http.Request) {
 	teamID := r.PathValue("teamId")
 	if teamID == "" {
@@ -79,19 +57,19 @@ func (h *GitHubHandler) ListRepositories(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	items := make([]listReposResponseItem, 0, len(repos))
+	items := make([]openapi.RepoItem, 0, len(repos))
 	for _, repo := range repos {
-		items = append(items, listReposResponseItem{
-			ID:       string(repo.ID),
+		items = append(items, openapi.RepoItem{
+			Id:       string(repo.ID),
 			Owner:    repo.Owner,
 			RepoName: repo.RepoName,
 		})
 	}
 
-	WriteJSON(w, http.StatusOK, listReposResponse{Repos: items})
+	WriteJSON(w, http.StatusOK, openapi.ListReposResponse{Repos: items})
 }
 
-// RemoveRepository handles DELETE /api/v1/teams/{teamId}/github-repos/{repoId}
+// RemoveRepository handles DELETE /api/v1/teams/{teamId}/github-repos/{repoId}.
 func (h *GitHubHandler) RemoveRepository(w http.ResponseWriter, r *http.Request) {
 	teamID := r.PathValue("teamId")
 	repoID := r.PathValue("repoId")
@@ -111,10 +89,10 @@ func (h *GitHubHandler) RemoveRepository(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, map[string]string{"message": "repository removed successfully"})
+	WriteJSON(w, http.StatusOK, openapi.MessageResponse{Message: "repository removed successfully"})
 }
 
-// UpdateToken handles PUT /api/v1/teams/{teamId}/github-repos/{repoId}/token
+// UpdateToken handles PUT /api/v1/teams/{teamId}/github-repos/{repoId}/token.
 func (h *GitHubHandler) UpdateToken(w http.ResponseWriter, r *http.Request) {
 	teamID := r.PathValue("teamId")
 	repoID := r.PathValue("repoId")
@@ -128,7 +106,7 @@ func (h *GitHubHandler) UpdateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req updateTokenRequest
+	var req openapi.UpdateTokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		WriteError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -140,5 +118,5 @@ func (h *GitHubHandler) UpdateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, map[string]string{"message": "token updated successfully"})
+	WriteJSON(w, http.StatusOK, openapi.MessageResponse{Message: "token updated successfully"})
 }
