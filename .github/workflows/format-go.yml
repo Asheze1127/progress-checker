@@ -1,14 +1,14 @@
-name: Lint Go
+name: Format Go
 
 on:
   pull_request:
     paths:
       - 'backend/**'
-      - '.github/workflows/lint-go.yml'
+      - '.github/workflows/format-go.yml'
 
 jobs:
-  golangci-lint:
-    name: golangci-lint
+  gofmt-check:
+    name: gofmt
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -22,7 +22,7 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::backend/go.mod not found, skipping golangci-lint"
+            echo "::notice::backend/go.mod not found, skipping format check"
           fi
 
       - uses: actions/setup-go@v5
@@ -31,8 +31,14 @@ jobs:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
-      - uses: golangci/golangci-lint-action@v7
+      - name: Check Go formatting
         if: steps.gomod.outputs.present == 'true'
-        with:
-          version: v2.11.4
-          working-directory: backend
+        run: |
+          unformatted=$(gofmt -l backend/)
+          if [ -n "$unformatted" ]; then
+            echo "::error::The following Go files are not formatted (run: gofmt -w <file>):"
+            echo "$unformatted"
+            gofmt -d backend/
+            exit 1
+          fi
+          echo "All Go files are correctly formatted."

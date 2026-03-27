@@ -44,11 +44,11 @@ func (i TriggerIssueCreationInput) Validate() error {
 
 // IssueQueueMessage is the message format sent to the SQS issue queue.
 type IssueQueueMessage struct {
-	Type           string               `json:"type"`
-	ChannelID      string               `json:"channel_id"`
-	ThreadTS       string               `json:"thread_ts"`
-	TriggerUserID  string               `json:"trigger_user_id"`
-	TriggerType    string               `json:"trigger_type"`
+	Type           string                `json:"type"`
+	ChannelID      string                `json:"channel_id"`
+	ThreadTS       string                `json:"thread_ts"`
+	TriggerUserID  string                `json:"trigger_user_id"`
+	TriggerType    string                `json:"trigger_type"`
 	ThreadMessages []slack.ThreadMessage `json:"thread_messages"`
 }
 

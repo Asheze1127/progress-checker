@@ -1,0 +1,13 @@
+version: "2"
+
+linters:
+  settings:
+    lll:
+      tab-width: 2
+    errcheck:
+      exclude-functions:
+        - (net/http.ResponseWriter).Write
+        - (*database/sql.Tx).Rollback
+  exclusions:
+    presets:
+      - std-error-handling

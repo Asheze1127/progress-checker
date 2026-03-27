@@ -77,4 +77,3 @@ func (p ProgressBody) Validate() error {
 
 	return errors.Join(errs...)
 }
-

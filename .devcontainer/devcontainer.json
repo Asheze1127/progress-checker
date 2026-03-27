@@ -62,7 +62,8 @@
         "timonwong.shellcheck",
         "donjayamanne.githistory",
         "openai.chatgpt",
-        "ReneSaarsoo.sql-formatter-vsc"
+        "ReneSaarsoo.sql-formatter-vsc",
+        "EditorConfig.EditorConfig"
       ],
       "settings": {
         "editor.formatOnSave": true,
@@ -78,7 +79,9 @@
         },
         "biome.lsp.bin": "/workspaces/progress-checker/node_modules/.bin/biome",
         "[go]": {
-          "editor.defaultFormatter": "golang.go"
+          "editor.defaultFormatter": "golang.go",
+          "editor.tabSize": 2,
+          "editor.insertSpaces": false
         },
         "[typescript][typescriptreact][json][javascript][javascriptreact]": {
           "editor.defaultFormatter": "biomejs.biome"

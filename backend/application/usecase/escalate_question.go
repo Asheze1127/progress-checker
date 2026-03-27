@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Asheze1127/progress-checker/backend/entities"
 	"github.com/Asheze1127/progress-checker/backend/application/service/slack_notifier"
+	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
 // EscalateQuestionUseCase sets a question status to assigned_mentor and

@@ -10,16 +10,20 @@ on:
 
 jobs:
   test:
-    name: npm test
+    name: pnpm test
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22.14.0'
+          cache: pnpm
 
       - name: Run tests in TypeScript projects
         run: |
@@ -28,9 +32,9 @@ jobs:
           for dir in web lambda infrastructure/cdk; do
             if [ -f "${dir}/package.json" ]; then
               echo "Installing dependencies in ${dir}/"
-              (cd "${dir}" && npm ci)
+              (cd "${dir}" && pnpm install --frozen-lockfile)
               echo "Running tests in ${dir}/"
-              (cd "${dir}" && npm test)
+              (cd "${dir}" && pnpm test)
               ran=true
             fi
           done
