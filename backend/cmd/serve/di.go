@@ -10,6 +10,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/Asheze1127/progress-checker/backend/api/middleware"
+	"github.com/Asheze1127/progress-checker/backend/api/openapi"
 	"github.com/Asheze1127/progress-checker/backend/api/rest"
 	"github.com/Asheze1127/progress-checker/backend/application/service"
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
@@ -76,18 +77,16 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	escalateQuestionUC := usecase.NewEscalateQuestionUseCase(questionRepo, &service.NoopSlackNotifier{})
 
 	// --- Handlers ---
-	webhookHandler := rest.NewWebhookHandler(handleProgressUC)
-	questionHandler := rest.NewQuestionHandler(
-		usecase.NewHandleNewQuestionUseCase(questionRepo, service.NewQuestionSender(&service.NoopMessageQueue{})),
-	)
 	var corsOrigins []string
 	if cfg.CORSAllowedOrigin != "" {
 		corsOrigins = strings.Split(cfg.CORSAllowedOrigin, ",")
 	}
-	progressHandler := rest.NewProgressHandler(listProgressUC, corsOrigins)
-	authHandler := rest.NewAuthHandler(loginUC)
-	ghHandler := rest.NewGitHubHandler(ghService)
-	internalHandler := rest.NewInternalHandler(ghService)
+	apiHandler := openapi.NewAPIHandler(loginUC, listProgressUC, ghService, corsOrigins)
+
+	webhookHandler := rest.NewWebhookHandler(handleProgressUC)
+	questionHandler := rest.NewQuestionHandler(
+		usecase.NewHandleNewQuestionUseCase(questionRepo, service.NewQuestionSender(&service.NoopMessageQueue{})),
+	)
 	// TODO: Wire real SlackThreadFetcher and MessageQueue implementations when available.
 	eventHandler := rest.NewEventHandler(
 		usecase.NewTriggerIssueCreationUseCase(&service.NoopSlackThreadFetcher{}, &service.NoopMessageQueue{}),
@@ -97,12 +96,9 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 
 	// --- Router ---
 	router := rest.NewRouter(
+		apiHandler,
 		webhookHandler,
 		questionHandler,
-		progressHandler,
-		authHandler,
-		ghHandler,
-		internalHandler,
 		eventHandler,
 		interactionHandler,
 		middleware.AuthMiddleware(jwtService),
