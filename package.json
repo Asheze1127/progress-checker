@@ -2,17 +2,13 @@
   "name": "@progress-checker/workspace",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "npm@10.9.2",
-  "workspaces": [
-    "infrastructure/cdk",
-    "web"
-  ],
+  "packageManager": "pnpm@10.30.3",
   "scripts": {
-    "format": "npm run format --workspaces --if-present && biome format --write package.json biome.json",
-    "format:check": "npm run format:check --workspaces --if-present && biome format package.json biome.json",
-    "lint": "npm run lint --workspaces --if-present",
-    "lint:fix": "npm run lint:fix --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "format": "pnpm -r --if-present run format && biome format --write package.json biome.json",
+    "format:check": "pnpm -r --if-present run format:check && biome format package.json biome.json",
+    "lint": "pnpm -r --if-present run lint",
+    "lint:fix": "pnpm -r --if-present run lint:fix",
+    "test": "pnpm -r --if-present run test"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8"
