@@ -6,19 +6,19 @@ import (
 	"strings"
 	"time"
 
+	githubissuecreator "github.com/Asheze1127/progress-checker/backend/application/service/github_issue_creator"
 	"github.com/Asheze1127/progress-checker/backend/application/service/token_encryptor"
 	"github.com/Asheze1127/progress-checker/backend/entities"
-	"github.com/Asheze1127/progress-checker/backend/infrastructure/githubclient"
 )
 
 type GitHubService struct {
 	repo       entities.GitHubRepoRepository
 	encryptor  tokenencryptor.TokenEncryptor
-	ghClient   *githubclient.Client
+	ghClient   githubissuecreator.GitHubIssueCreator
 	idProvider func() string
 }
 
-func NewGitHubService(repo entities.GitHubRepoRepository, encryptor tokenencryptor.TokenEncryptor, ghClient *githubclient.Client, idProvider func() string) *GitHubService {
+func NewGitHubService(repo entities.GitHubRepoRepository, encryptor tokenencryptor.TokenEncryptor, ghClient githubissuecreator.GitHubIssueCreator, idProvider func() string) *GitHubService {
 	return &GitHubService{repo: repo, encryptor: encryptor, ghClient: ghClient, idProvider: idProvider}
 }
 
@@ -114,7 +114,7 @@ func (s *GitHubService) CreateIssue(ctx context.Context, channelID string, title
 	if err != nil {
 		return "", fmt.Errorf("find github repo by channel: %w", err)
 	}
-	result, err := s.ghClient.CreateIssue(ctx, githubclient.CreateIssueInput{
+	result, err := s.ghClient.CreateIssue(ctx, githubissuecreator.CreateIssueInput{
 		Owner: ghRepo.Owner,
 		Repo:  ghRepo.RepoName,
 		Title: title,

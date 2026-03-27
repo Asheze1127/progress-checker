@@ -16,8 +16,12 @@ import (
 	"strings"
 	"time"
 
+	githubissuecreator "github.com/Asheze1127/progress-checker/backend/application/service/github_issue_creator"
 	"github.com/google/go-github/v84/github"
 )
+
+// Compile-time check that Client implements GitHubIssueCreator.
+var _ githubissuecreator.GitHubIssueCreator = (*Client)(nil)
 
 type Config struct {
 	Token             string
@@ -32,19 +36,6 @@ type Client struct {
 	baseURL    string
 	token      string
 	appAuth    *appAuthConfig
-}
-
-type CreateIssueInput struct {
-	Owner  string
-	Repo   string
-	Title  string
-	Body   string
-	Labels []string
-}
-
-type CreatedIssue struct {
-	Number int
-	URL    string
 }
 
 type appAuthConfig struct {
@@ -93,7 +84,7 @@ func newClient(config Config, httpClient *http.Client) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) CreateIssue(ctx context.Context, input CreateIssueInput) (*CreatedIssue, error) {
+func (c *Client) CreateIssue(ctx context.Context, input githubissuecreator.CreateIssueInput) (*githubissuecreator.CreatedIssue, error) {
 	if c == nil {
 		return nil, fmt.Errorf("github client is not initialized")
 	}
@@ -138,7 +129,7 @@ func (c *Client) CreateIssue(ctx context.Context, input CreateIssueInput) (*Crea
 		return nil, fmt.Errorf("create github issue: %w", err)
 	}
 
-	return &CreatedIssue{
+	return &githubissuecreator.CreatedIssue{
 		Number: issue.GetNumber(),
 		URL:    issue.GetHTMLURL(),
 	}, nil

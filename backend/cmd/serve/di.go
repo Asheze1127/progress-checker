@@ -143,7 +143,7 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	do.Provide(injector, func(i do.Injector) (*githubsvc.GitHubService, error) {
 		ghRepoRepo := do.MustInvoke[*postgres.GitHubRepoRepository](i)
 		encryptor := do.MustInvoke[*encryption.AESEncryptor](i)
-		ghClient := do.MustInvoke[*githubclient.Client](i)
+		ghClient := do.MustInvoke[*githubclient.Client](i) // implements githubissuecreator.GitHubIssueCreator
 		return githubsvc.NewGitHubService(ghRepoRepo, encryptor, ghClient, func() string {
 			return uuid.New().String()
 		}), nil

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	githubissuecreator "github.com/Asheze1127/progress-checker/backend/application/service/github_issue_creator"
 )
 
 // newTestClient creates a Client pointing at a test server, bypassing HTTPS validation.
@@ -54,7 +56,7 @@ func TestClient_CreateIssue_Success(t *testing.T) {
 
 	client := newTestClient(t, server)
 
-	result, err := client.CreateIssue(context.Background(), CreateIssueInput{
+	result, err := client.CreateIssue(context.Background(), githubissuecreator.CreateIssueInput{
 		Owner: "test-org",
 		Repo:  "test-repo",
 		Title: "Test Issue",
@@ -102,7 +104,7 @@ func TestClient_CreateIssue_WithLabels(t *testing.T) {
 
 	client := newTestClient(t, server)
 
-	_, err := client.CreateIssue(context.Background(), CreateIssueInput{
+	_, err := client.CreateIssue(context.Background(), githubissuecreator.CreateIssueInput{
 		Owner:  "o",
 		Repo:   "r",
 		Title:  "Labeled Issue",
@@ -131,7 +133,7 @@ func TestClient_CreateIssue_APIError(t *testing.T) {
 
 	client := newTestClient(t, server)
 
-	_, err := client.CreateIssue(context.Background(), CreateIssueInput{
+	_, err := client.CreateIssue(context.Background(), githubissuecreator.CreateIssueInput{
 		Owner: "test-org",
 		Repo:  "test-repo",
 		Title: "Test Issue",
@@ -148,11 +150,11 @@ func TestClient_CreateIssue_ValidationErrors(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		input CreateIssueInput
+		input githubissuecreator.CreateIssueInput
 	}{
-		{name: "empty owner", input: CreateIssueInput{Owner: "", Repo: "repo", Title: "title"}},
-		{name: "empty repo", input: CreateIssueInput{Owner: "owner", Repo: "", Title: "title"}},
-		{name: "empty title", input: CreateIssueInput{Owner: "owner", Repo: "repo", Title: ""}},
+		{name: "empty owner", input: githubissuecreator.CreateIssueInput{Owner: "", Repo: "repo", Title: "title"}},
+		{name: "empty repo", input: githubissuecreator.CreateIssueInput{Owner: "owner", Repo: "", Title: "title"}},
+		{name: "empty title", input: githubissuecreator.CreateIssueInput{Owner: "owner", Repo: "repo", Title: ""}},
 	}
 
 	for _, tt := range tests {
