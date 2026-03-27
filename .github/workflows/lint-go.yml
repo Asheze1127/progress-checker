@@ -34,5 +34,5 @@ jobs:
       - uses: golangci/golangci-lint-action@v7
         if: steps.gomod.outputs.present == 'true'
         with:
-          version: v2
+          version: v2.11.4
           working-directory: backend
