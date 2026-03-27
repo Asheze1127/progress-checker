@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Asheze1127/progress-checker/backend/service/message_queue"
-	"github.com/Asheze1127/progress-checker/backend/service/thread_fetcher"
+	"github.com/Asheze1127/progress-checker/backend/application/service/message_queue"
+	"github.com/Asheze1127/progress-checker/backend/application/service/thread_fetcher"
 	"github.com/Asheze1127/progress-checker/backend/pkg/slack"
 )
 

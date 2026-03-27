@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Asheze1127/progress-checker/backend/entities"
-	"github.com/Asheze1127/progress-checker/backend/service/progress_formatter"
+	"github.com/Asheze1127/progress-checker/backend/application/service/progress_formatter"
 )
 
 type SlackClient interface {

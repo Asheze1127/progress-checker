@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Asheze1127/progress-checker/backend/service/question_sender"
+	"github.com/Asheze1127/progress-checker/backend/application/service/question_sender"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 	"github.com/google/uuid"
 )

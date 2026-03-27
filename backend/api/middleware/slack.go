@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	pkgslack "github.com/Asheze1127/progress-checker/backend/pkg/slack"
-	idempotencysvc "github.com/Asheze1127/progress-checker/backend/service/idempotency"
+	idempotencysvc "github.com/Asheze1127/progress-checker/backend/application/service/idempotency"
 )
 
 // slackDeduplicationKey extracts a deduplication key from a Slack request.

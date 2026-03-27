@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Asheze1127/progress-checker/backend/service/slack_poster"
+	"github.com/Asheze1127/progress-checker/backend/application/service/slack_poster"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 	"github.com/google/uuid"
 )

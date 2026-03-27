@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/Asheze1127/progress-checker/backend/entities"
-	"github.com/Asheze1127/progress-checker/backend/service/github_issue_creator"
-	"github.com/Asheze1127/progress-checker/backend/service/token_encryptor"
+	"github.com/Asheze1127/progress-checker/backend/application/service/github_issue_creator"
+	"github.com/Asheze1127/progress-checker/backend/application/service/token_encryptor"
 )
 
 type GitHubService struct {

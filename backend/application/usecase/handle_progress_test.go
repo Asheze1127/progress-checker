@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Asheze1127/progress-checker/backend/service/progress_formatter"
-	"github.com/Asheze1127/progress-checker/backend/service/slack_poster"
+	"github.com/Asheze1127/progress-checker/backend/application/service/progress_formatter"
+	"github.com/Asheze1127/progress-checker/backend/application/service/slack_poster"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 

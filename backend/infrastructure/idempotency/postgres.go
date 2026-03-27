@@ -6,7 +6,7 @@ import (
 	"time"
 
 	db "github.com/Asheze1127/progress-checker/backend/database/postgres/generated"
-	idempotencysvc "github.com/Asheze1127/progress-checker/backend/service/idempotency"
+	idempotencysvc "github.com/Asheze1127/progress-checker/backend/application/service/idempotency"
 )
 
 // Compile-time check that PostgresStore implements idempotencysvc.Store.

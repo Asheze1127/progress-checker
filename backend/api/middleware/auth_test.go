@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Asheze1127/progress-checker/backend/service/jwt"
+	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	githubsvc "github.com/Asheze1127/progress-checker/backend/service/github"
+	githubsvc "github.com/Asheze1127/progress-checker/backend/application/service/github"
 )
 
 // GitHubHandler handles REST API requests for GitHub repository management.

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/Asheze1127/progress-checker/backend/service/message_queue"
+	"github.com/Asheze1127/progress-checker/backend/application/service/message_queue"
 )
 
 const queueNameQuestionNew = "question:new"
