@@ -16,11 +16,9 @@ import (
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/infrastructure/encryption"
 	githubinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/github"
-	"github.com/Asheze1127/progress-checker/backend/infrastructure/idempotency"
 	"github.com/Asheze1127/progress-checker/backend/infrastructure/postgres"
 	slackinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/slack"
 	pkgslack "github.com/Asheze1127/progress-checker/backend/pkg/slack"
-	idempotencysvc "github.com/Asheze1127/progress-checker/backend/service/idempotency"
 	"github.com/Asheze1127/progress-checker/backend/util"
 	"github.com/google/uuid"
 )
@@ -89,11 +87,6 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		return postgres.NewGitHubRepoRepository(db), nil
 	})
 
-	do.Provide(injector, func(i do.Injector) (*idempotency.PostgresStore, error) {
-		db := do.MustInvoke[*sql.DB](i)
-		return idempotency.NewPostgresStore(db), nil
-	})
-
 	// --- Services ---
 	do.Provide(injector, func(i do.Injector) (*service.ProgressFormatter, error) {
 		return service.NewProgressFormatter(), nil
@@ -111,11 +104,6 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 
 	do.Provide(injector, func(i do.Injector) (*service.PasswordHasher, error) {
 		return service.NewPasswordHasher(), nil
-	})
-
-	do.Provide(injector, func(i do.Injector) (*idempotencysvc.Service, error) {
-		store := do.MustInvoke[*idempotency.PostgresStore](i)
-		return idempotencysvc.NewService(store), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*pkgslack.Verifier, error) {
@@ -239,7 +227,6 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 
 		jwtService := do.MustInvoke[*service.JWTService](i)
 		verifier := do.MustInvoke[*pkgslack.Verifier](i)
-		idempotencySvc := do.MustInvoke[*idempotencysvc.Service](i)
 
 		return rest.NewRouter(
 			webhookHandler,
@@ -251,7 +238,7 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 			eventHandler,
 			interactionHandler,
 			middleware.AuthMiddleware(jwtService),
-			middleware.SlackWebhookMiddleware(verifier, idempotencySvc),
+			middleware.SlackWebhookMiddleware(verifier),
 			middleware.InternalTokenMiddleware(cfg.InternalToken),
 		), nil
 	})
