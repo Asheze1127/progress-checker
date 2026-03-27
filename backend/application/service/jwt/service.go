@@ -17,6 +17,9 @@ type TokenClaims struct {
 	UserID   entities.UserID
 	UserName string
 	UserRole entities.UserRole
+	// RawRole holds the role string from the JWT claim (e.g. "staff").
+	// Use this when the role may not be a valid entities.UserRole.
+	RawRole string
 }
 
 type JWTService struct {
@@ -28,10 +31,22 @@ func NewJWTService(secret string) *JWTService {
 	return &JWTService{secret: []byte(secret), now: time.Now}
 }
 
+// RoleStaff is the role claim value for staff tokens.
+const RoleStaff = "staff"
+
 func (s *JWTService) GenerateToken(user *entities.User) (string, error) {
+	return s.generateTokenWithClaims(string(user.ID), user.Name, string(user.Role))
+}
+
+// GenerateStaffToken creates a JWT for a staff member.
+func (s *JWTService) GenerateStaffToken(staff *entities.Staff) (string, error) {
+	return s.generateTokenWithClaims(string(staff.ID), staff.Name, RoleStaff)
+}
+
+func (s *JWTService) generateTokenWithClaims(sub, name, role string) (string, error) {
 	now := s.now()
 	claims := jwtlib.MapClaims{
-		"sub": string(user.ID), "name": user.Name, "role": string(user.Role),
+		"sub": sub, "name": name, "role": role,
 		"iat": now.Unix(), "exp": now.Add(TokenExpiry).Unix(),
 	}
 	token := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, claims)
@@ -63,8 +78,8 @@ func (s *JWTService) ValidateToken(tokenString string) (*TokenClaims, error) {
 		return nil, ErrInvalidToken
 	}
 	userRole := entities.UserRole(role)
-	if userRole != entities.UserRoleMentor && userRole != entities.UserRoleParticipant {
+	if userRole != entities.UserRoleMentor && userRole != entities.UserRoleParticipant && role != RoleStaff {
 		return nil, ErrInvalidToken
 	}
-	return &TokenClaims{UserID: entities.UserID(sub), UserName: name, UserRole: userRole}, nil
+	return &TokenClaims{UserID: entities.UserID(sub), UserName: name, UserRole: userRole, RawRole: role}, nil
 }

@@ -25,6 +25,7 @@ type Config struct {
 	CORSAllowedOrigin    string `envconfig:"CORS_ALLOWED_ORIGIN"`
 	AWSRegion            string `envconfig:"AWS_REGION" default:"ap-northeast-1"`
 	SlackMentorChannelID string `envconfig:"SLACK_MENTOR_CHANNEL_ID" required:"true"`
+	FrontendBaseURL      string `envconfig:"FRONTEND_BASE_URL" default:"http://localhost:3000"`
 }
 
 // validEncryptionKeyLengths are the valid AES key lengths in bytes.

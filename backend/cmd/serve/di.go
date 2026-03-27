@@ -111,6 +111,31 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		return postgres.NewGitHubRepoRepository(db), nil
 	})
 
+	do.Provide(injector, func(i do.Injector) (*postgres.StaffRepository, error) {
+		db := do.MustInvoke[*sql.DB](i)
+		return postgres.NewStaffRepository(db), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*postgres.SetupTokenRepository, error) {
+		db := do.MustInvoke[*sql.DB](i)
+		return postgres.NewSetupTokenRepository(db), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*postgres.ParticipantRepository, error) {
+		db := do.MustInvoke[*sql.DB](i)
+		return postgres.NewParticipantRepository(db), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*postgres.MentorRepository, error) {
+		db := do.MustInvoke[*sql.DB](i)
+		return postgres.NewMentorRepository(db), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*postgres.TeamRepository, error) {
+		db := do.MustInvoke[*sql.DB](i)
+		return postgres.NewTeamRepository(db), nil
+	})
+
 	// --- Services ---
 	do.Provide(injector, func(i do.Injector) (*progressformatter.ProgressFormatter, error) {
 		return progressformatter.NewProgressFormatter(), nil
@@ -191,6 +216,34 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		return usecase.NewTriggerIssueCreationUseCase(slackClient, sqsClient), nil
 	})
 
+	do.Provide(injector, func(i do.Injector) (*usecase.StaffLoginUseCase, error) {
+		staffRepo := do.MustInvoke[*postgres.StaffRepository](i)
+		jwtService := do.MustInvoke[*jwt.JWTService](i)
+		hasher := do.MustInvoke[*util.PasswordHasher](i)
+		return usecase.NewStaffLoginUseCase(staffRepo, jwtService, hasher), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*usecase.CreateTeamUseCase, error) {
+		teamRepo := do.MustInvoke[*postgres.TeamRepository](i)
+		return usecase.NewCreateTeamUseCase(teamRepo), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*usecase.CreateUserUseCase, error) {
+		userRepo := do.MustInvoke[*postgres.UserRepository](i)
+		teamRepo := do.MustInvoke[*postgres.TeamRepository](i)
+		setupTokenRepo := do.MustInvoke[*postgres.SetupTokenRepository](i)
+		participantRepo := do.MustInvoke[*postgres.ParticipantRepository](i)
+		mentorRepo := do.MustInvoke[*postgres.MentorRepository](i)
+		return usecase.NewCreateUserUseCase(userRepo, teamRepo, setupTokenRepo, participantRepo, mentorRepo, cfg.FrontendBaseURL), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*usecase.SetupPasswordUseCase, error) {
+		setupTokenRepo := do.MustInvoke[*postgres.SetupTokenRepository](i)
+		userRepo := do.MustInvoke[*postgres.UserRepository](i)
+		hasher := do.MustInvoke[*util.PasswordHasher](i)
+		return usecase.NewSetupPasswordUseCase(setupTokenRepo, userRepo, hasher), nil
+	})
+
 	// --- Handlers ---
 	do.Provide(injector, func(i do.Injector) (*webhook.WebhookHandler, error) {
 		uc := do.MustInvoke[*usecase.HandleProgressUseCase](i)
@@ -234,6 +287,20 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		return webhook.NewInteractionHandler(resolveUC, continueUC, escalateUC), nil
 	})
 
+	do.Provide(injector, func(i do.Injector) (*handlers.StaffHandler, error) {
+		staffLoginUC := do.MustInvoke[*usecase.StaffLoginUseCase](i)
+		createTeamUC := do.MustInvoke[*usecase.CreateTeamUseCase](i)
+		createUserUC := do.MustInvoke[*usecase.CreateUserUseCase](i)
+		teamRepo := do.MustInvoke[*postgres.TeamRepository](i)
+		userRepo := do.MustInvoke[*postgres.UserRepository](i)
+		return handlers.NewStaffHandler(staffLoginUC, createTeamUC, createUserUC, teamRepo, userRepo), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*handlers.SetupHandler, error) {
+		setupPasswordUC := do.MustInvoke[*usecase.SetupPasswordUseCase](i)
+		return handlers.NewSetupHandler(setupPasswordUC), nil
+	})
+
 	// --- Router ---
 	do.Provide(injector, func(i do.Injector) (http.Handler, error) {
 		jwtService := do.MustInvoke[*jwt.JWTService](i)
@@ -251,6 +318,8 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 			ProgressHandler:    do.MustInvoke[*handlers.ProgressHandler](i),
 			GitHubHandler:      do.MustInvoke[*handlers.GitHubHandler](i),
 			InternalHandler:    do.MustInvoke[*handlers.InternalHandler](i),
+			StaffHandler:       do.MustInvoke[*handlers.StaffHandler](i),
+			SetupHandler:       do.MustInvoke[*handlers.SetupHandler](i),
 			WebhookHandler:     do.MustInvoke[*webhook.WebhookHandler](i),
 			QuestionHandler:    do.MustInvoke[*webhook.QuestionHandler](i),
 			EventHandler:       do.MustInvoke[*webhook.EventHandler](i),

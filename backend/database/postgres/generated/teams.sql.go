@@ -11,6 +11,22 @@ import (
 	"github.com/google/uuid"
 )
 
+const createTeam = `-- name: CreateTeam :one
+INSERT INTO teams (name) VALUES ($1) RETURNING id, name, created_at, updated_at
+`
+
+func (q *Queries) CreateTeam(ctx context.Context, name string) (Teams, error) {
+	row := q.db.QueryRowContext(ctx, createTeam, name)
+	var i Teams
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getTeamByID = `-- name: GetTeamByID :one
 SELECT id, name, created_at, updated_at FROM teams WHERE id = $1
 `

@@ -25,7 +25,26 @@ import (
 const (
 	BearerAuthScopes        = "bearerAuth.Scopes"
 	InternalTokenAuthScopes = "internalTokenAuth.Scopes"
+	StaffBearerAuthScopes   = "staffBearerAuth.Scopes"
 )
+
+// Defines values for CreateUserRequestRole.
+const (
+	Mentor      CreateUserRequestRole = "mentor"
+	Participant CreateUserRequestRole = "participant"
+)
+
+// Valid indicates whether the value is a known member of the CreateUserRequestRole enum.
+func (e CreateUserRequestRole) Valid() bool {
+	switch e {
+	case Mentor:
+		return true
+	case Participant:
+		return true
+	default:
+		return false
+	}
+}
 
 // CreateIssueRequest defines model for CreateIssueRequest.
 type CreateIssueRequest struct {
@@ -37,6 +56,34 @@ type CreateIssueRequest struct {
 // CreateIssueResponse defines model for CreateIssueResponse.
 type CreateIssueResponse struct {
 	IssueUrl string `json:"issue_url"`
+}
+
+// CreateTeamRequest defines model for CreateTeamRequest.
+type CreateTeamRequest struct {
+	Name string `json:"name"`
+}
+
+// CreateTeamResponse defines model for CreateTeamResponse.
+type CreateTeamResponse struct {
+	Team TeamResponse `json:"team"`
+}
+
+// CreateUserRequest defines model for CreateUserRequest.
+type CreateUserRequest struct {
+	Email       string                `json:"email"`
+	Name        string                `json:"name"`
+	Role        CreateUserRequestRole `json:"role"`
+	SlackUserId string                `json:"slack_user_id"`
+	TeamId      string                `json:"team_id"`
+}
+
+// CreateUserRequestRole defines model for CreateUserRequest.Role.
+type CreateUserRequestRole string
+
+// CreateUserResponse defines model for CreateUserResponse.
+type CreateUserResponse struct {
+	SetupUrl string       `json:"setup_url"`
+	User     UserResponse `json:"user"`
 }
 
 // ErrorResponse defines model for ErrorResponse.
@@ -54,6 +101,16 @@ type LatestProgressResponse struct {
 // ListReposResponse defines model for ListReposResponse.
 type ListReposResponse struct {
 	Repos []RepoItem `json:"repos"`
+}
+
+// ListTeamsResponse defines model for ListTeamsResponse.
+type ListTeamsResponse struct {
+	Teams []TeamResponse `json:"teams"`
+}
+
+// ListUsersResponse defines model for ListUsersResponse.
+type ListUsersResponse struct {
+	Users []UserResponse `json:"users"`
 }
 
 // LoginRequest defines model for LoginRequest.
@@ -99,11 +156,41 @@ type RepoItem struct {
 	RepoName string `json:"repo_name"`
 }
 
+// SetupPasswordRequest defines model for SetupPasswordRequest.
+type SetupPasswordRequest struct {
+	Password string `json:"password"`
+	Token    string `json:"token"`
+}
+
+// StaffLoginRequest defines model for StaffLoginRequest.
+type StaffLoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// StaffLoginResponse defines model for StaffLoginResponse.
+type StaffLoginResponse struct {
+	Staff StaffResponse `json:"staff"`
+	Token string        `json:"token"`
+}
+
+// StaffResponse defines model for StaffResponse.
+type StaffResponse struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // TeamProgressResponse defines model for TeamProgressResponse.
 type TeamProgressResponse struct {
 	LatestProgress *LatestProgressResponse `json:"latest_progress,omitempty"`
 	TeamId         string                  `json:"team_id"`
 	TeamName       string                  `json:"team_name"`
+}
+
+// TeamResponse defines model for TeamResponse.
+type TeamResponse struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // UpdateTokenRequest defines model for UpdateTokenRequest.
@@ -126,6 +213,18 @@ type ListProgressParams struct {
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
+// SetupPasswordJSONRequestBody defines body for SetupPassword for application/json ContentType.
+type SetupPasswordJSONRequestBody = SetupPasswordRequest
+
+// StaffLoginJSONRequestBody defines body for StaffLogin for application/json ContentType.
+type StaffLoginJSONRequestBody = StaffLoginRequest
+
+// StaffCreateTeamJSONRequestBody defines body for StaffCreateTeam for application/json ContentType.
+type StaffCreateTeamJSONRequestBody = CreateTeamRequest
+
+// StaffCreateUserJSONRequestBody defines body for StaffCreateUser for application/json ContentType.
+type StaffCreateUserJSONRequestBody = CreateUserRequest
+
 // RegisterRepositoryJSONRequestBody defines body for RegisterRepository for application/json ContentType.
 type RegisterRepositoryJSONRequestBody = RegisterRepoRequest
 
@@ -140,9 +239,27 @@ type ServerInterface interface {
 	// Authenticate user and get JWT token
 	// (POST /api/v1/auth/login)
 	Login(c *gin.Context)
+	// Set password using setup token
+	// (POST /api/v1/auth/setup)
+	SetupPassword(c *gin.Context)
 	// List latest progress by team
 	// (GET /api/v1/progress)
 	ListProgress(c *gin.Context, params ListProgressParams)
+	// Authenticate staff and get JWT token
+	// (POST /api/v1/staff/auth/login)
+	StaffLogin(c *gin.Context)
+	// List all teams (staff only)
+	// (GET /api/v1/staff/teams)
+	StaffListTeams(c *gin.Context)
+	// Create a new team (staff only)
+	// (POST /api/v1/staff/teams)
+	StaffCreateTeam(c *gin.Context)
+	// List all users (staff only)
+	// (GET /api/v1/staff/users)
+	StaffListUsers(c *gin.Context)
+	// Create a new user and generate setup URL (staff only)
+	// (POST /api/v1/staff/users)
+	StaffCreateUser(c *gin.Context)
 	// List GitHub repositories for a team
 	// (GET /api/v1/teams/{teamId}/github-repos)
 	ListRepositories(c *gin.Context, teamId string)
@@ -182,6 +299,19 @@ func (siw *ServerInterfaceWrapper) Login(c *gin.Context) {
 	siw.Handler.Login(c)
 }
 
+// SetupPassword operation middleware
+func (siw *ServerInterfaceWrapper) SetupPassword(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetupPassword(c)
+}
+
 // ListProgress operation middleware
 func (siw *ServerInterfaceWrapper) ListProgress(c *gin.Context) {
 
@@ -208,6 +338,79 @@ func (siw *ServerInterfaceWrapper) ListProgress(c *gin.Context) {
 	}
 
 	siw.Handler.ListProgress(c, params)
+}
+
+// StaffLogin operation middleware
+func (siw *ServerInterfaceWrapper) StaffLogin(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.StaffLogin(c)
+}
+
+// StaffListTeams operation middleware
+func (siw *ServerInterfaceWrapper) StaffListTeams(c *gin.Context) {
+
+	c.Set(StaffBearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.StaffListTeams(c)
+}
+
+// StaffCreateTeam operation middleware
+func (siw *ServerInterfaceWrapper) StaffCreateTeam(c *gin.Context) {
+
+	c.Set(StaffBearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.StaffCreateTeam(c)
+}
+
+// StaffListUsers operation middleware
+func (siw *ServerInterfaceWrapper) StaffListUsers(c *gin.Context) {
+
+	c.Set(StaffBearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.StaffListUsers(c)
+}
+
+// StaffCreateUser operation middleware
+func (siw *ServerInterfaceWrapper) StaffCreateUser(c *gin.Context) {
+
+	c.Set(StaffBearerAuthScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.StaffCreateUser(c)
 }
 
 // ListRepositories operation middleware
@@ -375,7 +578,13 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.POST(options.BaseURL+"/api/v1/auth/login", wrapper.Login)
+	router.POST(options.BaseURL+"/api/v1/auth/setup", wrapper.SetupPassword)
 	router.GET(options.BaseURL+"/api/v1/progress", wrapper.ListProgress)
+	router.POST(options.BaseURL+"/api/v1/staff/auth/login", wrapper.StaffLogin)
+	router.GET(options.BaseURL+"/api/v1/staff/teams", wrapper.StaffListTeams)
+	router.POST(options.BaseURL+"/api/v1/staff/teams", wrapper.StaffCreateTeam)
+	router.GET(options.BaseURL+"/api/v1/staff/users", wrapper.StaffListUsers)
+	router.POST(options.BaseURL+"/api/v1/staff/users", wrapper.StaffCreateUser)
 	router.GET(options.BaseURL+"/api/v1/teams/:teamId/github-repos", wrapper.ListRepositories)
 	router.POST(options.BaseURL+"/api/v1/teams/:teamId/github-repos", wrapper.RegisterRepository)
 	router.DELETE(options.BaseURL+"/api/v1/teams/:teamId/github-repos/:repoId", wrapper.RemoveRepository)
@@ -427,6 +636,32 @@ func (response Login403JSONResponse) VisitLoginResponse(w http.ResponseWriter) e
 	return json.NewEncoder(w).Encode(response)
 }
 
+type SetupPasswordRequestObject struct {
+	Body *SetupPasswordJSONRequestBody
+}
+
+type SetupPasswordResponseObject interface {
+	VisitSetupPasswordResponse(w http.ResponseWriter) error
+}
+
+type SetupPassword200JSONResponse MessageResponse
+
+func (response SetupPassword200JSONResponse) VisitSetupPasswordResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetupPassword400JSONResponse ErrorResponse
+
+func (response SetupPassword400JSONResponse) VisitSetupPasswordResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type ListProgressRequestObject struct {
 	Params ListProgressParams
 }
@@ -449,6 +684,143 @@ type ListProgress500JSONResponse ErrorResponse
 func (response ListProgress500JSONResponse) VisitListProgressResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StaffLoginRequestObject struct {
+	Body *StaffLoginJSONRequestBody
+}
+
+type StaffLoginResponseObject interface {
+	VisitStaffLoginResponse(w http.ResponseWriter) error
+}
+
+type StaffLogin200JSONResponse StaffLoginResponse
+
+func (response StaffLogin200JSONResponse) VisitStaffLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StaffLogin400JSONResponse ErrorResponse
+
+func (response StaffLogin400JSONResponse) VisitStaffLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StaffLogin401JSONResponse ErrorResponse
+
+func (response StaffLogin401JSONResponse) VisitStaffLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StaffListTeamsRequestObject struct {
+}
+
+type StaffListTeamsResponseObject interface {
+	VisitStaffListTeamsResponse(w http.ResponseWriter) error
+}
+
+type StaffListTeams200JSONResponse ListTeamsResponse
+
+func (response StaffListTeams200JSONResponse) VisitStaffListTeamsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StaffListTeams500JSONResponse ErrorResponse
+
+func (response StaffListTeams500JSONResponse) VisitStaffListTeamsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StaffCreateTeamRequestObject struct {
+	Body *StaffCreateTeamJSONRequestBody
+}
+
+type StaffCreateTeamResponseObject interface {
+	VisitStaffCreateTeamResponse(w http.ResponseWriter) error
+}
+
+type StaffCreateTeam201JSONResponse CreateTeamResponse
+
+func (response StaffCreateTeam201JSONResponse) VisitStaffCreateTeamResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StaffCreateTeam400JSONResponse ErrorResponse
+
+func (response StaffCreateTeam400JSONResponse) VisitStaffCreateTeamResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StaffListUsersRequestObject struct {
+}
+
+type StaffListUsersResponseObject interface {
+	VisitStaffListUsersResponse(w http.ResponseWriter) error
+}
+
+type StaffListUsers200JSONResponse ListUsersResponse
+
+func (response StaffListUsers200JSONResponse) VisitStaffListUsersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StaffListUsers500JSONResponse ErrorResponse
+
+func (response StaffListUsers500JSONResponse) VisitStaffListUsersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StaffCreateUserRequestObject struct {
+	Body *StaffCreateUserJSONRequestBody
+}
+
+type StaffCreateUserResponseObject interface {
+	VisitStaffCreateUserResponse(w http.ResponseWriter) error
+}
+
+type StaffCreateUser201JSONResponse CreateUserResponse
+
+func (response StaffCreateUser201JSONResponse) VisitStaffCreateUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StaffCreateUser400JSONResponse ErrorResponse
+
+func (response StaffCreateUser400JSONResponse) VisitStaffCreateUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -592,9 +964,27 @@ type StrictServerInterface interface {
 	// Authenticate user and get JWT token
 	// (POST /api/v1/auth/login)
 	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+	// Set password using setup token
+	// (POST /api/v1/auth/setup)
+	SetupPassword(ctx context.Context, request SetupPasswordRequestObject) (SetupPasswordResponseObject, error)
 	// List latest progress by team
 	// (GET /api/v1/progress)
 	ListProgress(ctx context.Context, request ListProgressRequestObject) (ListProgressResponseObject, error)
+	// Authenticate staff and get JWT token
+	// (POST /api/v1/staff/auth/login)
+	StaffLogin(ctx context.Context, request StaffLoginRequestObject) (StaffLoginResponseObject, error)
+	// List all teams (staff only)
+	// (GET /api/v1/staff/teams)
+	StaffListTeams(ctx context.Context, request StaffListTeamsRequestObject) (StaffListTeamsResponseObject, error)
+	// Create a new team (staff only)
+	// (POST /api/v1/staff/teams)
+	StaffCreateTeam(ctx context.Context, request StaffCreateTeamRequestObject) (StaffCreateTeamResponseObject, error)
+	// List all users (staff only)
+	// (GET /api/v1/staff/users)
+	StaffListUsers(ctx context.Context, request StaffListUsersRequestObject) (StaffListUsersResponseObject, error)
+	// Create a new user and generate setup URL (staff only)
+	// (POST /api/v1/staff/users)
+	StaffCreateUser(ctx context.Context, request StaffCreateUserRequestObject) (StaffCreateUserResponseObject, error)
 	// List GitHub repositories for a team
 	// (GET /api/v1/teams/{teamId}/github-repos)
 	ListRepositories(ctx context.Context, request ListRepositoriesRequestObject) (ListRepositoriesResponseObject, error)
@@ -657,6 +1047,39 @@ func (sh *strictHandler) Login(ctx *gin.Context) {
 	}
 }
 
+// SetupPassword operation middleware
+func (sh *strictHandler) SetupPassword(ctx *gin.Context) {
+	var request SetupPasswordRequestObject
+
+	var body SetupPasswordJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SetupPassword(ctx, request.(SetupPasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetupPassword")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(SetupPasswordResponseObject); ok {
+		if err := validResponse.VisitSetupPasswordResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListProgress operation middleware
 func (sh *strictHandler) ListProgress(ctx *gin.Context, params ListProgressParams) {
 	var request ListProgressRequestObject
@@ -677,6 +1100,155 @@ func (sh *strictHandler) ListProgress(ctx *gin.Context, params ListProgressParam
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(ListProgressResponseObject); ok {
 		if err := validResponse.VisitListProgressResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StaffLogin operation middleware
+func (sh *strictHandler) StaffLogin(ctx *gin.Context) {
+	var request StaffLoginRequestObject
+
+	var body StaffLoginJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.StaffLogin(ctx, request.(StaffLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StaffLogin")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(StaffLoginResponseObject); ok {
+		if err := validResponse.VisitStaffLoginResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StaffListTeams operation middleware
+func (sh *strictHandler) StaffListTeams(ctx *gin.Context) {
+	var request StaffListTeamsRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.StaffListTeams(ctx, request.(StaffListTeamsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StaffListTeams")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(StaffListTeamsResponseObject); ok {
+		if err := validResponse.VisitStaffListTeamsResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StaffCreateTeam operation middleware
+func (sh *strictHandler) StaffCreateTeam(ctx *gin.Context) {
+	var request StaffCreateTeamRequestObject
+
+	var body StaffCreateTeamJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.StaffCreateTeam(ctx, request.(StaffCreateTeamRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StaffCreateTeam")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(StaffCreateTeamResponseObject); ok {
+		if err := validResponse.VisitStaffCreateTeamResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StaffListUsers operation middleware
+func (sh *strictHandler) StaffListUsers(ctx *gin.Context) {
+	var request StaffListUsersRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.StaffListUsers(ctx, request.(StaffListUsersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StaffListUsers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(StaffListUsersResponseObject); ok {
+		if err := validResponse.VisitStaffListUsersResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StaffCreateUser operation middleware
+func (sh *strictHandler) StaffCreateUser(ctx *gin.Context) {
+	var request StaffCreateUserRequestObject
+
+	var body StaffCreateUserJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.StaffCreateUser(ctx, request.(StaffCreateUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StaffCreateUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(StaffCreateUserResponseObject); ok {
+		if err := validResponse.VisitStaffCreateUserResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -846,27 +1418,34 @@ func (sh *strictHandler) CreateIssue(ctx *gin.Context) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/9RZbW/bNhD+KwS3DxugRMmyffG3ttiLuxcUaYoOCAKDli42W4lkyFMKI/B/H47Um23K",
-	"VobEbT5ZEcm7h3cPn+NFDzzTpdEKFDo+eeAuW0Ip/OMbCwJh6lwFl3BXgUN6a6w2YFGCnzPX+Yp+cWWA",
-	"T7hDK9WCrxOeLYVSUMxkHh1GiQVERtYJt3BXSQs5n1z3rTRrkuDzJmmW6vknyJCMbgB2RisHu4glDc8q",
-	"Wxz23k2NefvVWm2H/QANH/YRpsXs/yUQHL6zemHBuT0bikfYCIsyk0YoHEqCqW3P5jpvjCGU/uF7C7d8",
-	"wr9LO3qkNTfSBtNrna9aXOt2C8JasdoNJqVwC9QuhGggpMNLMHpPDCwNj8ZPxqYI5UHMwWwUk15INXgq",
-	"oBSyGMiKc1+0zUcQw9vordgDYygsqD+DiuKoHNhDYfrgoOP3NrxgujYUg/Y3OCcWew5iGSYcjkQzMeYl",
-	"SsUdV5kuS1AYz8hSOIiOuECp+v1c6wKE8gPVvJSIkM+Et3mrbUlPPBcIJyhLUqn9ewpeg4+kxbdlet+G",
-	"w6EY2nAuUIw+Dlcgyh2ZOXQ0vIcYwEtYSIfEHKMHD8hC4rKaz+h8DUhxwg1Yp5UoZiLLSCGGyLwFbNv0",
-	"kKE49loYxoqs/qLARke8fyXKEfz2Qhgs9dfFAEZTtQO28JVj1mjrofwPFBpiAIhysILT2LgNNmb6i2K7",
-	"+2DoAF1RegaZ8z9ZMZ4DG6o3lgcDcUi41cVYBngb9YpdYCQ7kFVW4uo95a2+foGwYF9VuOz++q1Ro7cf",
-	"r0hR/GwSMD/aKdMS0RBEqRCsEoWPe2NKKpoBIvcrwvb4vyfTeu7JVS3/jUYY+SeQSHh7t9pvOVzxWsVi",
-	"b5aQfQbLXr2b8oTfg3VSk5vz07PTM3+aDChhJJ/wi9Oz0wtf/HDpN5oKI9P781RUuEwLqno+NzpQhDIk",
-	"UGo1zfkkFEUeIgwOX9dX1EwrrIuAMKaQmV+RfnJadRffg2elX/fXm3lEW4F/Ecjjcf90dvbUvtuCvE54",
-	"Di6z0mAI5PvKk/u2KlgI0TrhPz8hgM0bbwTAVN2LQubMNgEi/+fH959ZyEGhFIULGC6Oh+EfjUwwKufa",
-	"hmNblaWwKz7hdLgIViYQGF2cmFA5WwCytx+vWJAkWtGQvS/gC4gxXXa6HW7XogQE6/jkuj7DdxXYVXeE",
-	"OynutrutTTfPyOHo9SUSxVY0Chl49MtxeRxkjoXurC++PrJ92b2+oYB1SaadsVCBWZNANl8xivxGdumF",
-	"Sx/oZ5qv03BvOWk7mcGE+1ZIorZUkuJJJ9nczPk059tS9bUosNvORTLQbnLVMuDrKtmjKfC7xD+qObO9",
-	"bLFbbZmomZAMVK/+/TlE4FmT/PQlMtYAjKqUT1cotnvP/QSzNWDIXxbNmkAzsUO21QbVxolO+kA/03zt",
-	"G0goACHGzlLfw/NzM4kaCgC/GSV7LM0odC+OYwQ6xrBH0yptWzVTRXSv1/y9DFI9vXJG+t8jtxgjGO3h",
-	"scpDfWFkDvGNiGXv6t10w6n/578b7jJ7HxueqdeMfH85ch2NfVCJJYUmUNP1bVIi8g+ObWaEjXYy55PP",
-	"fmhW/kh+1/8FAAD//9AU7HsrGwAA",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

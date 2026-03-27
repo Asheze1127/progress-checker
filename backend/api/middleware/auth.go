@@ -35,6 +35,11 @@ func SecurityMiddleware(jwtService *jwt.JWTService, internalToken string) openap
 			return
 		}
 
+		if _, exists := c.Get(openapi.StaffBearerAuthScopes); exists {
+			handleStaffBearerAuth(c, jwtService)
+			return
+		}
+
 		if _, exists := c.Get(openapi.InternalTokenAuthScopes); exists {
 			handleInternalTokenAuth(c, internalToken)
 			return
@@ -81,6 +86,47 @@ func handleInternalTokenAuth(c *gin.Context, expectedToken string) {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+}
+
+// staffContextKey is the context key for storing the authenticated staff.
+const staffContextKey contextKey = "authenticated_staff"
+
+// handleStaffBearerAuth validates the JWT bearer token and stores the staff in context.
+func handleStaffBearerAuth(c *gin.Context, jwtService *jwt.JWTService) {
+	token := extractBearerToken(c.GetHeader("Authorization"))
+	if token == "" {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing or invalid authorization header"})
+		return
+	}
+
+	claims, err := jwtService.ValidateToken(token)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+
+	if claims.RawRole != jwt.RoleStaff {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions: staff role required"})
+		return
+	}
+
+	staff := &entities.Staff{
+		ID:   entities.StaffID(string(claims.UserID)),
+		Name: claims.UserName,
+	}
+
+	ctx := context.WithValue(c.Request.Context(), staffContextKey, staff)
+	c.Request = c.Request.WithContext(ctx)
+}
+
+// StaffFromContext retrieves the authenticated staff from the request context.
+// Returns nil if no staff is present.
+func StaffFromContext(ctx context.Context) *entities.Staff {
+	staff, ok := ctx.Value(staffContextKey).(*entities.Staff)
+	if !ok {
+		return nil
+	}
+	return staff
 }
 
 // UserFromContext retrieves the authenticated user from the request context.
