@@ -13,7 +13,7 @@ import (
 
 // Compile-time checks.
 var (
-	_ slackposter.SlackClient            = (*Client)(nil)
+	_ slackposter.SlackClient          = (*Client)(nil)
 	_ threadfetcher.SlackThreadFetcher = (*Client)(nil)
 )
 
