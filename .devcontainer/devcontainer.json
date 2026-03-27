@@ -81,7 +81,7 @@
         "[go]": {
           "editor.defaultFormatter": "golang.go",
           "editor.tabSize": 2,
-          "editor.insertSpaces": true
+          "editor.insertSpaces": false
         },
         "[typescript][typescriptreact][json][javascript][javascriptreact]": {
           "editor.defaultFormatter": "biomejs.biome"
