@@ -3,7 +3,7 @@ version: "2"
 linters:
   settings:
     lll:
-      tab-width: 3
+      tab-width: 2
     errcheck:
       exclude-functions:
         - (net/http.ResponseWriter).Write

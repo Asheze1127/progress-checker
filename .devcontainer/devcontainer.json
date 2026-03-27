@@ -80,7 +80,7 @@
         "biome.lsp.bin": "/workspaces/progress-checker/node_modules/.bin/biome",
         "[go]": {
           "editor.defaultFormatter": "golang.go",
-          "editor.tabSize": 3,
+          "editor.tabSize": 2,
           "editor.insertSpaces": false
         },
         "[typescript][typescriptreact][json][javascript][javascriptreact]": {
