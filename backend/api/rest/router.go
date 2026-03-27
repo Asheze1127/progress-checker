@@ -24,7 +24,7 @@ func NewRouter(
 	// Auth (public)
 	mux.HandleFunc("POST /api/v1/auth/login", authHandler.HandleLogin)
 
-	// Slack webhooks (with verification + idempotency)
+	// Slack webhooks (with verification + retry rejection)
 	mux.Handle("POST /webhook/slack", slackMiddleware(http.HandlerFunc(webhookHandler.HandleWebhook)))
 	mux.Handle("POST /webhook/slack/questions", slackMiddleware(http.HandlerFunc(questionHandler.HandleWebhook)))
 	mux.Handle("POST /webhook/slack/events", slackMiddleware(http.HandlerFunc(eventHandler.HandleSlackEvents)))
