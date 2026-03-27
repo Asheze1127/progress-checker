@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Asheze1127/progress-checker/backend/application/service/github_issue_creator"
+	githubissuecreator "github.com/Asheze1127/progress-checker/backend/application/service/github_issue_creator"
 	"github.com/Asheze1127/progress-checker/backend/application/service/token_encryptor"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
@@ -114,13 +114,14 @@ func (s *GitHubService) CreateIssue(ctx context.Context, channelID string, title
 	if err != nil {
 		return "", fmt.Errorf("find github repo by channel: %w", err)
 	}
-	token, err := s.encryptor.Decrypt(ghRepo.EncryptedToken)
-	if err != nil {
-		return "", fmt.Errorf("decrypt token: %w", err)
-	}
-	issueURL, err := s.ghClient.CreateIssue(ctx, ghRepo.Owner, ghRepo.RepoName, token, title, body)
+	result, err := s.ghClient.CreateIssue(ctx, githubissuecreator.CreateIssueInput{
+		Owner: ghRepo.Owner,
+		Repo:  ghRepo.RepoName,
+		Title: title,
+		Body:  body,
+	})
 	if err != nil {
 		return "", fmt.Errorf("create github issue: %w", err)
 	}
-	return issueURL, nil
+	return result.URL, nil
 }

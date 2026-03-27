@@ -23,7 +23,7 @@ import (
 	"github.com/Asheze1127/progress-checker/backend/application/service/slack_poster"
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/infrastructure/encryption"
-	githubinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/github"
+	"github.com/Asheze1127/progress-checker/backend/infrastructure/githubclient"
 	"github.com/Asheze1127/progress-checker/backend/infrastructure/postgres"
 	slackinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/slack"
 	sqsinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/sqs"
@@ -66,8 +66,14 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		return encryption.NewAESEncryptor([]byte(cfg.EncryptionKey))
 	})
 
-	do.Provide(injector, func(i do.Injector) (*githubinfra.Client, error) {
-		return githubinfra.NewClient(cfg.GitHubAPIBaseURL), nil
+	do.Provide(injector, func(i do.Injector) (*githubclient.Client, error) {
+		return githubclient.NewClient(githubclient.Config{
+			Token:             cfg.GitHubToken,
+			BaseURL:           cfg.GitHubAPIBaseURL,
+			AppIssuer:         cfg.GitHubAppID,
+			AppInstallationID: cfg.GitHubAppInstallationID,
+			AppPrivateKeyPEM:  cfg.GitHubAppPrivateKeyPEM,
+		})
 	})
 
 	do.Provide(injector, func(i do.Injector) (*sqsinfra.Client, error) {
@@ -137,7 +143,7 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	do.Provide(injector, func(i do.Injector) (*githubsvc.GitHubService, error) {
 		ghRepoRepo := do.MustInvoke[*postgres.GitHubRepoRepository](i)
 		encryptor := do.MustInvoke[*encryption.AESEncryptor](i)
-		ghClient := do.MustInvoke[*githubinfra.Client](i)
+		ghClient := do.MustInvoke[*githubclient.Client](i) // implements githubissuecreator.GitHubIssueCreator
 		return githubsvc.NewGitHubService(ghRepoRepo, encryptor, ghClient, func() string {
 			return uuid.New().String()
 		}), nil
