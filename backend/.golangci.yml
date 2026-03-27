@@ -4,3 +4,6 @@ linters:
   settings:
     lll:
       tab-width: 2
+  exclusions:
+    presets:
+      - std-error-handling
