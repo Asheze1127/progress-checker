@@ -3,6 +3,8 @@ package slack
 import (
 	"encoding/json"
 	"testing"
+
+	goslack "github.com/slack-go/slack"
 )
 
 func TestBuildQuestionResponseBlocks(t *testing.T) {
@@ -16,8 +18,11 @@ func TestBuildQuestionResponseBlocks(t *testing.T) {
 	}
 
 	// Verify the section block contains the AI response.
-	section := blocks[0]
-	if section.Type != "section" {
+	section, ok := blocks[0].(*goslack.SectionBlock)
+	if !ok {
+		t.Fatalf("expected first block to be *SectionBlock, got %T", blocks[0])
+	}
+	if section.Type != goslack.MBTSection {
 		t.Errorf("expected first block type 'section', got %q", section.Type)
 	}
 	if section.Text == nil {
@@ -31,29 +36,33 @@ func TestBuildQuestionResponseBlocks(t *testing.T) {
 	}
 
 	// Verify the actions block has three buttons.
-	actions := blocks[1]
-	if actions.Type != "actions" {
+	actions, ok := blocks[1].(*goslack.ActionBlock)
+	if !ok {
+		t.Fatalf("expected second block to be *ActionBlock, got %T", blocks[1])
+	}
+	if actions.Type != goslack.MBTAction {
 		t.Errorf("expected second block type 'actions', got %q", actions.Type)
 	}
-	if len(actions.Elements) != 3 {
-		t.Fatalf("expected 3 elements, got %d", len(actions.Elements))
+	if len(actions.Elements.ElementSet) != 3 {
+		t.Fatalf("expected 3 elements, got %d", len(actions.Elements.ElementSet))
 	}
 
 	// Verify each button's action_id, style, and value.
 	expectedButtons := []struct {
 		actionID string
-		style    string
+		style    goslack.Style
 		value    string
 	}{
-		{ActionIDQuestionResolved, ButtonStylePrimary, questionID},
+		{ActionIDQuestionResolved, goslack.StylePrimary, questionID},
 		{ActionIDQuestionContinue, "", questionID},
-		{ActionIDQuestionEscalate, ButtonStyleDanger, questionID},
+		{ActionIDQuestionEscalate, goslack.StyleDanger, questionID},
 	}
 
 	for i, expected := range expectedButtons {
-		btn := actions.Elements[i]
-		if btn.Type != "button" {
-			t.Errorf("element[%d]: expected type 'button', got %q", i, btn.Type)
+		btn, ok := actions.Elements.ElementSet[i].(*goslack.ButtonBlockElement)
+		if !ok {
+			t.Errorf("element[%d]: expected *ButtonBlockElement, got %T", i, actions.Elements.ElementSet[i])
+			continue
 		}
 		if btn.ActionID != expected.actionID {
 			t.Errorf("element[%d]: expected action_id %q, got %q", i, expected.actionID, btn.ActionID)
@@ -76,15 +85,19 @@ func TestBuildQuestionResponseBlocksEmptyResponse(t *testing.T) {
 	if len(blocks) != 2 {
 		t.Fatalf("expected 2 blocks, got %d", len(blocks))
 	}
-	if blocks[0].Text.Text != "" {
-		t.Errorf("expected empty text, got %q", blocks[0].Text.Text)
+	section, ok := blocks[0].(*goslack.SectionBlock)
+	if !ok {
+		t.Fatalf("expected first block to be *SectionBlock, got %T", blocks[0])
+	}
+	if section.Text.Text != "" {
+		t.Errorf("expected empty text, got %q", section.Text.Text)
 	}
 }
 
-func TestMarshalBlocks(t *testing.T) {
+func TestBuildQuestionResponseBlocksJSON(t *testing.T) {
 	blocks := BuildQuestionResponseBlocks("test response", "q-456")
 
-	data, err := MarshalBlocks(blocks)
+	data, err := json.Marshal(blocks)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
