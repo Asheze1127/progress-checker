@@ -5,16 +5,16 @@ import (
 	"log/slog"
 	"net/http"
 
-	ghsvc "github.com/Asheze1127/progress-checker/backend/application/service"
+	githubsvc "github.com/Asheze1127/progress-checker/backend/service/github"
 )
 
 // InternalHandler handles internal API requests (accessible via Internal ALB).
 type InternalHandler struct {
-	service *ghsvc.GitHubService
+	service *githubsvc.GitHubService
 }
 
 // NewInternalHandler creates a new InternalHandler.
-func NewInternalHandler(service *ghsvc.GitHubService) *InternalHandler {
+func NewInternalHandler(service *githubsvc.GitHubService) *InternalHandler {
 	return &InternalHandler{service: service}
 }
 

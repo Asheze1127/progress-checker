@@ -11,7 +11,16 @@ import (
 
 	"github.com/Asheze1127/progress-checker/backend/api/middleware"
 	"github.com/Asheze1127/progress-checker/backend/api/rest"
-	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/api/webhook"
+	githubsvc "github.com/Asheze1127/progress-checker/backend/service/github"
+	"github.com/Asheze1127/progress-checker/backend/service/jwt"
+	"github.com/Asheze1127/progress-checker/backend/service/message_queue"
+	"github.com/Asheze1127/progress-checker/backend/service/password_hasher"
+	"github.com/Asheze1127/progress-checker/backend/service/progress_formatter"
+	"github.com/Asheze1127/progress-checker/backend/service/question_sender"
+	"github.com/Asheze1127/progress-checker/backend/service/slack_notifier"
+	"github.com/Asheze1127/progress-checker/backend/service/slack_poster"
+	"github.com/Asheze1127/progress-checker/backend/service/thread_fetcher"
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/infrastructure/encryption"
 	githubinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/github"
@@ -62,13 +71,13 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	idempotencyStore := idempotency.NewPostgresStore(db)
 
 	// --- Services ---
-	formatter := service.NewProgressFormatter()
-	poster := service.NewSlackPoster(slackClient, formatter)
-	jwtService := service.NewJWTService(cfg.JWTSecret)
-	hasher := service.NewPasswordHasher()
+	formatter := progressformatter.NewProgressFormatter()
+	poster := slackposter.NewSlackPoster(slackClient, formatter)
+	jwtService := jwt.NewJWTService(cfg.JWTSecret)
+	hasher := passwordhasher.NewPasswordHasher()
 	idempotencySvc := idempotencysvc.NewService(idempotencyStore)
 	slackVerifier := pkgslack.NewVerifier(cfg.SlackSigningSecret)
-	ghService := service.NewGitHubService(ghRepoRepo, encryptor, ghClient, func() string { return uuid.New().String() })
+	ghService := githubsvc.NewGitHubService(ghRepoRepo, encryptor, ghClient, func() string { return uuid.New().String() })
 
 	// --- Use Cases ---
 	handleProgressUC := usecase.NewHandleProgressUseCase(progressRepo, poster)
@@ -77,12 +86,12 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	resolveQuestionUC := usecase.NewResolveQuestionUseCase(questionRepo)
 	continueQuestionUC := usecase.NewContinueQuestionUseCase(questionRepo)
 	// TODO: Wire a proper SlackNotifier implementation when available.
-	escalateQuestionUC := usecase.NewEscalateQuestionUseCase(questionRepo, &service.NoopSlackNotifier{})
+	escalateQuestionUC := usecase.NewEscalateQuestionUseCase(questionRepo, &slacknotifier.NoopSlackNotifier{})
 
 	// --- Handlers ---
-	webhookHandler := rest.NewWebhookHandler(handleProgressUC)
-	questionHandler := rest.NewQuestionHandler(
-		usecase.NewHandleNewQuestionUseCase(questionRepo, service.NewQuestionSender(&service.NoopMessageQueue{})),
+	webhookHandler := webhook.NewWebhookHandler(handleProgressUC)
+	questionHandler := webhook.NewQuestionHandler(
+		usecase.NewHandleNewQuestionUseCase(questionRepo, questionsender.NewQuestionSender(&messagequeue.NoopMessageQueue{})),
 	)
 	var corsOrigins []string
 	if cfg.CORSAllowedOrigin != "" {
@@ -93,11 +102,11 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	ghHandler := rest.NewGitHubHandler(ghService)
 	internalHandler := rest.NewInternalHandler(ghService)
 	// TODO: Wire real SlackThreadFetcher and MessageQueue implementations when available.
-	eventHandler := rest.NewEventHandler(
-		usecase.NewTriggerIssueCreationUseCase(&service.NoopSlackThreadFetcher{}, &service.NoopMessageQueue{}),
+	eventHandler := webhook.NewEventHandler(
+		usecase.NewTriggerIssueCreationUseCase(&threadfetcher.NoopSlackThreadFetcher{}, &messagequeue.NoopMessageQueue{}),
 		cfg.IssueTriggerEmoji,
 	)
-	interactionHandler := rest.NewInteractionHandler(resolveQuestionUC, continueQuestionUC, escalateQuestionUC)
+	interactionHandler := webhook.NewInteractionHandler(resolveQuestionUC, continueQuestionUC, escalateQuestionUC)
 
 	// --- Router ---
 	router := rest.NewRouter(

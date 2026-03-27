@@ -1,17 +1,21 @@
 package rest
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/Asheze1127/progress-checker/backend/api/webhook"
+)
 
 // NewRouter creates and configures the HTTP router with all routes.
 func NewRouter(
-	webhookHandler *WebhookHandler,
-	questionHandler *QuestionHandler,
+	webhookHandler *webhook.WebhookHandler,
+	questionHandler *webhook.QuestionHandler,
 	progressHandler *ProgressHandler,
 	authHandler *AuthHandler,
 	ghHandler *GitHubHandler,
 	internalHandler *InternalHandler,
-	eventHandler *EventHandler,
-	interactionHandler *InteractionHandler,
+	eventHandler *webhook.EventHandler,
+	interactionHandler *webhook.InteractionHandler,
 	authMiddleware func(http.Handler) http.Handler,
 	slackMiddleware func(http.Handler) http.Handler,
 	internalMiddleware func(http.Handler) http.Handler,

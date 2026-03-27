@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/service/jwt"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
@@ -17,7 +17,7 @@ const userContextKey contextKey = "authenticated_user"
 
 // AuthMiddleware creates an HTTP middleware that authenticates requests using
 // Bearer tokens in the Authorization header via JWT validation.
-func AuthMiddleware(jwtService *service.JWTService) func(http.Handler) http.Handler {
+func AuthMiddleware(jwtService *jwt.JWTService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := extractBearerToken(r)

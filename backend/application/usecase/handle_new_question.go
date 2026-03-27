@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/service/question_sender"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 	"github.com/google/uuid"
 )
@@ -21,11 +21,11 @@ type HandleNewQuestionInput struct {
 // persisting it, and enqueuing it for processing.
 type HandleNewQuestionUseCase struct {
 	repo   entities.QuestionRepository
-	sender *service.QuestionSender
+	sender *questionsender.QuestionSender
 }
 
 // NewHandleNewQuestionUseCase creates a new HandleNewQuestionUseCase.
-func NewHandleNewQuestionUseCase(repo entities.QuestionRepository, sender *service.QuestionSender) *HandleNewQuestionUseCase {
+func NewHandleNewQuestionUseCase(repo entities.QuestionRepository, sender *questionsender.QuestionSender) *HandleNewQuestionUseCase {
 	return &HandleNewQuestionUseCase{
 		repo:   repo,
 		sender: sender,
@@ -50,7 +50,7 @@ func (uc *HandleNewQuestionUseCase) Execute(ctx context.Context, input HandleNew
 		return fmt.Errorf("failed to save question: %w", err)
 	}
 
-	msg := service.QuestionNewMessage{
+	msg := questionsender.QuestionNewMessage{
 		QuestionID:     questionID,
 		ParticipantID:  input.ParticipantID,
 		Title:          input.Title,

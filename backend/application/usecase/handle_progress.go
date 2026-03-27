@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/service/slack_poster"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 	"github.com/google/uuid"
 )
@@ -24,11 +24,11 @@ type HandleProgressInput struct {
 // HandleProgressUseCase orchestrates the handling of a progress command.
 type HandleProgressUseCase struct {
 	repo   entities.ProgressRepository
-	poster *service.SlackPoster
+	poster *slackposter.SlackPoster
 }
 
 // NewHandleProgressUseCase creates a new HandleProgressUseCase with the given dependencies.
-func NewHandleProgressUseCase(repo entities.ProgressRepository, poster *service.SlackPoster) *HandleProgressUseCase {
+func NewHandleProgressUseCase(repo entities.ProgressRepository, poster *slackposter.SlackPoster) *HandleProgressUseCase {
 	return &HandleProgressUseCase{
 		repo:   repo,
 		poster: poster,

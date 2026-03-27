@@ -5,18 +5,18 @@ import (
 	"fmt"
 
 	"github.com/Asheze1127/progress-checker/backend/entities"
-	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/service/slack_notifier"
 )
 
 // EscalateQuestionUseCase sets a question status to assigned_mentor and
 // notifies the mentor channel.
 type EscalateQuestionUseCase struct {
 	questionRepo  entities.QuestionRepository
-	slackNotifier service.SlackNotifier
+	slackNotifier slacknotifier.SlackNotifier
 }
 
 // NewEscalateQuestionUseCase creates a new EscalateQuestionUseCase.
-func NewEscalateQuestionUseCase(repo entities.QuestionRepository, notifier service.SlackNotifier) *EscalateQuestionUseCase {
+func NewEscalateQuestionUseCase(repo entities.QuestionRepository, notifier slacknotifier.SlackNotifier) *EscalateQuestionUseCase {
 	return &EscalateQuestionUseCase{
 		questionRepo:  repo,
 		slackNotifier: notifier,
