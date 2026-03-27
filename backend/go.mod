@@ -3,10 +3,10 @@ module github.com/Asheze1127/progress-checker/backend
 go 1.25.8
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.41.4 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.41.4
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.20 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.20 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sqs v1.42.24 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sqs v1.42.24
 	github.com/aws/smithy-go v1.24.2 // indirect
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.0
@@ -14,8 +14,13 @@ require (
 )
 
 require (
-	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/samber/do/v2 v2.0.0
+	golang.org/x/crypto v0.49.0
+)
+
+require (
 	github.com/gorilla/websocket v1.5.3 // indirect
-	github.com/kelseyhightower/envconfig v1.4.0 // indirect
-	golang.org/x/crypto v0.49.0 // indirect
+	github.com/samber/go-type-to-string v1.8.0 // indirect
 )
