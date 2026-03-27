@@ -15,11 +15,9 @@ import (
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/infrastructure/encryption"
 	githubinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/github"
-	"github.com/Asheze1127/progress-checker/backend/infrastructure/idempotency"
 	"github.com/Asheze1127/progress-checker/backend/infrastructure/postgres"
 	slackinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/slack"
 	pkgslack "github.com/Asheze1127/progress-checker/backend/pkg/slack"
-	idempotencysvc "github.com/Asheze1127/progress-checker/backend/service/idempotency"
 	"github.com/Asheze1127/progress-checker/backend/util"
 	"github.com/google/uuid"
 )
@@ -59,14 +57,12 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	questionRepo := postgres.NewQuestionRepository(db)
 	userRepo := postgres.NewUserRepository(db)
 	ghRepoRepo := postgres.NewGitHubRepoRepository(db)
-	idempotencyStore := idempotency.NewPostgresStore(db)
 
 	// --- Services ---
 	formatter := service.NewProgressFormatter()
 	poster := service.NewSlackPoster(slackClient, formatter)
 	jwtService := service.NewJWTService(cfg.JWTSecret)
 	hasher := service.NewPasswordHasher()
-	idempotencySvc := idempotencysvc.NewService(idempotencyStore)
 	slackVerifier := pkgslack.NewVerifier(cfg.SlackSigningSecret)
 	ghService := service.NewGitHubService(ghRepoRepo, encryptor, ghClient, func() string { return uuid.New().String() })
 
@@ -110,7 +106,7 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		eventHandler,
 		interactionHandler,
 		middleware.AuthMiddleware(jwtService),
-		middleware.SlackWebhookMiddleware(slackVerifier, idempotencySvc),
+		middleware.SlackWebhookMiddleware(slackVerifier),
 		middleware.InternalTokenMiddleware(cfg.InternalToken),
 	)
 

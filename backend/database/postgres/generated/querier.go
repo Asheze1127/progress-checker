@@ -11,8 +11,6 @@ import (
 )
 
 type Querier interface {
-	CheckIdempotencyKeyExists(ctx context.Context, key string) (bool, error)
-	DeleteExpiredIdempotencyKeys(ctx context.Context) error
 	DeleteGitHubRepo(ctx context.Context, id uuid.UUID) error
 	GetAwaitingQuestionByChannelAndThread(ctx context.Context, arg GetAwaitingQuestionByChannelAndThreadParams) (Questions, error)
 	GetGitHubRepoByChannelID(ctx context.Context, id string) (TeamGithubRepositories, error)
@@ -33,7 +31,6 @@ type Querier interface {
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (Questions, error)
 	InsertQuestionMentorAssignment(ctx context.Context, arg InsertQuestionMentorAssignmentParams) error
 	ListTeams(ctx context.Context) ([]Teams, error)
-	SetIdempotencyKey(ctx context.Context, arg SetIdempotencyKeyParams) error
 	UpdateGitHubRepoToken(ctx context.Context, arg UpdateGitHubRepoTokenParams) error
 	UpdateQuestionStatus(ctx context.Context, arg UpdateQuestionStatusParams) error
 }
