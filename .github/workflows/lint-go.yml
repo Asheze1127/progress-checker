@@ -31,8 +31,8 @@ jobs:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
-      - uses: golangci/golangci-lint-action@v6
+      - uses: golangci/golangci-lint-action@v7
         if: steps.gomod.outputs.present == 'true'
         with:
-          version: latest
+          version: v2
           working-directory: backend
