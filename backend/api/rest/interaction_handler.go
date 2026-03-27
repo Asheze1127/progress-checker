@@ -8,6 +8,7 @@ import (
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 	slackpkg "github.com/Asheze1127/progress-checker/backend/pkg/slack"
+	"github.com/slack-go/slack"
 )
 
 // InteractionHandler handles Slack interactive component callbacks.
@@ -28,25 +29,6 @@ func NewInteractionHandler(
 		continueQuestion: cont,
 		escalateQuestion: escalate,
 	}
-}
-
-// slackInteractionPayload represents the top-level Slack interaction callback.
-type slackInteractionPayload struct {
-	Type    string            `json:"type"`
-	Actions []slackAction     `json:"actions"`
-	User    slackUser         `json:"user"`
-}
-
-// slackAction represents a single action within a Slack interaction payload.
-type slackAction struct {
-	ActionID string `json:"action_id"`
-	Value    string `json:"value"`
-}
-
-// slackUser represents the user who triggered the action.
-type slackUser struct {
-	ID       string `json:"id"`
-	Username string `json:"username"`
 }
 
 // HandleInteraction is the HTTP handler for POST /webhook/slack/interactions.
@@ -70,25 +52,25 @@ func (h *InteractionHandler) HandleInteraction(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var payload slackInteractionPayload
-	if err := json.Unmarshal([]byte(rawPayload), &payload); err != nil {
+	var callback slack.InteractionCallback
+	if err := json.Unmarshal([]byte(rawPayload), &callback); err != nil {
 		slog.Error("error unmarshaling interaction payload", slog.String("error", err.Error()))
 		http.Error(w, "invalid payload", http.StatusBadRequest)
 		return
 	}
 
-	if len(payload.Actions) == 0 {
+	if len(callback.ActionCallback.BlockActions) == 0 {
 		// Acknowledge with 200 even when there are no actions to process.
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
 	// Process only the first action (Slack sends one action per interaction).
-	action := payload.Actions[0]
+	action := callback.ActionCallback.BlockActions[0]
 	questionID := entities.QuestionID(action.Value)
 
 	if questionID == "" {
-		slog.Warn("interaction has empty question ID", slog.String("user_id", payload.User.ID))
+		slog.Warn("interaction has empty question ID", slog.String("user_id", callback.User.ID))
 		http.Error(w, "missing question ID", http.StatusBadRequest)
 		return
 	}
@@ -104,7 +86,7 @@ func (h *InteractionHandler) HandleInteraction(w http.ResponseWriter, r *http.Re
 	case slackpkg.ActionIDQuestionEscalate:
 		err = h.escalateQuestion.Execute(ctx, questionID)
 	default:
-		slog.Warn("unknown action_id", slog.String("action_id", action.ActionID), slog.String("user_id", payload.User.ID))
+		slog.Warn("unknown action_id", slog.String("action_id", action.ActionID), slog.String("user_id", callback.User.ID))
 		w.WriteHeader(http.StatusOK)
 		return
 	}
