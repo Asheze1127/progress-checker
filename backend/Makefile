@@ -18,9 +18,9 @@ migrate_db:
 		-h $(DATABASE_HOST) \
 		-p $(DATABASE_PORT) \
 		-U $(DATABASE_USER) \
-		$(DATABASE_NAME) < backend/database/postgres/schema.sql
+		$(DATABASE_NAME) < database/postgres/schema.sql
 
 # Seed the database with initial staff members.
 # Run migrate_db first to ensure the schema is up to date.
 loadseed_db: migrate_db
-	cd backend && go run ./cmd/seed
+	go run ./cmd/seed
