@@ -13,13 +13,11 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/samber/do/v2"
 
-	"github.com/Asheze1127/progress-checker/backend/api/middleware"
 	"github.com/Asheze1127/progress-checker/backend/api/rest"
 	"github.com/Asheze1127/progress-checker/backend/api/rest/handlers"
 	"github.com/Asheze1127/progress-checker/backend/api/webhook"
 	githubsvc "github.com/Asheze1127/progress-checker/backend/application/service/github"
 	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
-	"github.com/Asheze1127/progress-checker/backend/application/service/password_hasher"
 	"github.com/Asheze1127/progress-checker/backend/application/service/progress_formatter"
 	"github.com/Asheze1127/progress-checker/backend/application/service/question_sender"
 	"github.com/Asheze1127/progress-checker/backend/application/service/slack_poster"
@@ -128,8 +126,8 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		return jwt.NewJWTService(cfg.JWTSecret), nil
 	})
 
-	do.Provide(injector, func(i do.Injector) (*passwordhasher.PasswordHasher, error) {
-		return passwordhasher.NewPasswordHasher(), nil
+	do.Provide(injector, func(i do.Injector) (*util.PasswordHasher, error) {
+		return util.NewPasswordHasher(), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*pkgslack.Verifier, error) {
@@ -160,7 +158,7 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	do.Provide(injector, func(i do.Injector) (*usecase.LoginUseCase, error) {
 		userRepo := do.MustInvoke[*postgres.UserRepository](i)
 		jwtService := do.MustInvoke[*jwt.JWTService](i)
-		hasher := do.MustInvoke[*passwordhasher.PasswordHasher](i)
+		hasher := do.MustInvoke[*util.PasswordHasher](i)
 		return usecase.NewLoginUseCase(userRepo, jwtService, hasher), nil
 	})
 
@@ -238,16 +236,6 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 
 	// --- Router ---
 	do.Provide(injector, func(i do.Injector) (http.Handler, error) {
-		authHandler := do.MustInvoke[*handlers.AuthHandler](i)
-		progressHandler := do.MustInvoke[*handlers.ProgressHandler](i)
-		githubHandler := do.MustInvoke[*handlers.GitHubHandler](i)
-		internalHandler := do.MustInvoke[*handlers.InternalHandler](i)
-
-		webhookHandler := do.MustInvoke[*webhook.WebhookHandler](i)
-		questionHandler := do.MustInvoke[*webhook.QuestionHandler](i)
-		eventHandler := do.MustInvoke[*webhook.EventHandler](i)
-		interactionHandler := do.MustInvoke[*webhook.InteractionHandler](i)
-
 		jwtService := do.MustInvoke[*jwt.JWTService](i)
 		verifier := do.MustInvoke[*pkgslack.Verifier](i)
 
@@ -258,20 +246,20 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 			}
 		}
 
-		return rest.NewRouter(
-			authHandler,
-			progressHandler,
-			githubHandler,
-			internalHandler,
-			webhookHandler,
-			questionHandler,
-			eventHandler,
-			interactionHandler,
-			middleware.AuthMiddleware(jwtService),
-			middleware.SlackWebhookMiddleware(verifier),
-			middleware.InternalTokenMiddleware(cfg.InternalToken),
-			rest.CORSMiddleware(corsOrigins),
-		), nil
+		return rest.NewRouter(rest.RouterConfig{
+			AuthHandler:        do.MustInvoke[*handlers.AuthHandler](i),
+			ProgressHandler:    do.MustInvoke[*handlers.ProgressHandler](i),
+			GitHubHandler:      do.MustInvoke[*handlers.GitHubHandler](i),
+			InternalHandler:    do.MustInvoke[*handlers.InternalHandler](i),
+			WebhookHandler:     do.MustInvoke[*webhook.WebhookHandler](i),
+			QuestionHandler:    do.MustInvoke[*webhook.QuestionHandler](i),
+			EventHandler:       do.MustInvoke[*webhook.EventHandler](i),
+			InteractionHandler: do.MustInvoke[*webhook.InteractionHandler](i),
+			JWTService:         jwtService,
+			SlackVerifier:      verifier,
+			InternalToken:      cfg.InternalToken,
+			CORSAllowedOrigins: corsOrigins,
+		}), nil
 	})
 
 	router, err := do.Invoke[http.Handler](injector)

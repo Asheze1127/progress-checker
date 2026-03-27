@@ -193,6 +193,8 @@ paths:
     post:
       operationId: createIssue
       summary: Create a GitHub issue (internal)
+      security:
+        - internalTokenAuth: []
       requestBody:
         required: true
         content:
@@ -219,6 +221,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    internalTokenAuth:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
 
   schemas:
     ErrorResponse:

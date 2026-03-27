@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
-	"github.com/Asheze1127/progress-checker/backend/application/service/password_hasher"
 	"github.com/Asheze1127/progress-checker/backend/entities"
+	"github.com/Asheze1127/progress-checker/backend/util"
 )
 
 // ErrInvalidCredentials is returned when email or password is incorrect.
@@ -26,14 +26,14 @@ type LoginResult struct {
 type LoginUseCase struct {
 	userRepo entities.UserRepository
 	jwt      *jwt.JWTService
-	hasher   *passwordhasher.PasswordHasher
+	hasher   *util.PasswordHasher
 }
 
 // NewLoginUseCase creates a new LoginUseCase with the given dependencies.
 func NewLoginUseCase(
 	userRepo entities.UserRepository,
 	jwt *jwt.JWTService,
-	hasher *passwordhasher.PasswordHasher,
+	hasher *util.PasswordHasher,
 ) *LoginUseCase {
 	return &LoginUseCase{
 		userRepo: userRepo,

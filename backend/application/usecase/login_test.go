@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
-	"github.com/Asheze1127/progress-checker/backend/application/service/password_hasher"
 	"github.com/Asheze1127/progress-checker/backend/entities"
+	"github.com/Asheze1127/progress-checker/backend/util"
 )
 
 // mockUserRepository implements entities.UserRepository for testing.
@@ -40,7 +40,7 @@ func (m *mockUserRepository) GetBySlackUserID(_ context.Context, _ entities.Slac
 
 func hashPassword(t *testing.T, password string) string {
 	t.Helper()
-	hasher := passwordhasher.NewPasswordHasher()
+	hasher := util.NewPasswordHasher()
 	hash, err := hasher.Hash(password)
 	if err != nil {
 		t.Fatalf("failed to hash password: %v", err)
@@ -50,7 +50,7 @@ func hashPassword(t *testing.T, password string) string {
 
 func newTestLoginUseCase(userRepo entities.UserRepository) *LoginUseCase {
 	jwtSvc := jwt.NewJWTService("test-secret-key-for-testing-only")
-	hasher := passwordhasher.NewPasswordHasher()
+	hasher := util.NewPasswordHasher()
 	return NewLoginUseCase(userRepo, jwtSvc, hasher)
 }
 

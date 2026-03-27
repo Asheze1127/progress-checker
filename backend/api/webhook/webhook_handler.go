@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
@@ -18,41 +20,35 @@ func NewWebhookHandler(progressUseCase *usecase.HandleProgressUseCase) *WebhookH
 	return &WebhookHandler{progressUseCase: progressUseCase}
 }
 
-func (h *WebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "failed to parse form", http.StatusBadRequest)
-		return
-	}
-	command := r.FormValue("command")
-	userID := r.FormValue("user_id")
-	teamID := r.FormValue("team_id")
-	channelID := r.FormValue("channel_id")
+func (h *WebhookHandler) HandleWebhook(c *gin.Context) {
+	command := c.PostForm("command")
+	userID := c.PostForm("user_id")
+	teamID := c.PostForm("team_id")
+	channelID := c.PostForm("channel_id")
+
 	switch command {
 	case progressCommand:
-		h.handleProgress(w, r, userID, teamID, channelID)
+		h.handleProgress(c, userID, teamID, channelID)
 	default:
-		http.Error(w, "unsupported command", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported command"})
 	}
 }
 
-func (h *WebhookHandler) handleProgress(w http.ResponseWriter, r *http.Request, userID, teamID, channelID string) {
-	phase := r.FormValue("phase")
-	sos := r.FormValue("sos") == "true"
-	comment := r.FormValue("comment")
+func (h *WebhookHandler) handleProgress(c *gin.Context, userID, teamID, channelID string) {
+	phase := c.PostForm("phase")
+	sos := c.PostForm("sos") == "true"
+	comment := c.PostForm("comment")
+
 	input := usecase.HandleProgressInput{
 		SlackUserID: userID, TeamID: teamID, ChannelID: channelID,
 		Phase: entities.ProgressPhase(phase), SOS: sos, Comment: comment,
 	}
-	if err := h.progressUseCase.Execute(r.Context(), input); err != nil {
+
+	if err := h.progressUseCase.Execute(c.Request.Context(), input); err != nil {
 		slog.Error("failed to handle progress command", slog.String("error", err.Error()))
-		http.Error(w, "failed to process progress command", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to process progress command"})
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"response_type":"in_channel","text":"進捗報告を受け付けました"}`))
+
+	c.JSON(http.StatusOK, gin.H{"response_type": "in_channel", "text": "進捗報告を受け付けました"})
 }

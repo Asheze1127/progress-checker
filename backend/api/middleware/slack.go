@@ -5,51 +5,35 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	pkgslack "github.com/Asheze1127/progress-checker/backend/pkg/slack"
 )
 
-// SlackVerification returns middleware that verifies Slack request signatures.
+// SlackVerification returns Gin middleware that verifies Slack request signatures.
 // Verified request bodies are restored so downstream handlers can read them.
-func SlackVerification(verifier *pkgslack.Verifier) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			body, err := verifier.Verify(r)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusUnauthorized)
-				return
-			}
+func SlackVerification(verifier *pkgslack.Verifier) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		body, err := verifier.Verify(c.Request)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
 
-			r.Body = io.NopCloser(bytes.NewReader(body))
-			next.ServeHTTP(w, r)
-		})
+		c.Request.Body = io.NopCloser(bytes.NewReader(body))
+		c.Next()
 	}
 }
 
-// SlackRetryRejection returns middleware that rejects Slack retry requests.
+// SlackRetryRejection returns Gin middleware that rejects Slack retry requests.
 // If the X-Slack-Retry-Num header is present, the request is a retry and
 // we respond with 200 OK immediately to prevent duplicate processing.
-func SlackRetryRejection() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Header.Get("X-Slack-Retry-Num") != "" {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-// SlackWebhookMiddleware chains SlackVerification and SlackRetryRejection
-// middleware in the correct order: signature verification first, then retry
-// rejection.
-func SlackWebhookMiddleware(
-	verifier *pkgslack.Verifier,
-) func(http.Handler) http.Handler {
-	verifyMiddleware := SlackVerification(verifier)
-	retryMiddleware := SlackRetryRejection()
-
-	return func(handler http.Handler) http.Handler {
-		return verifyMiddleware(retryMiddleware(handler))
+func SlackRetryRejection() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.GetHeader("X-Slack-Retry-Num") != "" {
+			c.AbortWithStatus(http.StatusOK)
+			return
+		}
+		c.Next()
 	}
 }

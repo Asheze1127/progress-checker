@@ -5,10 +5,12 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+	"github.com/slack-go/slack"
+
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 	slackpkg "github.com/Asheze1127/progress-checker/backend/pkg/slack"
-	"github.com/slack-go/slack"
 )
 
 type InteractionHandler struct {
@@ -21,47 +23,37 @@ func NewInteractionHandler(resolve *usecase.ResolveQuestionUseCase, cont *usecas
 	return &InteractionHandler{resolveQuestion: resolve, continueQuestion: cont, escalateQuestion: escalate}
 }
 
-// HandleInteraction is the HTTP handler for POST /webhook/slack/interactions.
+// HandleInteraction is the Gin handler for POST /webhook/slack/interactions.
 // Slack sends interactive payloads as a URL-encoded form with the JSON in
 // a field named "payload".
-func (h *InteractionHandler) HandleInteraction(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if err := r.ParseForm(); err != nil {
-		slog.Error("error parsing form", slog.String("error", err.Error()))
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	rawPayload := r.FormValue("payload")
+func (h *InteractionHandler) HandleInteraction(c *gin.Context) {
+	rawPayload := c.PostForm("payload")
 	if rawPayload == "" {
-		http.Error(w, "missing payload", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing payload"})
 		return
 	}
 
 	var callback slack.InteractionCallback
 	if err := json.Unmarshal([]byte(rawPayload), &callback); err != nil {
 		slog.Error("error unmarshaling interaction payload", slog.String("error", err.Error()))
-		http.Error(w, "invalid payload", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
 		return
 	}
 
 	if len(callback.ActionCallback.BlockActions) == 0 {
-		// Acknowledge with 200 even when there are no actions to process.
-		w.WriteHeader(http.StatusOK)
+		c.Status(http.StatusOK)
 		return
 	}
 
-	// Process only the first action (Slack sends one action per interaction).
 	action := callback.ActionCallback.BlockActions[0]
 	questionID := entities.QuestionID(action.Value)
 	if questionID == "" {
 		slog.Warn("interaction has empty question ID", slog.String("user_id", callback.User.ID))
-		http.Error(w, "missing question ID", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing question ID"})
 		return
 	}
-	ctx := r.Context()
+
+	ctx := c.Request.Context()
 	var err error
 	switch action.ActionID {
 	case slackpkg.ActionIDQuestionResolved:
@@ -72,13 +64,15 @@ func (h *InteractionHandler) HandleInteraction(w http.ResponseWriter, r *http.Re
 		err = h.escalateQuestion.Execute(ctx, questionID)
 	default:
 		slog.Warn("unknown action_id", slog.String("action_id", action.ActionID), slog.String("user_id", callback.User.ID))
-		w.WriteHeader(http.StatusOK)
+		c.Status(http.StatusOK)
 		return
 	}
+
 	if err != nil {
 		slog.Error("error handling action", slog.String("action_id", action.ActionID), slog.String("question_id", string(questionID)), slog.String("error", err.Error()))
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+
+	c.Status(http.StatusOK)
 }

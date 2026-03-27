@@ -6,11 +6,19 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gin-gonic/gin"
+
+	"github.com/Asheze1127/progress-checker/backend/api/openapi"
 	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
 const testJWTSecret = "test-secret-key-for-middleware"
+const testInternalToken = "test-internal-token-value-32bytes!"
+
+func init() {
+	gin.SetMode(gin.TestMode)
+}
 
 func generateTestToken(t *testing.T, user *entities.User) string {
 	t.Helper()
@@ -22,9 +30,30 @@ func generateTestToken(t *testing.T, user *entities.User) string {
 	return token
 }
 
-func TestAuthMiddleware_ValidToken(t *testing.T) {
+// callSecurityMiddleware creates a Gin context with the given scopes set,
+// runs SecurityMiddleware, and returns the recorder and context.
+func callSecurityMiddleware(
+	t *testing.T,
+	req *http.Request,
+	setScopes func(c *gin.Context),
+) (*httptest.ResponseRecorder, *gin.Context) {
+	t.Helper()
 	jwtSvc := jwt.NewJWTService(testJWTSecret)
+	mw := SecurityMiddleware(jwtSvc, testInternalToken)
 
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	if setScopes != nil {
+		setScopes(c)
+	}
+
+	mw(c)
+	return rec, c
+}
+
+func TestSecurityMiddleware_BearerAuth_ValidToken(t *testing.T) {
 	mentorUser := &entities.User{
 		ID:   "user-1",
 		Name: "Test Mentor",
@@ -32,105 +61,61 @@ func TestAuthMiddleware_ValidToken(t *testing.T) {
 	}
 	token := generateTestToken(t, mentorUser)
 
-	var capturedUser *entities.User
-	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedUser = UserFromContext(r.Context())
-		w.WriteHeader(http.StatusOK)
-	}))
-
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/test", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
-	rec := httptest.NewRecorder()
 
-	handler.ServeHTTP(rec, req)
+	rec, c := callSecurityMiddleware(t, req, func(c *gin.Context) {
+		c.Set(openapi.BearerAuthScopes, []string{})
+	})
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("status code = %d, want %d", rec.Code, http.StatusOK)
 	}
+	if c.IsAborted() {
+		t.Error("expected request to not be aborted")
+	}
 
-	if capturedUser == nil {
+	user := UserFromContext(c.Request.Context())
+	if user == nil {
 		t.Fatal("expected user in context, got nil")
 	}
-
-	if capturedUser.ID != "user-1" {
-		t.Errorf("user.ID = %q, want %q", capturedUser.ID, "user-1")
+	if user.ID != "user-1" {
+		t.Errorf("user.ID = %q, want %q", user.ID, "user-1")
 	}
 }
 
-func TestAuthMiddleware_MissingAuthHeader(t *testing.T) {
-	jwtSvc := jwt.NewJWTService(testJWTSecret)
-
-	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("handler should not be called")
-	}))
-
+func TestSecurityMiddleware_BearerAuth_MissingHeader(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/test", nil)
-	rec := httptest.NewRecorder()
 
-	handler.ServeHTTP(rec, req)
+	rec, c := callSecurityMiddleware(t, req, func(c *gin.Context) {
+		c.Set(openapi.BearerAuthScopes, []string{})
+	})
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("status code = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
-}
-
-func TestAuthMiddleware_InvalidBearerFormat(t *testing.T) {
-	jwtSvc := jwt.NewJWTService(testJWTSecret)
-
-	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("handler should not be called")
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/test", nil)
-	req.Header.Set("Authorization", "Basic dXNlcjpwYXNz")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusUnauthorized {
-		t.Errorf("status code = %d, want %d", rec.Code, http.StatusUnauthorized)
+	if !c.IsAborted() {
+		t.Error("expected request to be aborted")
 	}
 }
 
-func TestAuthMiddleware_EmptyBearerToken(t *testing.T) {
-	jwtSvc := jwt.NewJWTService(testJWTSecret)
-
-	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("handler should not be called")
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/test", nil)
-	req.Header.Set("Authorization", "Bearer ")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusUnauthorized {
-		t.Errorf("status code = %d, want %d", rec.Code, http.StatusUnauthorized)
-	}
-}
-
-func TestAuthMiddleware_InvalidToken(t *testing.T) {
-	jwtSvc := jwt.NewJWTService(testJWTSecret)
-
-	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("handler should not be called")
-	}))
-
+func TestSecurityMiddleware_BearerAuth_InvalidToken(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/test", nil)
 	req.Header.Set("Authorization", "Bearer invalid-token")
-	rec := httptest.NewRecorder()
 
-	handler.ServeHTTP(rec, req)
+	rec, c := callSecurityMiddleware(t, req, func(c *gin.Context) {
+		c.Set(openapi.BearerAuthScopes, []string{})
+	})
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("status code = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
+	if !c.IsAborted() {
+		t.Error("expected request to be aborted")
+	}
 }
 
-func TestAuthMiddleware_NonMentorRole(t *testing.T) {
-	jwtSvc := jwt.NewJWTService(testJWTSecret)
-
+func TestSecurityMiddleware_BearerAuth_NonMentorRole(t *testing.T) {
 	participantUser := &entities.User{
 		ID:   "user-2",
 		Name: "Participant",
@@ -138,18 +123,63 @@ func TestAuthMiddleware_NonMentorRole(t *testing.T) {
 	}
 	token := generateTestToken(t, participantUser)
 
-	handler := AuthMiddleware(jwtSvc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("handler should not be called")
-	}))
-
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/test", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
-	rec := httptest.NewRecorder()
 
-	handler.ServeHTTP(rec, req)
+	rec, c := callSecurityMiddleware(t, req, func(c *gin.Context) {
+		c.Set(openapi.BearerAuthScopes, []string{})
+	})
 
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("status code = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+	if !c.IsAborted() {
+		t.Error("expected request to be aborted")
+	}
+}
+
+func TestSecurityMiddleware_InternalToken_Valid(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/internal/issues", nil)
+	req.Header.Set("X-Internal-Token", testInternalToken)
+
+	rec, c := callSecurityMiddleware(t, req, func(c *gin.Context) {
+		c.Set(openapi.InternalTokenAuthScopes, []string{})
+	})
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("status code = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if c.IsAborted() {
+		t.Error("expected request to not be aborted")
+	}
+}
+
+func TestSecurityMiddleware_InternalToken_Invalid(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/internal/issues", nil)
+	req.Header.Set("X-Internal-Token", "wrong-token")
+
+	rec, c := callSecurityMiddleware(t, req, func(c *gin.Context) {
+		c.Set(openapi.InternalTokenAuthScopes, []string{})
+	})
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status code = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+	if !c.IsAborted() {
+		t.Error("expected request to be aborted")
+	}
+}
+
+func TestSecurityMiddleware_NoScopes_PassThrough(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+
+	rec, c := callSecurityMiddleware(t, req, nil)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("status code = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if c.IsAborted() {
+		t.Error("expected request to not be aborted (public endpoint)")
 	}
 }
 
@@ -197,11 +227,7 @@ func TestExtractBearerToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/", nil)
-			if tt.header != "" {
-				req.Header.Set("Authorization", tt.header)
-			}
-			got := extractBearerToken(req)
+			got := extractBearerToken(tt.header)
 			if got != tt.wantToken {
 				t.Errorf("extractBearerToken() = %q, want %q", got, tt.wantToken)
 			}
