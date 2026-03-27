@@ -14,7 +14,6 @@ func NewRouter(
 	interactionHandler *InteractionHandler,
 	authMiddleware func(http.Handler) http.Handler,
 	slackMiddleware func(http.Handler) http.Handler,
-	internalMiddleware func(http.Handler) http.Handler,
 ) http.Handler {
 	mux := http.NewServeMux()
 
@@ -24,7 +23,7 @@ func NewRouter(
 	// Auth (public)
 	mux.HandleFunc("POST /api/v1/auth/login", authHandler.HandleLogin)
 
-	// Slack webhooks (with verification + idempotency)
+	// Slack webhooks (with verification + retry rejection)
 	mux.Handle("POST /webhook/slack", slackMiddleware(http.HandlerFunc(webhookHandler.HandleWebhook)))
 	mux.Handle("POST /webhook/slack/questions", slackMiddleware(http.HandlerFunc(questionHandler.HandleWebhook)))
 	mux.Handle("POST /webhook/slack/events", slackMiddleware(http.HandlerFunc(eventHandler.HandleSlackEvents)))
@@ -40,8 +39,8 @@ func NewRouter(
 	mux.Handle("DELETE /api/v1/teams/{teamId}/github-repos/{repoId}", authMiddleware(http.HandlerFunc(ghHandler.RemoveRepository)))
 	mux.Handle("PUT /api/v1/teams/{teamId}/github-repos/{repoId}/token", authMiddleware(http.HandlerFunc(ghHandler.UpdateToken)))
 
-	// Internal API (token-protected - accessed via internal ALB)
-	mux.Handle("POST /internal/issues", internalMiddleware(http.HandlerFunc(internalHandler.CreateIssue)))
+	// Internal API (accessed via internal ALB)
+	mux.HandleFunc("POST /internal/issues", internalHandler.CreateIssue)
 
 	return mux
 }

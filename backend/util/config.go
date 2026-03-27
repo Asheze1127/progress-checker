@@ -20,7 +20,6 @@ type Config struct {
 	EncryptionKey      string `envconfig:"ENCRYPTION_KEY" required:"true"`
 	GitHubAPIBaseURL   string `envconfig:"GITHUB_API_BASE_URL" default:"https://api.github.com"`
 	DatabaseSSLMode    string `envconfig:"DATABASE_SSL_MODE" default:"require"`
-	InternalToken      string `envconfig:"INTERNAL_TOKEN" required:"true"`
 	IssueTriggerEmoji  string `envconfig:"ISSUE_TRIGGER_EMOJI" default:"ticket"`
 	CORSAllowedOrigin  string `envconfig:"CORS_ALLOWED_ORIGIN"`
 }
@@ -40,9 +39,6 @@ func LoadConfig() (*Config, error) {
 	}
 	if !validEncryptionKeyLengths[len(cfg.EncryptionKey)] {
 		return nil, fmt.Errorf("ENCRYPTION_KEY must be exactly 16, 24, or 32 bytes (got %d)", len(cfg.EncryptionKey))
-	}
-	if len(cfg.InternalToken) < 32 {
-		return nil, fmt.Errorf("INTERNAL_TOKEN must be at least 32 bytes")
 	}
 	return &cfg, nil
 }
