@@ -62,7 +62,8 @@
         "timonwong.shellcheck",
         "donjayamanne.githistory",
         "openai.chatgpt",
-        "ReneSaarsoo.sql-formatter-vsc"
+        "ReneSaarsoo.sql-formatter-vsc",
+        "EditorConfig.EditorConfig"
       ],
       "settings": {
         "editor.formatOnSave": true,
