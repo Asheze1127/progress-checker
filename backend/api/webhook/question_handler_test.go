@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/Asheze1127/progress-checker/backend/application/service/question_sender"
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/entities"
@@ -80,14 +82,23 @@ func makeSlackForm(command, text, userID, channelID, threadTS string) string {
 	return v.Encode()
 }
 
+func init() {
+	gin.SetMode(gin.TestMode)
+}
+
+func callHandler(handler *QuestionHandler, body string) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/webhook/slack/questions", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	handler.HandleWebhook(c)
+	return rec
+}
+
 func TestHandleWebhook_NewQuestionSuccess(t *testing.T) {
 	handler := newTestHandler(nil)
 	body := makeSlackForm("/question", "How do I deploy?", "U123", "C456", "")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/slack", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.HandleWebhook(rec, req)
+	rec := callHandler(handler, body)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d", http.StatusOK, rec.Code)
@@ -98,26 +109,10 @@ func TestHandleWebhook_NewQuestionSuccess(t *testing.T) {
 	}
 }
 
-func TestHandleWebhook_MethodNotAllowed(t *testing.T) {
-	handler := newTestHandler(nil)
-	req := httptest.NewRequest(http.MethodGet, "/webhook/slack", nil)
-	rec := httptest.NewRecorder()
-
-	handler.HandleWebhook(rec, req)
-
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Errorf("expected status %d, got %d", http.StatusMethodNotAllowed, rec.Code)
-	}
-}
-
 func TestHandleWebhook_UnsupportedCommand(t *testing.T) {
 	handler := newTestHandler(nil)
 	body := makeSlackForm("/progress", "some text", "U123", "C456", "")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/slack", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.HandleWebhook(rec, req)
+	rec := callHandler(handler, body)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d, got %d", http.StatusBadRequest, rec.Code)
@@ -127,11 +122,7 @@ func TestHandleWebhook_UnsupportedCommand(t *testing.T) {
 func TestHandleWebhook_FollowUpReturnsOK(t *testing.T) {
 	handler := newTestHandler(nil)
 	body := makeSlackForm("/question", "More info here", "U123", "C456", "1234567890.123456")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/slack", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.HandleWebhook(rec, req)
+	rec := callHandler(handler, body)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d", http.StatusOK, rec.Code)
@@ -145,11 +136,7 @@ func TestHandleWebhook_FollowUpReturnsOK(t *testing.T) {
 func TestHandleWebhook_EmptyText(t *testing.T) {
 	handler := newTestHandler(nil)
 	body := makeSlackForm("/question", "", "U123", "C456", "")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/slack", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.HandleWebhook(rec, req)
+	rec := callHandler(handler, body)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d, got %d", http.StatusBadRequest, rec.Code)
@@ -159,11 +146,7 @@ func TestHandleWebhook_EmptyText(t *testing.T) {
 func TestHandleWebhook_MissingUserID(t *testing.T) {
 	handler := newTestHandler(nil)
 	body := makeSlackForm("/question", "Some question", "", "C456", "")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/slack", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.HandleWebhook(rec, req)
+	rec := callHandler(handler, body)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d, got %d", http.StatusBadRequest, rec.Code)
@@ -173,11 +156,7 @@ func TestHandleWebhook_MissingUserID(t *testing.T) {
 func TestHandleWebhook_MissingChannelID(t *testing.T) {
 	handler := newTestHandler(nil)
 	body := makeSlackForm("/question", "Some question", "U123", "", "")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/slack", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.HandleWebhook(rec, req)
+	rec := callHandler(handler, body)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d, got %d", http.StatusBadRequest, rec.Code)
@@ -187,11 +166,7 @@ func TestHandleWebhook_MissingChannelID(t *testing.T) {
 func TestHandleWebhook_ServiceError(t *testing.T) {
 	handler := newTestHandlerWithFailingRepo()
 	body := makeSlackForm("/question", "How do I deploy?", "U123", "C456", "")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/slack", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.HandleWebhook(rec, req)
+	rec := callHandler(handler, body)
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, rec.Code)
@@ -201,11 +176,7 @@ func TestHandleWebhook_ServiceError(t *testing.T) {
 func TestHandleWebhook_QueueError(t *testing.T) {
 	handler := newTestHandler(errors.New("SQS error"))
 	body := makeSlackForm("/question", "How do I deploy?", "U123", "C456", "")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/slack", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-
-	handler.HandleWebhook(rec, req)
+	rec := callHandler(handler, body)
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, rec.Code)
@@ -232,6 +203,11 @@ func TestTruncateTitle(t *testing.T) {
 			name:     "long text truncated with ellipsis",
 			input:    strings.Repeat("a", maxTitleLength+10),
 			expected: strings.Repeat("a", maxTitleLength) + "...",
+		},
+		{
+			name:     "multibyte text truncated at rune boundary",
+			input:    strings.Repeat("あ", maxTitleLength+5),
+			expected: strings.Repeat("あ", maxTitleLength) + "...",
 		},
 		{
 			name:     "empty text unchanged",

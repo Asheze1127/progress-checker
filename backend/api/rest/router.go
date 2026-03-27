@@ -2,13 +2,17 @@ package rest
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
+	"github.com/Asheze1127/progress-checker/backend/api/middleware"
 	"github.com/Asheze1127/progress-checker/backend/api/openapi"
 	"github.com/Asheze1127/progress-checker/backend/api/rest/handlers"
 	"github.com/Asheze1127/progress-checker/backend/api/webhook"
+	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
+	pkgslack "github.com/Asheze1127/progress-checker/backend/pkg/slack"
 )
 
 // compositeHandler combines individual handlers into openapi.StrictServerInterface.
@@ -49,113 +53,114 @@ func (c *compositeHandler) CreateIssue(ctx context.Context, req openapi.CreateIs
 	return c.internal.CreateIssue(ctx, req)
 }
 
-// NewRouter creates and configures the HTTP router with all routes.
-func NewRouter(
-	authHandler *handlers.AuthHandler,
-	progressHandler *handlers.ProgressHandler,
-	githubHandler *handlers.GitHubHandler,
-	internalHandler *handlers.InternalHandler,
-	webhookHandler *webhook.WebhookHandler,
-	questionHandler *webhook.QuestionHandler,
-	eventHandler *webhook.EventHandler,
-	interactionHandler *webhook.InteractionHandler,
-	authMiddleware func(http.Handler) http.Handler,
-	slackMiddleware func(http.Handler) http.Handler,
-	internalMiddleware func(http.Handler) http.Handler,
-	corsMiddleware func(http.Handler) http.Handler,
-) http.Handler {
-	mux := http.NewServeMux()
+// RouterConfig holds all dependencies needed to create the Gin router.
+type RouterConfig struct {
+	AuthHandler        *handlers.AuthHandler
+	ProgressHandler    *handlers.ProgressHandler
+	GitHubHandler      *handlers.GitHubHandler
+	InternalHandler    *handlers.InternalHandler
+	WebhookHandler     *webhook.WebhookHandler
+	QuestionHandler    *webhook.QuestionHandler
+	EventHandler       *webhook.EventHandler
+	InteractionHandler *webhook.InteractionHandler
+	JWTService         *jwt.JWTService
+	SlackVerifier      *pkgslack.Verifier
+	InternalToken      string
+	CORSAllowedOrigins []string
+}
 
-	// Build StrictServerInterface from individual handlers.
+// NewRouter creates and configures the Gin router with all routes.
+// OpenAPI-defined routes are registered automatically via RegisterHandlersWithOptions.
+// Authentication is handled by SecurityMiddleware, which dispatches based on
+// the security scopes set by the generated code.
+func NewRouter(cfg RouterConfig) http.Handler {
+	r := gin.New()
+	r.Use(gin.Recovery())
+
+	// --- Health ---
+	r.GET("/healthz", handleHealthz)
+
+	// --- OpenAPI routes (auto-registered with security + CORS middleware) ---
 	composite := &compositeHandler{
-		auth:     authHandler,
-		progress: progressHandler,
-		github:   githubHandler,
-		internal: internalHandler,
+		auth:     cfg.AuthHandler,
+		progress: cfg.ProgressHandler,
+		github:   cfg.GitHubHandler,
+		internal: cfg.InternalHandler,
 	}
 	si := openapi.NewStrictHandler(composite, nil)
 
-	// Wrap to get parameter-extracting handlers.
-	wrapper := openapi.ServerInterfaceWrapper{
-		Handler: si,
-		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			slog.Warn("request parameter error", slog.String("error", err.Error()), slog.String("path", r.URL.Path))
-			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			w.WriteHeader(http.StatusBadRequest)
-			body, _ := json.Marshal(map[string]string{"error": "invalid request parameters"})
-			_, _ = w.Write(body)
+	// Middlewares are called by the generated wrapper in a loop with c.IsAborted()
+	// checks between each call. They must NOT call c.Next() — the wrapper drives
+	// the chain and calls the handler directly after all middlewares pass.
+	openapi.RegisterHandlersWithOptions(r, si, openapi.GinServerOptions{
+		Middlewares: []openapi.MiddlewareFunc{
+			CORSMiddleware(cfg.CORSAllowedOrigins),
+			middleware.SecurityMiddleware(cfg.JWTService, cfg.InternalToken),
 		},
-	}
+		ErrorHandler: func(c *gin.Context, err error, statusCode int) {
+			slog.Warn("request parameter error", slog.String("error", err.Error()), slog.String("path", c.Request.URL.Path))
+			c.JSON(statusCode, gin.H{"error": "invalid request parameters"})
+		},
+	})
 
-	// --- Health ---
-	mux.HandleFunc("GET /healthz", handleHealthz)
-
-	// --- REST API routes (browser-facing, with auth + CORS) ---
-	registerAPIRoutes(mux, &wrapper, authMiddleware, corsMiddleware)
+	// --- CORS preflight for API routes ---
+	registerPreflightRoutes(r, cfg.CORSAllowedOrigins)
 
 	// --- Webhook routes (Slack, with signature verification) ---
-	registerWebhookRoutes(mux, webhookHandler, questionHandler, eventHandler, interactionHandler, slackMiddleware)
+	// RetryRejection runs first to avoid unnecessary HMAC verification on retries.
+	slackGroup := r.Group("/webhook/slack",
+		middleware.SlackRetryRejection(),
+		middleware.SlackVerification(cfg.SlackVerifier),
+	)
+	{
+		slackGroup.POST("", cfg.WebhookHandler.HandleWebhook)
+		slackGroup.POST("/questions", cfg.QuestionHandler.HandleWebhook)
+		slackGroup.POST("/events", cfg.EventHandler.HandleSlackEvents)
+		slackGroup.POST("/interactions", cfg.InteractionHandler.HandleInteraction)
+	}
 
-	// --- Internal routes (service-to-service, with token auth) ---
-	registerInternalRoutes(mux, &wrapper, internalMiddleware)
-
-	return mux
+	return r
 }
 
-// registerAPIRoutes registers browser-facing REST API routes with auth and CORS middleware.
-func registerAPIRoutes(
-	mux *http.ServeMux,
-	wrapper *openapi.ServerInterfaceWrapper,
-	authMiddleware func(http.Handler) http.Handler,
-	corsMiddleware func(http.Handler) http.Handler,
-) {
-	// Auth (public - no auth required)
-	mux.HandleFunc("POST /api/v1/auth/login", wrapper.Login)
-
-	// Progress
-	mux.Handle("GET /api/v1/progress", corsMiddleware(authMiddleware(http.HandlerFunc(wrapper.ListProgress))))
-	mux.Handle("OPTIONS /api/v1/progress", corsMiddleware(http.HandlerFunc(handlePreflight)))
-
-	// GitHub repository management
-	mux.Handle("POST /api/v1/teams/{teamId}/github-repos", corsMiddleware(authMiddleware(http.HandlerFunc(wrapper.RegisterRepository))))
-	mux.Handle("GET /api/v1/teams/{teamId}/github-repos", corsMiddleware(authMiddleware(http.HandlerFunc(wrapper.ListRepositories))))
-	mux.Handle("DELETE /api/v1/teams/{teamId}/github-repos/{repoId}", corsMiddleware(authMiddleware(http.HandlerFunc(wrapper.RemoveRepository))))
-	mux.Handle("PUT /api/v1/teams/{teamId}/github-repos/{repoId}/token", corsMiddleware(authMiddleware(http.HandlerFunc(wrapper.UpdateToken))))
-	mux.Handle("OPTIONS /api/v1/teams/{teamId}/github-repos", corsMiddleware(http.HandlerFunc(handlePreflight)))
-	mux.Handle("OPTIONS /api/v1/teams/{teamId}/github-repos/{repoId}", corsMiddleware(http.HandlerFunc(handlePreflight)))
-	mux.Handle("OPTIONS /api/v1/teams/{teamId}/github-repos/{repoId}/token", corsMiddleware(http.HandlerFunc(handlePreflight)))
+// setCORSHeaders sets CORS headers on the response if the request Origin matches an allowed origin.
+func setCORSHeaders(c *gin.Context, allowedOrigins []string) {
+	c.Header("Vary", "Origin")
+	origin := c.GetHeader("Origin")
+	if origin == "" {
+		return
+	}
+	for _, allowed := range allowedOrigins {
+		if origin == allowed {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			c.Header("Access-Control-Max-Age", "86400")
+			return
+		}
+	}
 }
 
-// registerWebhookRoutes registers Slack webhook routes with signature verification middleware.
-func registerWebhookRoutes(
-	mux *http.ServeMux,
-	webhookHandler *webhook.WebhookHandler,
-	questionHandler *webhook.QuestionHandler,
-	eventHandler *webhook.EventHandler,
-	interactionHandler *webhook.InteractionHandler,
-	slackMiddleware func(http.Handler) http.Handler,
-) {
-	mux.Handle("POST /webhook/slack", slackMiddleware(http.HandlerFunc(webhookHandler.HandleWebhook)))
-	mux.Handle("POST /webhook/slack/questions", slackMiddleware(http.HandlerFunc(questionHandler.HandleWebhook)))
-	mux.Handle("POST /webhook/slack/events", slackMiddleware(http.HandlerFunc(eventHandler.HandleSlackEvents)))
-	mux.Handle("POST /webhook/slack/interactions", slackMiddleware(http.HandlerFunc(interactionHandler.HandleInteraction)))
+// CORSMiddleware returns an oapi-codegen MiddlewareFunc that sets CORS headers for allowed origins.
+func CORSMiddleware(allowedOrigins []string) openapi.MiddlewareFunc {
+	return func(c *gin.Context) {
+		setCORSHeaders(c, allowedOrigins)
+	}
 }
 
-// registerInternalRoutes registers internal service-to-service routes with token auth middleware.
-func registerInternalRoutes(
-	mux *http.ServeMux,
-	wrapper *openapi.ServerInterfaceWrapper,
-	internalMiddleware func(http.Handler) http.Handler,
-) {
-	mux.Handle("POST /internal/issues", internalMiddleware(http.HandlerFunc(wrapper.CreateIssue)))
+// registerPreflightRoutes registers OPTIONS handlers for CORS preflight requests.
+func registerPreflightRoutes(r *gin.Engine, allowedOrigins []string) {
+	corsHandler := func(c *gin.Context) {
+		setCORSHeaders(c, allowedOrigins)
+		c.Status(http.StatusNoContent)
+	}
+
+	r.OPTIONS("/api/v1/auth/login", corsHandler)
+	r.OPTIONS("/api/v1/progress", corsHandler)
+	r.OPTIONS("/api/v1/teams/:teamId/github-repos", corsHandler)
+	r.OPTIONS("/api/v1/teams/:teamId/github-repos/:repoId", corsHandler)
+	r.OPTIONS("/api/v1/teams/:teamId/github-repos/:repoId/token", corsHandler)
 }
 
-func handleHealthz(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"status":"ok"}`))
-}
-
-func handlePreflight(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusNoContent)
+func handleHealthz(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }

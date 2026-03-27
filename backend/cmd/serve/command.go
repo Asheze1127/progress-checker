@@ -6,12 +6,15 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/Asheze1127/progress-checker/backend/util"
 )
 
 // Run starts the HTTP server with all dependencies wired.
 func Run() error {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+	gin.SetMode(gin.ReleaseMode)
 
 	cfg, err := util.LoadConfig()
 	if err != nil {

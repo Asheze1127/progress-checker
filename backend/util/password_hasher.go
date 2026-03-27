@@ -1,4 +1,4 @@
-package passwordhasher
+package util
 
 import "golang.org/x/crypto/bcrypt"
 

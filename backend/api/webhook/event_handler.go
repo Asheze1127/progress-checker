@@ -7,9 +7,11 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+	"github.com/slack-go/slack/slackevents"
+
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	slackpkg "github.com/Asheze1127/progress-checker/backend/pkg/slack"
-	"github.com/slack-go/slack/slackevents"
 )
 
 type IssueTrigger interface {
@@ -25,100 +27,95 @@ func NewEventHandler(issueTrigger IssueTrigger, triggerEmoji string) *EventHandl
 	return &EventHandler{triggerEmoji: triggerEmoji, issueTrigger: issueTrigger}
 }
 
-func (h *EventHandler) HandleSlackEvents(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
+func (h *EventHandler) HandleSlackEvents(c *gin.Context) {
+	const maxBodySize = 1 << 20 // 1 MB
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, maxBodySize))
 	if err != nil {
-		http.Error(w, "failed to read body", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read body"})
 		return
 	}
 
-	// Check raw type field first for message_action, which is not an Events API
-	// event and cannot be parsed by slackevents.ParseEvent.
 	var typeCheck struct {
 		Type string `json:"type"`
 	}
 	if err := json.Unmarshal(body, &typeCheck); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
 	if typeCheck.Type == slackpkg.EventTypeMessageAction {
-		h.handleMessageAction(w, r, body)
+		h.handleMessageAction(c, body)
 		return
 	}
 
 	event, err := slackevents.ParseEvent(json.RawMessage(body), slackevents.OptionNoVerifyToken())
 	if err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
+
 	switch event.Type {
 	case slackevents.URLVerification:
-		h.handleURLVerification(w, body)
+		h.handleURLVerification(c, body)
 	case slackevents.CallbackEvent:
-		h.handleEventCallback(w, r, event)
+		h.handleEventCallback(c, event)
 	default:
-		w.WriteHeader(http.StatusOK)
+		c.Status(http.StatusOK)
 	}
 }
 
-func (h *EventHandler) handleURLVerification(w http.ResponseWriter, body []byte) {
+func (h *EventHandler) handleURLVerification(c *gin.Context, body []byte) {
 	var challenge slackevents.ChallengeResponse
 	if err := json.Unmarshal(body, &challenge); err != nil {
 		slog.Error("failed to parse url_verification challenge", slog.String("error", err.Error()))
-		http.Error(w, "invalid challenge", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid challenge"})
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(challenge); err != nil {
-		slog.Error("failed to encode url_verification response", slog.String("error", err.Error()))
-	}
+	c.JSON(http.StatusOK, challenge)
 }
 
-func (h *EventHandler) handleEventCallback(w http.ResponseWriter, r *http.Request, event slackevents.EventsAPIEvent) {
+func (h *EventHandler) handleEventCallback(c *gin.Context, event slackevents.EventsAPIEvent) {
 	innerEvent := event.InnerEvent
 	switch innerEvent.Type {
 	case string(slackevents.ReactionAdded):
-		h.handleReactionAdded(w, r, innerEvent)
+		h.handleReactionAdded(c, innerEvent)
 	default:
-		w.WriteHeader(http.StatusOK)
+		c.Status(http.StatusOK)
 	}
 }
 
-func (h *EventHandler) handleReactionAdded(w http.ResponseWriter, r *http.Request, innerEvent slackevents.EventsAPIInnerEvent) {
+func (h *EventHandler) handleReactionAdded(c *gin.Context, innerEvent slackevents.EventsAPIInnerEvent) {
 	ev, ok := innerEvent.Data.(*slackevents.ReactionAddedEvent)
 	if !ok {
-		http.Error(w, "unexpected event data", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unexpected event data"})
 		return
 	}
 
 	if ev.Reaction != h.triggerEmoji {
-		w.WriteHeader(http.StatusOK)
+		c.Status(http.StatusOK)
 		return
 	}
+
 	input := usecase.TriggerIssueCreationInput{
 		ChannelID:     ev.Item.Channel,
 		ThreadTS:      ev.Item.Timestamp,
 		TriggerUserID: ev.User,
 		TriggerType:   "reaction",
 	}
-	if err := h.issueTrigger.Execute(r.Context(), input); err != nil {
+
+	if err := h.issueTrigger.Execute(c.Request.Context(), input); err != nil {
 		slog.Error("failed to trigger issue creation from reaction", slog.String("error", err.Error()))
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+
+	c.Status(http.StatusOK)
 }
 
-func (h *EventHandler) handleMessageAction(w http.ResponseWriter, r *http.Request, body []byte) {
+func (h *EventHandler) handleMessageAction(c *gin.Context, body []byte) {
 	var payload slackpkg.MessageActionPayload
 	if err := json.Unmarshal(body, &payload); err != nil {
-		http.Error(w, "invalid message action payload", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid message action payload"})
 		return
 	}
 
@@ -126,16 +123,19 @@ func (h *EventHandler) handleMessageAction(w http.ResponseWriter, r *http.Reques
 	if threadTS == "" {
 		threadTS = payload.Message.TS
 	}
+
 	input := usecase.TriggerIssueCreationInput{
 		ChannelID:     payload.Channel.ID,
 		ThreadTS:      threadTS,
 		TriggerUserID: payload.User.ID,
 		TriggerType:   "message_action",
 	}
-	if err := h.issueTrigger.Execute(r.Context(), input); err != nil {
+
+	if err := h.issueTrigger.Execute(c.Request.Context(), input); err != nil {
 		slog.Error("failed to trigger issue creation from message action", slog.String("error", err.Error()))
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+
+	c.Status(http.StatusOK)
 }

@@ -4,7 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/Asheze1127/progress-checker/backend/api/httputil"
+	"github.com/gin-gonic/gin"
+
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 )
 
@@ -16,63 +17,58 @@ func NewQuestionHandler(handleNewQuestionUC *usecase.HandleNewQuestionUseCase) *
 	return &QuestionHandler{handleNewQuestionUC: handleNewQuestionUC}
 }
 
-const (
-	slackCommandQuestion = "/question"
-	contentTypeJSON      = "application/json"
-)
+const slackCommandQuestion = "/question"
 
-func (h *QuestionHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "failed to parse form", http.StatusBadRequest)
-		return
-	}
-	command := r.FormValue("command")
+func (h *QuestionHandler) HandleWebhook(c *gin.Context) {
+	command := c.PostForm("command")
 	if command != slackCommandQuestion {
-		http.Error(w, "unsupported command", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported command"})
 		return
 	}
-	threadTS := r.FormValue("thread_ts")
+
+	threadTS := c.PostForm("thread_ts")
 	if threadTS != "" {
-		w.Header().Set("Content-Type", contentTypeJSON)
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"text":"Follow-up questions are not yet supported."}`))
+		c.JSON(http.StatusOK, gin.H{"text": "Follow-up questions are not yet supported."})
 		return
 	}
-	text := r.FormValue("text")
+
+	text := c.PostForm("text")
 	if text == "" {
-		http.Error(w, "question text is required", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "question text is required"})
 		return
 	}
-	userID := r.FormValue("user_id")
+
+	userID := c.PostForm("user_id")
 	if userID == "" {
-		http.Error(w, "user_id is required", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id is required"})
 		return
 	}
-	channelID := r.FormValue("channel_id")
+
+	channelID := c.PostForm("channel_id")
 	if channelID == "" {
-		http.Error(w, "channel_id is required", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "channel_id is required"})
 		return
 	}
+
 	input := usecase.HandleNewQuestionInput{
 		ParticipantID: userID, Title: truncateTitle(text), Text: text, SlackChannelID: channelID,
 	}
-	if err := h.handleNewQuestionUC.Execute(r.Context(), input); err != nil {
+
+	if err := h.handleNewQuestionUC.Execute(c.Request.Context(), input); err != nil {
 		slog.Error("failed to handle new question", slog.String("error", err.Error()))
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	httputil.WriteJSON(w, http.StatusOK, map[string]string{"text": "Your question has been received and is being processed."})
+
+	c.JSON(http.StatusOK, gin.H{"text": "Your question has been received and is being processed."})
 }
 
 const maxTitleLength = 100
 
 func truncateTitle(text string) string {
-	if len(text) <= maxTitleLength {
+	runes := []rune(text)
+	if len(runes) <= maxTitleLength {
 		return text
 	}
-	return text[:maxTitleLength] + "..."
+	return string(runes[:maxTitleLength]) + "..."
 }

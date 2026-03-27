@@ -2,9 +2,13 @@ package middleware
 
 import (
 	"context"
+	"crypto/subtle"
 	"net/http"
 	"strings"
 
+	"github.com/gin-gonic/gin"
+
+	"github.com/Asheze1127/progress-checker/backend/api/openapi"
 	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
@@ -15,37 +19,67 @@ type contextKey string
 // userContextKey is the context key for storing the authenticated user.
 const userContextKey contextKey = "authenticated_user"
 
-// AuthMiddleware creates an HTTP middleware that authenticates requests using
-// Bearer tokens in the Authorization header via JWT validation.
-func AuthMiddleware(jwtService *jwt.JWTService) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token := extractBearerToken(r)
-			if token == "" {
-				http.Error(w, `{"error":"missing or invalid authorization header"}`, http.StatusUnauthorized)
-				return
-			}
+// SecurityMiddleware returns an oapi-codegen MiddlewareFunc that dispatches
+// authentication based on OpenAPI security scopes set by the generated code.
+//   - BearerAuthScopes  → JWT Bearer token validation (mentor role required)
+//   - InternalTokenAuthScopes → X-Internal-Token header validation
+//   - Neither → pass through (public endpoint)
+func SecurityMiddleware(jwtService *jwt.JWTService, internalToken string) openapi.MiddlewareFunc {
+	if len(internalToken) < 32 {
+		panic("SecurityMiddleware: internalToken must be at least 32 bytes")
+	}
 
-			claims, err := jwtService.ValidateToken(token)
-			if err != nil {
-				http.Error(w, `{"error":"invalid or expired token"}`, http.StatusUnauthorized)
-				return
-			}
+	return func(c *gin.Context) {
+		if _, exists := c.Get(openapi.BearerAuthScopes); exists {
+			handleBearerAuth(c, jwtService)
+			return
+		}
 
-			if claims.UserRole != entities.UserRoleMentor {
-				http.Error(w, `{"error":"insufficient permissions: mentor role required"}`, http.StatusForbidden)
-				return
-			}
+		if _, exists := c.Get(openapi.InternalTokenAuthScopes); exists {
+			handleInternalTokenAuth(c, internalToken)
+			return
+		}
 
-			user := &entities.User{
-				ID:   claims.UserID,
-				Name: claims.UserName,
-				Role: claims.UserRole,
-			}
+		// No security scope set — route is public (e.g., /api/v1/auth/login).
+		// The generated code controls which scopes are set based on openapi.yml.
+	}
+}
 
-			ctx := context.WithValue(r.Context(), userContextKey, user)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
+// handleBearerAuth validates the JWT bearer token and stores the user in context.
+func handleBearerAuth(c *gin.Context, jwtService *jwt.JWTService) {
+	token := extractBearerToken(c.GetHeader("Authorization"))
+	if token == "" {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing or invalid authorization header"})
+		return
+	}
+
+	claims, err := jwtService.ValidateToken(token)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+
+	if claims.UserRole != entities.UserRoleMentor {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions: mentor role required"})
+		return
+	}
+
+	user := &entities.User{
+		ID:   claims.UserID,
+		Name: claims.UserName,
+		Role: claims.UserRole,
+	}
+
+	ctx := context.WithValue(c.Request.Context(), userContextKey, user)
+	c.Request = c.Request.WithContext(ctx)
+}
+
+// handleInternalTokenAuth validates the X-Internal-Token header.
+func handleInternalTokenAuth(c *gin.Context, expectedToken string) {
+	token := c.GetHeader("X-Internal-Token")
+	if subtle.ConstantTimeCompare([]byte(token), []byte(expectedToken)) != 1 {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
 	}
 }
 
@@ -59,10 +93,9 @@ func UserFromContext(ctx context.Context) *entities.User {
 	return user
 }
 
-// extractBearerToken extracts the token from the Authorization header.
-// Returns empty string if the header is missing or not in "Bearer <token>" format.
-func extractBearerToken(r *http.Request) string {
-	authHeader := r.Header.Get("Authorization")
+// extractBearerToken extracts the token from the Authorization header value.
+// Returns empty string if the value is not in "Bearer <token>" format.
+func extractBearerToken(authHeader string) string {
 	if authHeader == "" {
 		return ""
 	}
