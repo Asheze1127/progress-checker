@@ -15,6 +15,7 @@ import (
 
 	"github.com/Asheze1127/progress-checker/backend/api/middleware"
 	"github.com/Asheze1127/progress-checker/backend/api/rest"
+	"github.com/Asheze1127/progress-checker/backend/api/rest/handlers"
 	"github.com/Asheze1127/progress-checker/backend/api/webhook"
 	githubsvc "github.com/Asheze1127/progress-checker/backend/application/service/github"
 	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
@@ -203,11 +204,24 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		return webhook.NewQuestionHandler(uc), nil
 	})
 
-	do.Provide(injector, func(i do.Injector) (*rest.StrictHandler, error) {
-		loginUC := do.MustInvoke[*usecase.LoginUseCase](i)
-		listProgressUC := do.MustInvoke[*usecase.ListProgressUseCase](i)
-		ghService := do.MustInvoke[*githubsvc.GitHubService](i)
-		return rest.NewStrictHandler(loginUC, listProgressUC, ghService), nil
+	do.Provide(injector, func(i do.Injector) (*handlers.AuthHandler, error) {
+		uc := do.MustInvoke[*usecase.LoginUseCase](i)
+		return handlers.NewAuthHandler(uc), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*handlers.ProgressHandler, error) {
+		uc := do.MustInvoke[*usecase.ListProgressUseCase](i)
+		return handlers.NewProgressHandler(uc), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*handlers.GitHubHandler, error) {
+		svc := do.MustInvoke[*githubsvc.GitHubService](i)
+		return handlers.NewGitHubHandler(svc), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*handlers.InternalHandler, error) {
+		svc := do.MustInvoke[*githubsvc.GitHubService](i)
+		return handlers.NewInternalHandler(svc), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*webhook.EventHandler, error) {
@@ -224,9 +238,13 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 
 	// --- Router ---
 	do.Provide(injector, func(i do.Injector) (http.Handler, error) {
+		authHandler := do.MustInvoke[*handlers.AuthHandler](i)
+		progressHandler := do.MustInvoke[*handlers.ProgressHandler](i)
+		githubHandler := do.MustInvoke[*handlers.GitHubHandler](i)
+		internalHandler := do.MustInvoke[*handlers.InternalHandler](i)
+
 		webhookHandler := do.MustInvoke[*webhook.WebhookHandler](i)
 		questionHandler := do.MustInvoke[*webhook.QuestionHandler](i)
-		strictHandler := do.MustInvoke[*rest.StrictHandler](i)
 		eventHandler := do.MustInvoke[*webhook.EventHandler](i)
 		interactionHandler := do.MustInvoke[*webhook.InteractionHandler](i)
 
@@ -241,9 +259,12 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		}
 
 		return rest.NewRouter(
+			authHandler,
+			progressHandler,
+			githubHandler,
+			internalHandler,
 			webhookHandler,
 			questionHandler,
-			strictHandler,
 			eventHandler,
 			interactionHandler,
 			middleware.AuthMiddleware(jwtService),
