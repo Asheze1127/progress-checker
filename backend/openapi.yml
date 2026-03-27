@@ -1,0 +1,366 @@
+openapi: "3.0.3"
+info:
+  title: Progress Checker API
+  version: "1.0.0"
+paths:
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      summary: Authenticate user and get JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not a mentor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/progress:
+    get:
+      operationId: listProgress
+      summary: List latest progress by team
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: team_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Progress list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgressListResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/teams/{teamId}/github-repos:
+    post:
+      operationId: registerRepository
+      summary: Register a GitHub repository for a team
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRepoRequest'
+      responses:
+        '201':
+          description: Repository registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      operationId: listRepositories
+      summary: List GitHub repositories for a team
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Repository list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListReposResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/teams/{teamId}/github-repos/{repoId}:
+    delete:
+      operationId: removeRepository
+      summary: Remove a GitHub repository
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repoId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Repository removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/teams/{teamId}/github-repos/{repoId}/token:
+    put:
+      operationId: updateToken
+      summary: Update GitHub repository token
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repoId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTokenRequest'
+      responses:
+        '200':
+          description: Token updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /internal/issues:
+    post:
+      operationId: createIssue
+      summary: Create a GitHub issue (internal)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIssueRequest'
+      responses:
+        '201':
+          description: Issue created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateIssueResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserResponse'
+
+    UserResponse:
+      type: object
+      required: [id, name, role]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+
+    ProgressListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamProgressResponse'
+
+    TeamProgressResponse:
+      type: object
+      required: [team_id, team_name]
+      properties:
+        team_id:
+          type: string
+        team_name:
+          type: string
+        latest_progress:
+          $ref: '#/components/schemas/LatestProgressResponse'
+
+    LatestProgressResponse:
+      type: object
+      required: [id, participant_id, progress_bodies]
+      properties:
+        id:
+          type: string
+        participant_id:
+          type: string
+        progress_bodies:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProgressBodyResponse'
+
+    ProgressBodyResponse:
+      type: object
+      required: [phase, sos, comment, submitted_at]
+      properties:
+        phase:
+          type: string
+        sos:
+          type: boolean
+        comment:
+          type: string
+        submitted_at:
+          type: string
+          format: date-time
+
+    RegisterRepoRequest:
+      type: object
+      required: [github_repo_url, personal_access_token]
+      properties:
+        github_repo_url:
+          type: string
+        personal_access_token:
+          type: string
+
+    ListReposResponse:
+      type: object
+      required: [repos]
+      properties:
+        repos:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepoItem'
+
+    RepoItem:
+      type: object
+      required: [id, owner, repo_name]
+      properties:
+        id:
+          type: string
+        owner:
+          type: string
+        repo_name:
+          type: string
+
+    UpdateTokenRequest:
+      type: object
+      required: [personal_access_token]
+      properties:
+        personal_access_token:
+          type: string
+
+    CreateIssueRequest:
+      type: object
+      required: [channel_id, title, body]
+      properties:
+        channel_id:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+
+    CreateIssueResponse:
+      type: object
+      required: [issue_url]
+      properties:
+        issue_url:
+          type: string
