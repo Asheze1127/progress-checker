@@ -18,7 +18,11 @@ type Config struct {
 	SlackSigningSecret   string `envconfig:"SLACK_SIGNING_SECRET" required:"true"`
 	JWTSecret            string `envconfig:"JWT_SECRET" required:"true"`
 	EncryptionKey        string `envconfig:"ENCRYPTION_KEY" required:"true"`
-	GitHubAPIBaseURL     string `envconfig:"GITHUB_API_BASE_URL" default:"https://api.github.com"`
+	GitHubAPIBaseURL          string `envconfig:"GITHUB_API_BASE_URL"`
+	GitHubToken               string `envconfig:"GITHUB_TOKEN"`
+	GitHubAppID               string `envconfig:"GITHUB_APP_ID"`
+	GitHubAppInstallationID   int64  `envconfig:"GITHUB_APP_INSTALLATION_ID"`
+	GitHubAppPrivateKeyPEM    string `envconfig:"GITHUB_APP_PRIVATE_KEY_PEM"`
 	DatabaseSSLMode      string `envconfig:"DATABASE_SSL_MODE" default:"require"`
 	InternalToken        string `envconfig:"INTERNAL_TOKEN" required:"true"`
 	IssueTriggerEmoji    string `envconfig:"ISSUE_TRIGGER_EMOJI" default:"ticket"`
