@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Asheze1127/progress-checker/backend/entities"
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/application/service"
+	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
 // EscalateQuestionUseCase sets a question status to assigned_mentor and
@@ -15,12 +17,14 @@ type EscalateQuestionUseCase struct {
 	slackNotifier service.SlackNotifier
 }
 
-// NewEscalateQuestionUseCase creates a new EscalateQuestionUseCase.
-func NewEscalateQuestionUseCase(repo entities.QuestionRepository, notifier service.SlackNotifier) *EscalateQuestionUseCase {
+// NewEscalateQuestionUseCase creates a new EscalateQuestionUseCase via DI container.
+func NewEscalateQuestionUseCase(i do.Injector) (*EscalateQuestionUseCase, error) {
+	repo := do.MustInvoke[entities.QuestionRepository](i)
+	notifier := do.MustInvoke[service.SlackNotifier](i)
 	return &EscalateQuestionUseCase{
 		questionRepo:  repo,
 		slackNotifier: notifier,
-	}
+	}, nil
 }
 
 // Execute escalates the given question to a mentor. It is idempotent: if the

@@ -96,7 +96,7 @@ func (m *mockGitHubIssueCreator) CreateIssue(_ context.Context, _, _, _, _, _ st
 
 func newTestService(repo *mockGitHubRepoRepository, ghClient *mockGitHubIssueCreator) *service.GitHubService {
 	idCounter := 0
-	return service.NewGitHubService(
+	return service.NewGitHubServiceForTest(
 		repo,
 		&mockEncryptor{},
 		ghClient,

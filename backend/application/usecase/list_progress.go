@@ -3,6 +3,8 @@ package usecase
 import (
 	"context"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
@@ -12,9 +14,10 @@ type ListProgressUseCase struct {
 	repo entities.ProgressQueryRepository
 }
 
-// NewListProgressUseCase creates a new ListProgressUseCase.
-func NewListProgressUseCase(repo entities.ProgressQueryRepository) *ListProgressUseCase {
-	return &ListProgressUseCase{repo: repo}
+// NewListProgressUseCase creates a new ListProgressUseCase via DI container.
+func NewListProgressUseCase(i do.Injector) (*ListProgressUseCase, error) {
+	repo := do.MustInvoke[entities.ProgressQueryRepository](i)
+	return &ListProgressUseCase{repo: repo}, nil
 }
 
 // Execute returns the latest progress for all teams, or for a specific team

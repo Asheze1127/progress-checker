@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
@@ -15,11 +17,12 @@ type WebhookHandler struct {
 	progressUseCase *usecase.HandleProgressUseCase
 }
 
-// NewWebhookHandler creates a new WebhookHandler with the given dependencies.
-func NewWebhookHandler(progressUseCase *usecase.HandleProgressUseCase) *WebhookHandler {
+// NewWebhookHandler creates a new WebhookHandler via DI container.
+func NewWebhookHandler(i do.Injector) (*WebhookHandler, error) {
+	progressUseCase := do.MustInvoke[*usecase.HandleProgressUseCase](i)
 	return &WebhookHandler{
 		progressUseCase: progressUseCase,
-	}
+	}, nil
 }
 
 // HandleWebhook processes incoming POST /webhook/slack requests.

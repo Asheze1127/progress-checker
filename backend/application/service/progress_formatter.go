@@ -3,15 +3,17 @@ package service
 import (
 	"fmt"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
 // ProgressFormatter formats progress data into Slack message text.
 type ProgressFormatter struct{}
 
-// NewProgressFormatter creates a new ProgressFormatter.
-func NewProgressFormatter() *ProgressFormatter {
-	return &ProgressFormatter{}
+// NewProgressFormatter creates a new ProgressFormatter via DI container.
+func NewProgressFormatter(_ do.Injector) (*ProgressFormatter, error) {
+	return &ProgressFormatter{}, nil
 }
 
 // FormatSlackMessage builds a Slack message string from a progress log and team ID.

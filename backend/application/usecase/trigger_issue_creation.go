@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/application/port"
 	"github.com/Asheze1127/progress-checker/backend/application/service"
 	"github.com/Asheze1127/progress-checker/backend/pkg/slack"
@@ -59,15 +61,14 @@ type TriggerIssueCreationUseCase struct {
 	queue         port.MessageQueue
 }
 
-// NewTriggerIssueCreationUseCase creates a new TriggerIssueCreationUseCase.
-func NewTriggerIssueCreationUseCase(
-	fetcher service.SlackThreadFetcher,
-	queue port.MessageQueue,
-) *TriggerIssueCreationUseCase {
+// NewTriggerIssueCreationUseCase creates a new TriggerIssueCreationUseCase via DI container.
+func NewTriggerIssueCreationUseCase(i do.Injector) (*TriggerIssueCreationUseCase, error) {
+	fetcher := do.MustInvoke[service.SlackThreadFetcher](i)
+	queue := do.MustInvoke[port.MessageQueue](i)
 	return &TriggerIssueCreationUseCase{
 		threadFetcher: fetcher,
 		queue:         queue,
-	}
+	}, nil
 }
 
 // Execute validates input, fetches thread history, and enqueues to the issue queue.

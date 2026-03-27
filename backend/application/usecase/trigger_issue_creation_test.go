@@ -121,7 +121,7 @@ func TestExecute_Success(t *testing.T) {
 
 	fetcher := &stubThreadFetcher{messages: threadMessages}
 	queue := &spyMessageQueue{}
-	uc := NewTriggerIssueCreationUseCase(fetcher, queue)
+	uc := &TriggerIssueCreationUseCase{threadFetcher: fetcher, queue: queue}
 
 	input := TriggerIssueCreationInput{
 		ChannelID:     "C123",
@@ -169,7 +169,7 @@ func TestExecute_InvalidInput(t *testing.T) {
 
 	fetcher := &stubThreadFetcher{}
 	queue := &spyMessageQueue{}
-	uc := NewTriggerIssueCreationUseCase(fetcher, queue)
+	uc := &TriggerIssueCreationUseCase{threadFetcher: fetcher, queue: queue}
 
 	input := TriggerIssueCreationInput{
 		ChannelID: "",
@@ -187,7 +187,7 @@ func TestExecute_FetchError(t *testing.T) {
 
 	fetcher := &stubThreadFetcher{err: context.DeadlineExceeded}
 	queue := &spyMessageQueue{}
-	uc := NewTriggerIssueCreationUseCase(fetcher, queue)
+	uc := &TriggerIssueCreationUseCase{threadFetcher: fetcher, queue: queue}
 
 	input := TriggerIssueCreationInput{
 		ChannelID:     "C123",
@@ -207,7 +207,7 @@ func TestExecute_PublishError(t *testing.T) {
 
 	fetcher := &stubThreadFetcher{messages: []slack.ThreadMessage{}}
 	queue := &spyMessageQueue{err: context.DeadlineExceeded}
-	uc := NewTriggerIssueCreationUseCase(fetcher, queue)
+	uc := &TriggerIssueCreationUseCase{threadFetcher: fetcher, queue: queue}
 
 	input := TriggerIssueCreationInput{
 		ChannelID:     "C123",

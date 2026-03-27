@@ -6,6 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/application/port"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
@@ -18,20 +21,17 @@ type GitHubService struct {
 	idProvider func() string
 }
 
-// NewGitHubService creates a new GitHubService.
-// idProvider generates unique IDs for new GitHubRepo entities.
-func NewGitHubService(
-	repo port.GitHubRepoRepository,
-	encryptor port.TokenEncryptor,
-	ghClient port.GitHubIssueCreator,
-	idProvider func() string,
-) *GitHubService {
+// NewGitHubService creates a new GitHubService via DI container.
+func NewGitHubService(i do.Injector) (*GitHubService, error) {
+	repo := do.MustInvoke[port.GitHubRepoRepository](i)
+	encryptor := do.MustInvoke[port.TokenEncryptor](i)
+	ghClient := do.MustInvoke[port.GitHubIssueCreator](i)
 	return &GitHubService{
 		repo:       repo,
 		encryptor:  encryptor,
 		ghClient:   ghClient,
-		idProvider: idProvider,
-	}
+		idProvider: func() string { return uuid.New().String() },
+	}, nil
 }
 
 // RegisterRepository registers a GitHub repository for a team.

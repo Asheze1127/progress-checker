@@ -35,9 +35,8 @@ func (m *mockSlackClient) PostMessage(_ context.Context, channelID string, text 
 }
 
 func newTestUseCase(repo entities.ProgressRepository, slackClient service.SlackClient) *HandleProgressUseCase {
-	formatter := service.NewProgressFormatter()
-	poster := service.NewSlackPoster(slackClient, formatter)
-	return NewHandleProgressUseCase(repo, poster)
+	poster := service.NewSlackPosterForTest(slackClient)
+	return &HandleProgressUseCase{repo: repo, poster: poster}
 }
 
 func TestHandleProgressUseCaseExecute(t *testing.T) {

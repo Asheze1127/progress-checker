@@ -55,17 +55,17 @@ func (m *testMessageQueue) Send(_ context.Context, _ string, _ []byte) error {
 func newTestHandler(queueErr error) *QuestionHandler {
 	repo := &testQuestionRepository{}
 	queue := &testMessageQueue{sendErr: queueErr}
-	sender := service.NewQuestionSender(queue)
-	uc := usecase.NewHandleNewQuestionUseCase(repo, sender)
-	return NewQuestionHandler(uc)
+	sender := service.NewQuestionSenderForTest(queue)
+	uc := usecase.NewHandleNewQuestionUseCaseForTest(repo, sender)
+	return &QuestionHandler{handleNewQuestionUC: uc}
 }
 
 func newTestHandlerWithFailingRepo() *QuestionHandler {
 	repo := &testQuestionRepository{saveErr: errors.New("database error")}
 	queue := &testMessageQueue{}
-	sender := service.NewQuestionSender(queue)
-	uc := usecase.NewHandleNewQuestionUseCase(repo, sender)
-	return NewQuestionHandler(uc)
+	sender := service.NewQuestionSenderForTest(queue)
+	uc := usecase.NewHandleNewQuestionUseCaseForTest(repo, sender)
+	return &QuestionHandler{handleNewQuestionUC: uc}
 }
 
 func makeSlackForm(command, text, userID, channelID, threadTS string) string {

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/application/port"
 )
 
@@ -26,9 +28,10 @@ type QuestionSender struct {
 	queue port.MessageQueue
 }
 
-// NewQuestionSender creates a new QuestionSender with the given message queue.
-func NewQuestionSender(queue port.MessageQueue) *QuestionSender {
-	return &QuestionSender{queue: queue}
+// NewQuestionSender creates a new QuestionSender via DI container.
+func NewQuestionSender(i do.Injector) (*QuestionSender, error) {
+	queue := do.MustInvoke[port.MessageQueue](i)
+	return &QuestionSender{queue: queue}, nil
 }
 
 // SendNewQuestion sends a new question message to the SQS queue.

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
@@ -12,9 +14,10 @@ type ResolveQuestionUseCase struct {
 	questionRepo entities.QuestionRepository
 }
 
-// NewResolveQuestionUseCase creates a new ResolveQuestionUseCase.
-func NewResolveQuestionUseCase(repo entities.QuestionRepository) *ResolveQuestionUseCase {
-	return &ResolveQuestionUseCase{questionRepo: repo}
+// NewResolveQuestionUseCase creates a new ResolveQuestionUseCase via DI container.
+func NewResolveQuestionUseCase(i do.Injector) (*ResolveQuestionUseCase, error) {
+	repo := do.MustInvoke[entities.QuestionRepository](i)
+	return &ResolveQuestionUseCase{questionRepo: repo}, nil
 }
 
 // Execute marks the given question as resolved. It is idempotent: if the

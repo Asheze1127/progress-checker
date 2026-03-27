@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 )
 
@@ -12,9 +14,10 @@ type QuestionHandler struct {
 	handleNewQuestionUC *usecase.HandleNewQuestionUseCase
 }
 
-// NewQuestionHandler creates a new QuestionHandler with the given use case.
-func NewQuestionHandler(handleNewQuestionUC *usecase.HandleNewQuestionUseCase) *QuestionHandler {
-	return &QuestionHandler{handleNewQuestionUC: handleNewQuestionUC}
+// NewQuestionHandler creates a new QuestionHandler via DI container.
+func NewQuestionHandler(i do.Injector) (*QuestionHandler, error) {
+	handleNewQuestionUC := do.MustInvoke[*usecase.HandleNewQuestionUseCase](i)
+	return &QuestionHandler{handleNewQuestionUC: handleNewQuestionUC}, nil
 }
 
 const (

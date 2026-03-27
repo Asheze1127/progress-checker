@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/samber/do/v2"
+
 	ghsvc "github.com/Asheze1127/progress-checker/backend/application/service"
 )
 
@@ -13,9 +15,10 @@ type GitHubHandler struct {
 	service *ghsvc.GitHubService
 }
 
-// NewGitHubHandler creates a new GitHubHandler.
-func NewGitHubHandler(service *ghsvc.GitHubService) *GitHubHandler {
-	return &GitHubHandler{service: service}
+// NewGitHubHandler creates a new GitHubHandler via DI container.
+func NewGitHubHandler(i do.Injector) (*GitHubHandler, error) {
+	svc := do.MustInvoke[*ghsvc.GitHubService](i)
+	return &GitHubHandler{service: svc}, nil
 }
 
 type registerRepoRequest struct {

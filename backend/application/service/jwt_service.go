@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/entities"
+	"github.com/Asheze1127/progress-checker/backend/util"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -28,8 +31,15 @@ type JWTService struct {
 	now    func() time.Time
 }
 
-// NewJWTService creates a new JWTService with the given secret.
-func NewJWTService(secret string) *JWTService {
+// NewJWTService creates a new JWTService via DI container.
+// It reads the JWT secret from the Config registered in the injector.
+func NewJWTService(i do.Injector) (*JWTService, error) {
+	cfg := do.MustInvoke[*util.Config](i)
+	return newJWTService(cfg.JWTSecret), nil
+}
+
+// newJWTService creates a JWTService with the given secret string.
+func newJWTService(secret string) *JWTService {
 	return &JWTService{
 		secret: []byte(secret),
 		now:    time.Now,

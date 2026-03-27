@@ -7,8 +7,11 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	slackpkg "github.com/Asheze1127/progress-checker/backend/pkg/slack"
+	"github.com/Asheze1127/progress-checker/backend/util"
 	"github.com/slack-go/slack/slackevents"
 )
 
@@ -23,12 +26,14 @@ type EventHandler struct {
 	issueTrigger IssueTrigger
 }
 
-// NewEventHandler creates a new EventHandler with the configured trigger emoji.
-func NewEventHandler(issueTrigger IssueTrigger, triggerEmoji string) *EventHandler {
+// NewEventHandler creates a new EventHandler via DI container.
+func NewEventHandler(i do.Injector) (*EventHandler, error) {
+	issueTrigger := do.MustInvoke[*usecase.TriggerIssueCreationUseCase](i)
+	cfg := do.MustInvoke[*util.Config](i)
 	return &EventHandler{
-		triggerEmoji: triggerEmoji,
+		triggerEmoji: cfg.IssueTriggerEmoji,
 		issueTrigger: issueTrigger,
-	}
+	}, nil
 }
 
 // HandleSlackEvents is the HTTP handler for POST /webhook/slack/events.

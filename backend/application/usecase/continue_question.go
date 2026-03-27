@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
@@ -13,9 +15,10 @@ type ContinueQuestionUseCase struct {
 	questionRepo entities.QuestionRepository
 }
 
-// NewContinueQuestionUseCase creates a new ContinueQuestionUseCase.
-func NewContinueQuestionUseCase(repo entities.QuestionRepository) *ContinueQuestionUseCase {
-	return &ContinueQuestionUseCase{questionRepo: repo}
+// NewContinueQuestionUseCase creates a new ContinueQuestionUseCase via DI container.
+func NewContinueQuestionUseCase(i do.Injector) (*ContinueQuestionUseCase, error) {
+	repo := do.MustInvoke[entities.QuestionRepository](i)
+	return &ContinueQuestionUseCase{questionRepo: repo}, nil
 }
 
 // Execute sets the given question to in_progress. It is idempotent: if the

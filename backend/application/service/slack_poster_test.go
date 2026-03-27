@@ -95,8 +95,8 @@ func TestSlackPosterPostProgress(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := &mockSlackClient{err: tt.slackErr}
-			formatter := NewProgressFormatter()
-			poster := NewSlackPoster(client, formatter)
+			formatter := &ProgressFormatter{}
+			poster := &SlackPoster{client: client, formatter: formatter}
 
 			err := poster.PostProgress(context.Background(), tt.channelID, tt.teamID, tt.log)
 
@@ -128,7 +128,7 @@ func TestSlackPosterPostProgress(t *testing.T) {
 }
 
 func TestProgressFormatterFormatSlackMessage(t *testing.T) {
-	formatter := NewProgressFormatter()
+	formatter := &ProgressFormatter{}
 
 	t.Run("formats message without SOS", func(t *testing.T) {
 		log := &entities.ProgressLog{

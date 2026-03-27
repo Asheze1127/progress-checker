@@ -39,7 +39,7 @@ func (m *mockUserRepository) GetBySlackUserID(_ context.Context, _ entities.Slac
 
 func hashPassword(t *testing.T, password string) string {
 	t.Helper()
-	hasher := service.NewPasswordHasher()
+	hasher := service.NewPasswordHasherForTest()
 	hash, err := hasher.Hash(password)
 	if err != nil {
 		t.Fatalf("failed to hash password: %v", err)
@@ -48,9 +48,9 @@ func hashPassword(t *testing.T, password string) string {
 }
 
 func newTestLoginUseCase(userRepo entities.UserRepository) *LoginUseCase {
-	jwtSvc := service.NewJWTService("test-secret-key-for-testing-only")
-	hasher := service.NewPasswordHasher()
-	return NewLoginUseCase(userRepo, jwtSvc, hasher)
+	jwtSvc := service.NewJWTServiceForTest("test-secret-key-for-testing-only")
+	hasher := service.NewPasswordHasherForTest()
+	return &LoginUseCase{userRepo: userRepo, jwt: jwtSvc, hasher: hasher}
 }
 
 func TestLoginUseCase_Execute_Success(t *testing.T) {

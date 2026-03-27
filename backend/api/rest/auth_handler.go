@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
@@ -15,9 +17,10 @@ type AuthHandler struct {
 	loginUseCase *usecase.LoginUseCase
 }
 
-// NewAuthHandler creates a new AuthHandler with the given login use case.
-func NewAuthHandler(loginUseCase *usecase.LoginUseCase) *AuthHandler {
-	return &AuthHandler{loginUseCase: loginUseCase}
+// NewAuthHandler creates a new AuthHandler via DI container.
+func NewAuthHandler(i do.Injector) (*AuthHandler, error) {
+	loginUseCase := do.MustInvoke[*usecase.LoginUseCase](i)
+	return &AuthHandler{loginUseCase: loginUseCase}, nil
 }
 
 // loginRequest represents the JSON body of a login request.

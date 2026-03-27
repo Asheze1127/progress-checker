@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/application/service"
 	"github.com/Asheze1127/progress-checker/backend/entities"
-	"github.com/google/uuid"
 )
 
 // HandleProgressInput represents the input for the handle progress use case.
@@ -27,12 +29,14 @@ type HandleProgressUseCase struct {
 	poster *service.SlackPoster
 }
 
-// NewHandleProgressUseCase creates a new HandleProgressUseCase with the given dependencies.
-func NewHandleProgressUseCase(repo entities.ProgressRepository, poster *service.SlackPoster) *HandleProgressUseCase {
+// NewHandleProgressUseCase creates a new HandleProgressUseCase via DI container.
+func NewHandleProgressUseCase(i do.Injector) (*HandleProgressUseCase, error) {
+	repo := do.MustInvoke[entities.ProgressRepository](i)
+	poster := do.MustInvoke[*service.SlackPoster](i)
 	return &HandleProgressUseCase{
 		repo:   repo,
 		poster: poster,
-	}
+	}, nil
 }
 
 // Execute runs the handle progress use case.

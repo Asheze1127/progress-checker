@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
@@ -18,12 +20,14 @@ type SlackPoster struct {
 	formatter *ProgressFormatter
 }
 
-// NewSlackPoster creates a new SlackPoster with the given Slack client and formatter.
-func NewSlackPoster(client SlackClient, formatter *ProgressFormatter) *SlackPoster {
+// NewSlackPoster creates a new SlackPoster via DI container.
+func NewSlackPoster(i do.Injector) (*SlackPoster, error) {
+	client := do.MustInvoke[SlackClient](i)
+	formatter := do.MustInvoke[*ProgressFormatter](i)
 	return &SlackPoster{
 		client:    client,
 		formatter: formatter,
-	}
+	}, nil
 }
 
 // PostProgress formats a progress log and posts it to the specified Slack channel.

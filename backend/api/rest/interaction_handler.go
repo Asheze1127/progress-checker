@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 	slackpkg "github.com/Asheze1127/progress-checker/backend/pkg/slack"
@@ -18,17 +20,16 @@ type InteractionHandler struct {
 	escalateQuestion *usecase.EscalateQuestionUseCase
 }
 
-// NewInteractionHandler creates a new InteractionHandler.
-func NewInteractionHandler(
-	resolve *usecase.ResolveQuestionUseCase,
-	cont *usecase.ContinueQuestionUseCase,
-	escalate *usecase.EscalateQuestionUseCase,
-) *InteractionHandler {
+// NewInteractionHandler creates a new InteractionHandler via DI container.
+func NewInteractionHandler(i do.Injector) (*InteractionHandler, error) {
+	resolve := do.MustInvoke[*usecase.ResolveQuestionUseCase](i)
+	cont := do.MustInvoke[*usecase.ContinueQuestionUseCase](i)
+	escalate := do.MustInvoke[*usecase.EscalateQuestionUseCase](i)
 	return &InteractionHandler{
 		resolveQuestion:  resolve,
 		continueQuestion: cont,
 		escalateQuestion: escalate,
-	}
+	}, nil
 }
 
 // HandleInteraction is the HTTP handler for POST /webhook/slack/interactions.

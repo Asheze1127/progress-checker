@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/samber/do/v2"
+
 	ghsvc "github.com/Asheze1127/progress-checker/backend/application/service"
 )
 
@@ -13,9 +15,10 @@ type InternalHandler struct {
 	service *ghsvc.GitHubService
 }
 
-// NewInternalHandler creates a new InternalHandler.
-func NewInternalHandler(service *ghsvc.GitHubService) *InternalHandler {
-	return &InternalHandler{service: service}
+// NewInternalHandler creates a new InternalHandler via DI container.
+func NewInternalHandler(i do.Injector) (*InternalHandler, error) {
+	svc := do.MustInvoke[*ghsvc.GitHubService](i)
+	return &InternalHandler{service: svc}, nil
 }
 
 type createIssueRequest struct {

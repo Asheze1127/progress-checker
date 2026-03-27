@@ -3,7 +3,7 @@ package service
 import "testing"
 
 func TestPasswordHasher_HashAndVerify(t *testing.T) {
-	hasher := NewPasswordHasher()
+	hasher := &PasswordHasher{}
 
 	hash, err := hasher.Hash("my-password")
 	if err != nil {
@@ -25,7 +25,7 @@ func TestPasswordHasher_HashAndVerify(t *testing.T) {
 }
 
 func TestPasswordHasher_Verify_WrongPassword(t *testing.T) {
-	hasher := NewPasswordHasher()
+	hasher := &PasswordHasher{}
 
 	hash, err := hasher.Hash("correct-password")
 	if err != nil {
@@ -39,7 +39,7 @@ func TestPasswordHasher_Verify_WrongPassword(t *testing.T) {
 }
 
 func TestPasswordHasher_Hash_DifferentResultsForSameInput(t *testing.T) {
-	hasher := NewPasswordHasher()
+	hasher := &PasswordHasher{}
 
 	hash1, _ := hasher.Hash("same-password")
 	hash2, _ := hasher.Hash("same-password")

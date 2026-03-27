@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/application/service"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
@@ -28,17 +30,16 @@ type LoginUseCase struct {
 	hasher   *service.PasswordHasher
 }
 
-// NewLoginUseCase creates a new LoginUseCase with the given dependencies.
-func NewLoginUseCase(
-	userRepo entities.UserRepository,
-	jwt *service.JWTService,
-	hasher *service.PasswordHasher,
-) *LoginUseCase {
+// NewLoginUseCase creates a new LoginUseCase via DI container.
+func NewLoginUseCase(i do.Injector) (*LoginUseCase, error) {
+	userRepo := do.MustInvoke[entities.UserRepository](i)
+	jwt := do.MustInvoke[*service.JWTService](i)
+	hasher := do.MustInvoke[*service.PasswordHasher](i)
 	return &LoginUseCase{
 		userRepo: userRepo,
 		jwt:      jwt,
 		hasher:   hasher,
-	}
+	}, nil
 }
 
 // Execute authenticates a user by email and password, verifies mentor role,

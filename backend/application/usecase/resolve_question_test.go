@@ -10,7 +10,7 @@ import (
 
 func TestResolveQuestion(t *testing.T) {
 	repo := &stubQuestionRepo{question: newTestQuestion(entities.QuestionStatusOpen)}
-	uc := NewResolveQuestionUseCase(repo)
+	uc := &ResolveQuestionUseCase{questionRepo: repo}
 
 	err := uc.Execute(context.Background(), "q-1")
 	if err != nil {
@@ -23,7 +23,7 @@ func TestResolveQuestion(t *testing.T) {
 
 func TestResolveQuestionIdempotent(t *testing.T) {
 	repo := &stubQuestionRepo{question: newTestQuestion(entities.QuestionStatusResolved)}
-	uc := NewResolveQuestionUseCase(repo)
+	uc := &ResolveQuestionUseCase{questionRepo: repo}
 
 	err := uc.Execute(context.Background(), "q-1")
 	if err != nil {
@@ -36,7 +36,7 @@ func TestResolveQuestionIdempotent(t *testing.T) {
 
 func TestResolveQuestionFindError(t *testing.T) {
 	repo := &stubQuestionRepo{findErr: errors.New("not found")}
-	uc := NewResolveQuestionUseCase(repo)
+	uc := &ResolveQuestionUseCase{questionRepo: repo}
 
 	err := uc.Execute(context.Background(), "q-1")
 	if err == nil {
@@ -49,7 +49,7 @@ func TestResolveQuestionUpdateError(t *testing.T) {
 		question:  newTestQuestion(entities.QuestionStatusOpen),
 		updateErr: errors.New("db error"),
 	}
-	uc := NewResolveQuestionUseCase(repo)
+	uc := &ResolveQuestionUseCase{questionRepo: repo}
 
 	err := uc.Execute(context.Background(), "q-1")
 	if err == nil {

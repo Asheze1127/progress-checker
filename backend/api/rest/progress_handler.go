@@ -3,10 +3,14 @@ package rest
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/samber/do/v2"
 
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/entities"
+	"github.com/Asheze1127/progress-checker/backend/util"
 )
 
 // progressBodyResponse is the JSON representation of a progress body.
@@ -42,12 +46,18 @@ type ProgressHandler struct {
 	allowedOrigins []string
 }
 
-// NewProgressHandler creates a new ProgressHandler.
-func NewProgressHandler(listProgressUC *usecase.ListProgressUseCase, allowedOrigins []string) *ProgressHandler {
+// NewProgressHandler creates a new ProgressHandler via DI container.
+func NewProgressHandler(i do.Injector) (*ProgressHandler, error) {
+	listProgressUC := do.MustInvoke[*usecase.ListProgressUseCase](i)
+	cfg := do.MustInvoke[*util.Config](i)
+	var corsOrigins []string
+	if cfg.CORSAllowedOrigin != "" {
+		corsOrigins = strings.Split(cfg.CORSAllowedOrigin, ",")
+	}
 	return &ProgressHandler{
 		listProgressUC: listProgressUC,
-		allowedOrigins: allowedOrigins,
-	}
+		allowedOrigins: corsOrigins,
+	}, nil
 }
 
 // HandleListProgress handles GET /api/v1/progress requests.

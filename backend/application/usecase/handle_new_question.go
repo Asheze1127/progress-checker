@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
+	"github.com/samber/do/v2"
+
 	"github.com/Asheze1127/progress-checker/backend/application/service"
 	"github.com/Asheze1127/progress-checker/backend/entities"
-	"github.com/google/uuid"
 )
 
 // HandleNewQuestionInput contains the input data for creating a new question.
@@ -24,12 +26,14 @@ type HandleNewQuestionUseCase struct {
 	sender *service.QuestionSender
 }
 
-// NewHandleNewQuestionUseCase creates a new HandleNewQuestionUseCase.
-func NewHandleNewQuestionUseCase(repo entities.QuestionRepository, sender *service.QuestionSender) *HandleNewQuestionUseCase {
+// NewHandleNewQuestionUseCase creates a new HandleNewQuestionUseCase via DI container.
+func NewHandleNewQuestionUseCase(i do.Injector) (*HandleNewQuestionUseCase, error) {
+	repo := do.MustInvoke[entities.QuestionRepository](i)
+	sender := do.MustInvoke[*service.QuestionSender](i)
 	return &HandleNewQuestionUseCase{
 		repo:   repo,
 		sender: sender,
-	}
+	}, nil
 }
 
 // Execute creates a new question, saves it to the database, and enqueues it for processing.

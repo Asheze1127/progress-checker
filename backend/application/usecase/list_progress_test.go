@@ -103,7 +103,7 @@ func TestListProgressUseCase_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uc := NewListProgressUseCase(tt.mockRepo)
+			uc := &ListProgressUseCase{repo: tt.mockRepo}
 			results, err := uc.Execute(context.Background(), tt.teamID)
 
 			if tt.expectedError && err == nil {

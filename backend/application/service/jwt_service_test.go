@@ -8,7 +8,7 @@ import (
 )
 
 func TestJWTService_GenerateAndValidateToken(t *testing.T) {
-	svc := NewJWTService("test-secret")
+	svc := newJWTService("test-secret")
 
 	user := &entities.User{
 		ID:   "user-1",
@@ -44,7 +44,7 @@ func TestJWTService_GenerateAndValidateToken(t *testing.T) {
 }
 
 func TestJWTService_ValidateToken_InvalidToken(t *testing.T) {
-	svc := NewJWTService("test-secret")
+	svc := newJWTService("test-secret")
 
 	_, err := svc.ValidateToken("not-a-valid-token")
 	if err == nil {
@@ -53,8 +53,8 @@ func TestJWTService_ValidateToken_InvalidToken(t *testing.T) {
 }
 
 func TestJWTService_ValidateToken_WrongSecret(t *testing.T) {
-	svc1 := NewJWTService("secret-one")
-	svc2 := NewJWTService("secret-two")
+	svc1 := newJWTService("secret-one")
+	svc2 := newJWTService("secret-two")
 
 	user := &entities.User{
 		ID:   "user-1",
@@ -74,7 +74,7 @@ func TestJWTService_ValidateToken_WrongSecret(t *testing.T) {
 }
 
 func TestJWTService_ValidateToken_ExpiredToken(t *testing.T) {
-	svc := NewJWTService("test-secret")
+	svc := newJWTService("test-secret")
 	// Override now to generate an already-expired token
 	pastTime := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	svc.now = func() time.Time { return pastTime }
@@ -100,7 +100,7 @@ func TestJWTService_ValidateToken_ExpiredToken(t *testing.T) {
 }
 
 func TestJWTService_ValidateToken_EmptyString(t *testing.T) {
-	svc := NewJWTService("test-secret")
+	svc := newJWTService("test-secret")
 
 	_, err := svc.ValidateToken("")
 	if err == nil {
