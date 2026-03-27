@@ -1,14 +1,13 @@
 package github
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
+	"net/url"
 	"strings"
-	"time"
+
+	"github.com/google/go-github/v84/github"
 
 	githubissuecreator "github.com/Asheze1127/progress-checker/backend/application/service/github_issue_creator"
 )
@@ -16,61 +15,22 @@ import (
 // Compile-time check that Client implements githubissuecreator.GitHubIssueCreator.
 var _ githubissuecreator.GitHubIssueCreator = (*Client)(nil)
 
-const (
-	githubAPIBaseURL     = "https://api.github.com"
-	defaultClientTimeout = 30 * time.Second
-)
-
-// Client interacts with the GitHub REST API to create Issues.
+// Client interacts with the GitHub API using the google/go-github library.
 type Client struct {
 	httpClient *http.Client
 	baseURL    string
 }
 
-// allowedBaseURLPrefixes are the trusted base URL prefixes for the GitHub API.
-var allowedBaseURLPrefixes = []string{
-	"https://api.github.com",
-	"http://localhost:",
-	"http://localhost/",
-	"http://127.0.0.1:",
-	"http://127.0.0.1/",
-}
-
 // NewClient creates a new GitHub API client.
-// An optional baseURL can be provided for testing; pass empty string for production.
+// baseURL is optional; pass empty string to use the default GitHub API.
 func NewClient(baseURL string) *Client {
-	effectiveBaseURL := strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	if effectiveBaseURL == "" {
-		effectiveBaseURL = githubAPIBaseURL
-	}
-
-	trusted := false
-	for _, prefix := range allowedBaseURLPrefixes {
-		if strings.HasPrefix(effectiveBaseURL, prefix) {
-			trusted = true
-			break
-		}
-	}
-	if !trusted {
-		effectiveBaseURL = githubAPIBaseURL
-	}
-
+	normalized, _ := normalizeBaseURL(baseURL)
 	return &Client{
-		httpClient: &http.Client{Timeout: defaultClientTimeout},
-		baseURL:    effectiveBaseURL,
+		baseURL: normalized,
 	}
 }
 
-type createIssueRequest struct {
-	Title string `json:"title"`
-	Body  string `json:"body,omitempty"`
-}
-
-type createIssueResponse struct {
-	HTMLURL string `json:"html_url"`
-}
-
-// CreateIssue creates a GitHub Issue in the specified repository and returns the Issue URL.
+// CreateIssue creates a GitHub Issue and returns the Issue URL.
 func (c *Client) CreateIssue(ctx context.Context, owner, repo, token, title, body string) (string, error) {
 	if strings.TrimSpace(owner) == "" {
 		return "", fmt.Errorf("owner is required")
@@ -85,51 +45,63 @@ func (c *Client) CreateIssue(ctx context.Context, owner, repo, token, title, bod
 		return "", fmt.Errorf("title is required")
 	}
 
-	requestURL := fmt.Sprintf("%s/repos/%s/%s/issues", c.baseURL, owner, repo)
-
-	reqBody := createIssueRequest{
-		Title: title,
-		Body:  body,
-	}
-
-	jsonBody, err := json.Marshal(reqBody)
+	ghClient, err := c.newGitHubClient(token)
 	if err != nil {
-		return "", fmt.Errorf("marshal request body: %w", err)
+		return "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, bytes.NewReader(jsonBody))
+	issueRequest := &github.IssueRequest{
+		Title: github.Ptr(title),
+	}
+	if body != "" {
+		issueRequest.Body = github.Ptr(body)
+	}
+
+	issue, _, err := ghClient.Issues.Create(ctx, owner, repo, issueRequest)
 	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
+		return "", fmt.Errorf("create github issue: %w", err)
 	}
 
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("read response body: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("github api returned status %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	var issueResp createIssueResponse
-	if err := json.Unmarshal(respBody, &issueResp); err != nil {
-		return "", fmt.Errorf("unmarshal response: %w", err)
-	}
-
-	if issueResp.HTMLURL == "" {
+	issueURL := issue.GetHTMLURL()
+	if issueURL == "" {
 		return "", fmt.Errorf("github api returned empty issue url")
 	}
 
-	return issueResp.HTMLURL, nil
+	return issueURL, nil
+}
+
+func (c *Client) newGitHubClient(token string) (*github.Client, error) {
+	ghClient := github.NewClient(c.httpClient).WithAuthToken(token)
+
+	if c.baseURL == "" {
+		return ghClient, nil
+	}
+
+	baseURL, err := url.Parse(c.baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse github base url: %w", err)
+	}
+
+	ghClient.BaseURL = baseURL
+	ghClient.UploadURL = baseURL
+
+	return ghClient, nil
+}
+
+func normalizeBaseURL(rawURL string) (string, error) {
+	trimmed := strings.TrimSpace(rawURL)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("parse github base url: %w", err)
+	}
+
+	if !strings.HasSuffix(parsed.Path, "/") {
+		parsed.Path += "/"
+	}
+
+	return parsed.String(), nil
 }
