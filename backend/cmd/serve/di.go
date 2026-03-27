@@ -1,12 +1,15 @@
 package serve
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	_ "github.com/lib/pq"
 	"github.com/samber/do/v2"
 
@@ -15,18 +18,16 @@ import (
 	"github.com/Asheze1127/progress-checker/backend/api/webhook"
 	githubsvc "github.com/Asheze1127/progress-checker/backend/application/service/github"
 	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
-	"github.com/Asheze1127/progress-checker/backend/application/service/message_queue"
 	"github.com/Asheze1127/progress-checker/backend/application/service/password_hasher"
 	"github.com/Asheze1127/progress-checker/backend/application/service/progress_formatter"
 	"github.com/Asheze1127/progress-checker/backend/application/service/question_sender"
-	"github.com/Asheze1127/progress-checker/backend/application/service/slack_notifier"
 	"github.com/Asheze1127/progress-checker/backend/application/service/slack_poster"
-	"github.com/Asheze1127/progress-checker/backend/application/service/thread_fetcher"
 	"github.com/Asheze1127/progress-checker/backend/application/usecase"
 	"github.com/Asheze1127/progress-checker/backend/infrastructure/encryption"
 	githubinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/github"
 	"github.com/Asheze1127/progress-checker/backend/infrastructure/postgres"
 	slackinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/slack"
+	sqsinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/sqs"
 	pkgslack "github.com/Asheze1127/progress-checker/backend/pkg/slack"
 	"github.com/Asheze1127/progress-checker/backend/util"
 	"github.com/google/uuid"
@@ -68,6 +69,21 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 
 	do.Provide(injector, func(i do.Injector) (*githubinfra.Client, error) {
 		return githubinfra.NewClient(cfg.GitHubAPIBaseURL), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*sqsinfra.Client, error) {
+		awsCfg, err := awsconfig.LoadDefaultConfig(context.Background(),
+			awsconfig.WithRegion(cfg.AWSRegion),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load AWS config: %w", err)
+		}
+		return sqsinfra.NewClient(sqs.NewFromConfig(awsCfg)), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*slackinfra.MentorNotifier, error) {
+		client := do.MustInvoke[*slackinfra.Client](i)
+		return slackinfra.NewMentorNotifier(client.API(), cfg.SlackMentorChannelID), nil
 	})
 
 	// --- Repositories ---
@@ -159,21 +175,21 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 
 	do.Provide(injector, func(i do.Injector) (*usecase.EscalateQuestionUseCase, error) {
 		questionRepo := do.MustInvoke[*postgres.QuestionRepository](i)
-		// TODO: Wire a proper SlackNotifier implementation when available.
-		return usecase.NewEscalateQuestionUseCase(questionRepo, &slacknotifier.NoopSlackNotifier{}), nil
+		notifier := do.MustInvoke[*slackinfra.MentorNotifier](i)
+		return usecase.NewEscalateQuestionUseCase(questionRepo, notifier), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*usecase.HandleNewQuestionUseCase, error) {
 		questionRepo := do.MustInvoke[*postgres.QuestionRepository](i)
-		sender := questionsender.NewQuestionSender(&messagequeue.NoopMessageQueue{})
+		sqsClient := do.MustInvoke[*sqsinfra.Client](i)
+		sender := questionsender.NewQuestionSender(sqsClient)
 		return usecase.NewHandleNewQuestionUseCase(questionRepo, sender), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*usecase.TriggerIssueCreationUseCase, error) {
-		// TODO: Wire real SlackThreadFetcher and MessageQueue implementations when available.
-		return usecase.NewTriggerIssueCreationUseCase(
-			&threadfetcher.NoopSlackThreadFetcher{}, &messagequeue.NoopMessageQueue{},
-		), nil
+		slackClient := do.MustInvoke[*slackinfra.Client](i)
+		sqsClient := do.MustInvoke[*sqsinfra.Client](i)
+		return usecase.NewTriggerIssueCreationUseCase(slackClient, sqsClient), nil
 	})
 
 	// --- Handlers ---
@@ -187,28 +203,11 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		return webhook.NewQuestionHandler(uc), nil
 	})
 
-	do.Provide(injector, func(i do.Injector) (*rest.ProgressHandler, error) {
-		uc := do.MustInvoke[*usecase.ListProgressUseCase](i)
-		var corsOrigins []string
-		if cfg.CORSAllowedOrigin != "" {
-			corsOrigins = strings.Split(cfg.CORSAllowedOrigin, ",")
-		}
-		return rest.NewProgressHandler(uc, corsOrigins), nil
-	})
-
-	do.Provide(injector, func(i do.Injector) (*rest.AuthHandler, error) {
-		uc := do.MustInvoke[*usecase.LoginUseCase](i)
-		return rest.NewAuthHandler(uc), nil
-	})
-
-	do.Provide(injector, func(i do.Injector) (*rest.GitHubHandler, error) {
-		svc := do.MustInvoke[*githubsvc.GitHubService](i)
-		return rest.NewGitHubHandler(svc), nil
-	})
-
-	do.Provide(injector, func(i do.Injector) (*rest.InternalHandler, error) {
-		svc := do.MustInvoke[*githubsvc.GitHubService](i)
-		return rest.NewInternalHandler(svc), nil
+	do.Provide(injector, func(i do.Injector) (*rest.StrictHandler, error) {
+		loginUC := do.MustInvoke[*usecase.LoginUseCase](i)
+		listProgressUC := do.MustInvoke[*usecase.ListProgressUseCase](i)
+		ghService := do.MustInvoke[*githubsvc.GitHubService](i)
+		return rest.NewStrictHandler(loginUC, listProgressUC, ghService), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*webhook.EventHandler, error) {
@@ -227,28 +226,30 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	do.Provide(injector, func(i do.Injector) (http.Handler, error) {
 		webhookHandler := do.MustInvoke[*webhook.WebhookHandler](i)
 		questionHandler := do.MustInvoke[*webhook.QuestionHandler](i)
-		progressHandler := do.MustInvoke[*rest.ProgressHandler](i)
-		authHandler := do.MustInvoke[*rest.AuthHandler](i)
-		ghHandler := do.MustInvoke[*rest.GitHubHandler](i)
-		internalHandler := do.MustInvoke[*rest.InternalHandler](i)
+		strictHandler := do.MustInvoke[*rest.StrictHandler](i)
 		eventHandler := do.MustInvoke[*webhook.EventHandler](i)
 		interactionHandler := do.MustInvoke[*webhook.InteractionHandler](i)
 
 		jwtService := do.MustInvoke[*jwt.JWTService](i)
 		verifier := do.MustInvoke[*pkgslack.Verifier](i)
 
+		var corsOrigins []string
+		if cfg.CORSAllowedOrigin != "" {
+			for _, o := range strings.Split(cfg.CORSAllowedOrigin, ",") {
+				corsOrigins = append(corsOrigins, strings.TrimSpace(o))
+			}
+		}
+
 		return rest.NewRouter(
 			webhookHandler,
 			questionHandler,
-			progressHandler,
-			authHandler,
-			ghHandler,
-			internalHandler,
+			strictHandler,
 			eventHandler,
 			interactionHandler,
 			middleware.AuthMiddleware(jwtService),
 			middleware.SlackWebhookMiddleware(verifier),
 			middleware.InternalTokenMiddleware(cfg.InternalToken),
+			rest.CORSMiddleware(corsOrigins),
 		), nil
 	})
 

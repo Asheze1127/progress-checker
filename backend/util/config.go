@@ -21,8 +21,10 @@ type Config struct {
 	GitHubAPIBaseURL   string `envconfig:"GITHUB_API_BASE_URL" default:"https://api.github.com"`
 	DatabaseSSLMode    string `envconfig:"DATABASE_SSL_MODE" default:"require"`
 	InternalToken      string `envconfig:"INTERNAL_TOKEN" required:"true"`
-	IssueTriggerEmoji  string `envconfig:"ISSUE_TRIGGER_EMOJI" default:"ticket"`
-	CORSAllowedOrigin  string `envconfig:"CORS_ALLOWED_ORIGIN"`
+	IssueTriggerEmoji    string `envconfig:"ISSUE_TRIGGER_EMOJI" default:"ticket"`
+	CORSAllowedOrigin    string `envconfig:"CORS_ALLOWED_ORIGIN"`
+	AWSRegion            string `envconfig:"AWS_REGION" default:"ap-northeast-1"`
+	SlackMentorChannelID string `envconfig:"SLACK_MENTOR_CHANNEL_ID" required:"true"`
 }
 
 // validEncryptionKeyLengths are the valid AES key lengths in bytes.
