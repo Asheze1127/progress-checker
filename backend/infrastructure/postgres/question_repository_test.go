@@ -1,11 +1,11 @@
 package postgres
 
 import (
-	"testing"
+  "testing"
 
-	"github.com/Asheze1127/progress-checker/backend/entities"
+  "github.com/Asheze1127/progress-checker/backend/entities"
 )
 
 func TestQuestionRepositoryImplementsInterface(t *testing.T) {
-	var _ entities.QuestionRepository = (*QuestionRepository)(nil)
+  var _ entities.QuestionRepository = (*QuestionRepository)(nil)
 }

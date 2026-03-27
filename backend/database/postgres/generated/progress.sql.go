@@ -6,11 +6,11 @@
 package db
 
 import (
-	"context"
-	"database/sql"
-	"time"
+  "context"
+  "database/sql"
+  "time"
 
-	"github.com/google/uuid"
+  "github.com/google/uuid"
 )
 
 const getLatestProgressByTeam = `-- name: GetLatestProgressByTeam :many
@@ -28,50 +28,50 @@ ORDER BY t.name, pb.submitted_at DESC
 `
 
 type GetLatestProgressByTeamRow struct {
-	TeamID        uuid.UUID         `json:"team_id"`
-	TeamName      string            `json:"team_name"`
-	ProgressLogID uuid.UUID         `json:"progress_log_id"`
-	ParticipantID uuid.UUID         `json:"participant_id"`
-	LogCreatedAt  time.Time         `json:"log_created_at"`
-	BodyID        uuid.NullUUID     `json:"body_id"`
-	Phase         NullProgressPhase `json:"phase"`
-	Sos           sql.NullBool      `json:"sos"`
-	Comment       sql.NullString    `json:"comment"`
-	SubmittedAt   sql.NullTime      `json:"submitted_at"`
+  TeamID        uuid.UUID         `json:"team_id"`
+  TeamName      string            `json:"team_name"`
+  ProgressLogID uuid.UUID         `json:"progress_log_id"`
+  ParticipantID uuid.UUID         `json:"participant_id"`
+  LogCreatedAt  time.Time         `json:"log_created_at"`
+  BodyID        uuid.NullUUID     `json:"body_id"`
+  Phase         NullProgressPhase `json:"phase"`
+  Sos           sql.NullBool      `json:"sos"`
+  Comment       sql.NullString    `json:"comment"`
+  SubmittedAt   sql.NullTime      `json:"submitted_at"`
 }
 
 func (q *Queries) GetLatestProgressByTeam(ctx context.Context) ([]GetLatestProgressByTeamRow, error) {
-	rows, err := q.db.QueryContext(ctx, getLatestProgressByTeam)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetLatestProgressByTeamRow{}
-	for rows.Next() {
-		var i GetLatestProgressByTeamRow
-		if err := rows.Scan(
-			&i.TeamID,
-			&i.TeamName,
-			&i.ProgressLogID,
-			&i.ParticipantID,
-			&i.LogCreatedAt,
-			&i.BodyID,
-			&i.Phase,
-			&i.Sos,
-			&i.Comment,
-			&i.SubmittedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+  rows, err := q.db.QueryContext(ctx, getLatestProgressByTeam)
+  if err != nil {
+    return nil, err
+  }
+  defer rows.Close()
+  items := []GetLatestProgressByTeamRow{}
+  for rows.Next() {
+    var i GetLatestProgressByTeamRow
+    if err := rows.Scan(
+      &i.TeamID,
+      &i.TeamName,
+      &i.ProgressLogID,
+      &i.ParticipantID,
+      &i.LogCreatedAt,
+      &i.BodyID,
+      &i.Phase,
+      &i.Sos,
+      &i.Comment,
+      &i.SubmittedAt,
+    ); err != nil {
+      return nil, err
+    }
+    items = append(items, i)
+  }
+  if err := rows.Close(); err != nil {
+    return nil, err
+  }
+  if err := rows.Err(); err != nil {
+    return nil, err
+  }
+  return items, nil
 }
 
 const getLatestProgressByTeamID = `-- name: GetLatestProgressByTeamID :many
@@ -89,50 +89,50 @@ WHERE t.id = $1 ORDER BY pb.submitted_at DESC
 `
 
 type GetLatestProgressByTeamIDRow struct {
-	TeamID        uuid.UUID         `json:"team_id"`
-	TeamName      string            `json:"team_name"`
-	ProgressLogID uuid.UUID         `json:"progress_log_id"`
-	ParticipantID uuid.UUID         `json:"participant_id"`
-	LogCreatedAt  time.Time         `json:"log_created_at"`
-	BodyID        uuid.NullUUID     `json:"body_id"`
-	Phase         NullProgressPhase `json:"phase"`
-	Sos           sql.NullBool      `json:"sos"`
-	Comment       sql.NullString    `json:"comment"`
-	SubmittedAt   sql.NullTime      `json:"submitted_at"`
+  TeamID        uuid.UUID         `json:"team_id"`
+  TeamName      string            `json:"team_name"`
+  ProgressLogID uuid.UUID         `json:"progress_log_id"`
+  ParticipantID uuid.UUID         `json:"participant_id"`
+  LogCreatedAt  time.Time         `json:"log_created_at"`
+  BodyID        uuid.NullUUID     `json:"body_id"`
+  Phase         NullProgressPhase `json:"phase"`
+  Sos           sql.NullBool      `json:"sos"`
+  Comment       sql.NullString    `json:"comment"`
+  SubmittedAt   sql.NullTime      `json:"submitted_at"`
 }
 
 func (q *Queries) GetLatestProgressByTeamID(ctx context.Context, id uuid.UUID) ([]GetLatestProgressByTeamIDRow, error) {
-	rows, err := q.db.QueryContext(ctx, getLatestProgressByTeamID, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetLatestProgressByTeamIDRow{}
-	for rows.Next() {
-		var i GetLatestProgressByTeamIDRow
-		if err := rows.Scan(
-			&i.TeamID,
-			&i.TeamName,
-			&i.ProgressLogID,
-			&i.ParticipantID,
-			&i.LogCreatedAt,
-			&i.BodyID,
-			&i.Phase,
-			&i.Sos,
-			&i.Comment,
-			&i.SubmittedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+  rows, err := q.db.QueryContext(ctx, getLatestProgressByTeamID, id)
+  if err != nil {
+    return nil, err
+  }
+  defer rows.Close()
+  items := []GetLatestProgressByTeamIDRow{}
+  for rows.Next() {
+    var i GetLatestProgressByTeamIDRow
+    if err := rows.Scan(
+      &i.TeamID,
+      &i.TeamName,
+      &i.ProgressLogID,
+      &i.ParticipantID,
+      &i.LogCreatedAt,
+      &i.BodyID,
+      &i.Phase,
+      &i.Sos,
+      &i.Comment,
+      &i.SubmittedAt,
+    ); err != nil {
+      return nil, err
+    }
+    items = append(items, i)
+  }
+  if err := rows.Close(); err != nil {
+    return nil, err
+  }
+  if err := rows.Err(); err != nil {
+    return nil, err
+  }
+  return items, nil
 }
 
 const insertProgressBody = `-- name: InsertProgressBody :one
@@ -141,33 +141,33 @@ VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, progress_log_id, phase, sos, comme
 `
 
 type InsertProgressBodyParams struct {
-	ID            uuid.UUID      `json:"id"`
-	ProgressLogID uuid.UUID      `json:"progress_log_id"`
-	Phase         string         `json:"phase"`
-	Sos           bool           `json:"sos"`
-	Comment       sql.NullString `json:"comment"`
-	SubmittedAt   time.Time      `json:"submitted_at"`
+  ID            uuid.UUID      `json:"id"`
+  ProgressLogID uuid.UUID      `json:"progress_log_id"`
+  Phase         string         `json:"phase"`
+  Sos           bool           `json:"sos"`
+  Comment       sql.NullString `json:"comment"`
+  SubmittedAt   time.Time      `json:"submitted_at"`
 }
 
 func (q *Queries) InsertProgressBody(ctx context.Context, arg InsertProgressBodyParams) (ProgressBodies, error) {
-	row := q.db.QueryRowContext(ctx, insertProgressBody,
-		arg.ID,
-		arg.ProgressLogID,
-		arg.Phase,
-		arg.Sos,
-		arg.Comment,
-		arg.SubmittedAt,
-	)
-	var i ProgressBodies
-	err := row.Scan(
-		&i.ID,
-		&i.ProgressLogID,
-		&i.Phase,
-		&i.Sos,
-		&i.Comment,
-		&i.SubmittedAt,
-	)
-	return i, err
+  row := q.db.QueryRowContext(ctx, insertProgressBody,
+    arg.ID,
+    arg.ProgressLogID,
+    arg.Phase,
+    arg.Sos,
+    arg.Comment,
+    arg.SubmittedAt,
+  )
+  var i ProgressBodies
+  err := row.Scan(
+    &i.ID,
+    &i.ProgressLogID,
+    &i.Phase,
+    &i.Sos,
+    &i.Comment,
+    &i.SubmittedAt,
+  )
+  return i, err
 }
 
 const insertProgressLog = `-- name: InsertProgressLog :one
@@ -175,13 +175,13 @@ INSERT INTO progress_logs (id, participant_id) VALUES ($1, $2) RETURNING id, par
 `
 
 type InsertProgressLogParams struct {
-	ID            uuid.UUID `json:"id"`
-	ParticipantID uuid.UUID `json:"participant_id"`
+  ID            uuid.UUID `json:"id"`
+  ParticipantID uuid.UUID `json:"participant_id"`
 }
 
 func (q *Queries) InsertProgressLog(ctx context.Context, arg InsertProgressLogParams) (ProgressLogs, error) {
-	row := q.db.QueryRowContext(ctx, insertProgressLog, arg.ID, arg.ParticipantID)
-	var i ProgressLogs
-	err := row.Scan(&i.ID, &i.ParticipantID, &i.CreatedAt)
-	return i, err
+  row := q.db.QueryRowContext(ctx, insertProgressLog, arg.ID, arg.ParticipantID)
+  var i ProgressLogs
+  err := row.Scan(&i.ID, &i.ParticipantID, &i.CreatedAt)
+  return i, err
 }

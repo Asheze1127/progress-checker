@@ -1,12 +1,12 @@
 package threadfetcher
 
 import (
-	"context"
+  "context"
 
-	"github.com/Asheze1127/progress-checker/backend/pkg/slack"
+  "github.com/Asheze1127/progress-checker/backend/pkg/slack"
 )
 
 // SlackThreadFetcher fetches thread messages from Slack.
 type SlackThreadFetcher interface {
-	FetchThreadMessages(ctx context.Context, channelID, threadTS string) ([]slack.ThreadMessage, error)
+  FetchThreadMessages(ctx context.Context, channelID, threadTS string) ([]slack.ThreadMessage, error)
 }

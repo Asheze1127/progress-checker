@@ -6,9 +6,9 @@
 package db
 
 import (
-	"context"
+  "context"
 
-	"github.com/google/uuid"
+  "github.com/google/uuid"
 )
 
 const deleteGitHubRepo = `-- name: DeleteGitHubRepo :exec
@@ -16,8 +16,8 @@ DELETE FROM team_github_repositories WHERE id = $1
 `
 
 func (q *Queries) DeleteGitHubRepo(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteGitHubRepo, id)
-	return err
+  _, err := q.db.ExecContext(ctx, deleteGitHubRepo, id)
+  return err
 }
 
 const getGitHubRepoByChannelID = `-- name: GetGitHubRepoByChannelID :one
@@ -26,17 +26,17 @@ JOIN slack_channels sc ON sc.team_id = tgr.team_id WHERE sc.id = $1 LIMIT 1
 `
 
 func (q *Queries) GetGitHubRepoByChannelID(ctx context.Context, id string) (TeamGithubRepositories, error) {
-	row := q.db.QueryRowContext(ctx, getGitHubRepoByChannelID, id)
-	var i TeamGithubRepositories
-	err := row.Scan(
-		&i.ID,
-		&i.TeamID,
-		&i.GithubRepoUrl,
-		&i.EncryptedPat,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
+  row := q.db.QueryRowContext(ctx, getGitHubRepoByChannelID, id)
+  var i TeamGithubRepositories
+  err := row.Scan(
+    &i.ID,
+    &i.TeamID,
+    &i.GithubRepoUrl,
+    &i.EncryptedPat,
+    &i.CreatedAt,
+    &i.UpdatedAt,
+  )
+  return i, err
 }
 
 const getGitHubRepoByID = `-- name: GetGitHubRepoByID :one
@@ -44,17 +44,17 @@ SELECT id, team_id, github_repo_url, encrypted_pat, created_at, updated_at FROM 
 `
 
 func (q *Queries) GetGitHubRepoByID(ctx context.Context, id uuid.UUID) (TeamGithubRepositories, error) {
-	row := q.db.QueryRowContext(ctx, getGitHubRepoByID, id)
-	var i TeamGithubRepositories
-	err := row.Scan(
-		&i.ID,
-		&i.TeamID,
-		&i.GithubRepoUrl,
-		&i.EncryptedPat,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
+  row := q.db.QueryRowContext(ctx, getGitHubRepoByID, id)
+  var i TeamGithubRepositories
+  err := row.Scan(
+    &i.ID,
+    &i.TeamID,
+    &i.GithubRepoUrl,
+    &i.EncryptedPat,
+    &i.CreatedAt,
+    &i.UpdatedAt,
+  )
+  return i, err
 }
 
 const getGitHubReposByTeamID = `-- name: GetGitHubReposByTeamID :many
@@ -62,33 +62,33 @@ SELECT id, team_id, github_repo_url, encrypted_pat, created_at, updated_at FROM 
 `
 
 func (q *Queries) GetGitHubReposByTeamID(ctx context.Context, teamID uuid.UUID) ([]TeamGithubRepositories, error) {
-	rows, err := q.db.QueryContext(ctx, getGitHubReposByTeamID, teamID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []TeamGithubRepositories{}
-	for rows.Next() {
-		var i TeamGithubRepositories
-		if err := rows.Scan(
-			&i.ID,
-			&i.TeamID,
-			&i.GithubRepoUrl,
-			&i.EncryptedPat,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+  rows, err := q.db.QueryContext(ctx, getGitHubReposByTeamID, teamID)
+  if err != nil {
+    return nil, err
+  }
+  defer rows.Close()
+  items := []TeamGithubRepositories{}
+  for rows.Next() {
+    var i TeamGithubRepositories
+    if err := rows.Scan(
+      &i.ID,
+      &i.TeamID,
+      &i.GithubRepoUrl,
+      &i.EncryptedPat,
+      &i.CreatedAt,
+      &i.UpdatedAt,
+    ); err != nil {
+      return nil, err
+    }
+    items = append(items, i)
+  }
+  if err := rows.Close(); err != nil {
+    return nil, err
+  }
+  if err := rows.Err(); err != nil {
+    return nil, err
+  }
+  return items, nil
 }
 
 const insertGitHubRepo = `-- name: InsertGitHubRepo :one
@@ -97,29 +97,29 @@ VALUES ($1, $2, $3, $4) RETURNING id, team_id, github_repo_url, encrypted_pat, c
 `
 
 type InsertGitHubRepoParams struct {
-	ID            uuid.UUID `json:"id"`
-	TeamID        uuid.UUID `json:"team_id"`
-	GithubRepoUrl string    `json:"github_repo_url"`
-	EncryptedPat  string    `json:"encrypted_pat"`
+  ID            uuid.UUID `json:"id"`
+  TeamID        uuid.UUID `json:"team_id"`
+  GithubRepoUrl string    `json:"github_repo_url"`
+  EncryptedPat  string    `json:"encrypted_pat"`
 }
 
 func (q *Queries) InsertGitHubRepo(ctx context.Context, arg InsertGitHubRepoParams) (TeamGithubRepositories, error) {
-	row := q.db.QueryRowContext(ctx, insertGitHubRepo,
-		arg.ID,
-		arg.TeamID,
-		arg.GithubRepoUrl,
-		arg.EncryptedPat,
-	)
-	var i TeamGithubRepositories
-	err := row.Scan(
-		&i.ID,
-		&i.TeamID,
-		&i.GithubRepoUrl,
-		&i.EncryptedPat,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
+  row := q.db.QueryRowContext(ctx, insertGitHubRepo,
+    arg.ID,
+    arg.TeamID,
+    arg.GithubRepoUrl,
+    arg.EncryptedPat,
+  )
+  var i TeamGithubRepositories
+  err := row.Scan(
+    &i.ID,
+    &i.TeamID,
+    &i.GithubRepoUrl,
+    &i.EncryptedPat,
+    &i.CreatedAt,
+    &i.UpdatedAt,
+  )
+  return i, err
 }
 
 const updateGitHubRepoToken = `-- name: UpdateGitHubRepoToken :exec
@@ -127,11 +127,11 @@ UPDATE team_github_repositories SET encrypted_pat = $1, updated_at = now() WHERE
 `
 
 type UpdateGitHubRepoTokenParams struct {
-	EncryptedPat string    `json:"encrypted_pat"`
-	ID           uuid.UUID `json:"id"`
+  EncryptedPat string    `json:"encrypted_pat"`
+  ID           uuid.UUID `json:"id"`
 }
 
 func (q *Queries) UpdateGitHubRepoToken(ctx context.Context, arg UpdateGitHubRepoTokenParams) error {
-	_, err := q.db.ExecContext(ctx, updateGitHubRepoToken, arg.EncryptedPat, arg.ID)
-	return err
+  _, err := q.db.ExecContext(ctx, updateGitHubRepoToken, arg.EncryptedPat, arg.ID)
+  return err
 }

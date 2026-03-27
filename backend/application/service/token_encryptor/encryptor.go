@@ -1,6 +1,6 @@
 package tokenencryptor
 
 type TokenEncryptor interface {
-	Encrypt(plaintext string) (string, error)
-	Decrypt(ciphertext string) (string, error)
+  Encrypt(plaintext string) (string, error)
+  Decrypt(ciphertext string) (string, error)
 }

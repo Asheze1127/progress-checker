@@ -5,282 +5,282 @@
 package db
 
 import (
-	"database/sql"
-	"database/sql/driver"
-	"fmt"
-	"time"
+  "database/sql"
+  "database/sql/driver"
+  "fmt"
+  "time"
 
-	"github.com/google/uuid"
+  "github.com/google/uuid"
 )
 
 type ProgressPhase string
 
 const (
-	ProgressPhaseIdea    ProgressPhase = "idea"
-	ProgressPhaseDesign  ProgressPhase = "design"
-	ProgressPhaseCoding  ProgressPhase = "coding"
-	ProgressPhaseTesting ProgressPhase = "testing"
-	ProgressPhaseDemo    ProgressPhase = "demo"
+  ProgressPhaseIdea    ProgressPhase = "idea"
+  ProgressPhaseDesign  ProgressPhase = "design"
+  ProgressPhaseCoding  ProgressPhase = "coding"
+  ProgressPhaseTesting ProgressPhase = "testing"
+  ProgressPhaseDemo    ProgressPhase = "demo"
 )
 
 func (e *ProgressPhase) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = ProgressPhase(s)
-	case string:
-		*e = ProgressPhase(s)
-	default:
-		return fmt.Errorf("unsupported scan type for ProgressPhase: %T", src)
-	}
-	return nil
+  switch s := src.(type) {
+  case []byte:
+    *e = ProgressPhase(s)
+  case string:
+    *e = ProgressPhase(s)
+  default:
+    return fmt.Errorf("unsupported scan type for ProgressPhase: %T", src)
+  }
+  return nil
 }
 
 type NullProgressPhase struct {
-	ProgressPhase ProgressPhase `json:"progress_phase"`
-	Valid         bool          `json:"valid"` // Valid is true if ProgressPhase is not NULL
+  ProgressPhase ProgressPhase `json:"progress_phase"`
+  Valid         bool          `json:"valid"` // Valid is true if ProgressPhase is not NULL
 }
 
 // Scan implements the Scanner interface.
 func (ns *NullProgressPhase) Scan(value interface{}) error {
-	if value == nil {
-		ns.ProgressPhase, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.ProgressPhase.Scan(value)
+  if value == nil {
+    ns.ProgressPhase, ns.Valid = "", false
+    return nil
+  }
+  ns.Valid = true
+  return ns.ProgressPhase.Scan(value)
 }
 
 // Value implements the driver Valuer interface.
 func (ns NullProgressPhase) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.ProgressPhase), nil
+  if !ns.Valid {
+    return nil, nil
+  }
+  return string(ns.ProgressPhase), nil
 }
 
 type QuestionStatus string
 
 const (
-	QuestionStatusOpen           QuestionStatus = "open"
-	QuestionStatusInProgress     QuestionStatus = "in_progress"
-	QuestionStatusAwaitingUser   QuestionStatus = "awaiting_user"
-	QuestionStatusAssignedMentor QuestionStatus = "assigned_mentor"
-	QuestionStatusResolved       QuestionStatus = "resolved"
+  QuestionStatusOpen           QuestionStatus = "open"
+  QuestionStatusInProgress     QuestionStatus = "in_progress"
+  QuestionStatusAwaitingUser   QuestionStatus = "awaiting_user"
+  QuestionStatusAssignedMentor QuestionStatus = "assigned_mentor"
+  QuestionStatusResolved       QuestionStatus = "resolved"
 )
 
 func (e *QuestionStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = QuestionStatus(s)
-	case string:
-		*e = QuestionStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for QuestionStatus: %T", src)
-	}
-	return nil
+  switch s := src.(type) {
+  case []byte:
+    *e = QuestionStatus(s)
+  case string:
+    *e = QuestionStatus(s)
+  default:
+    return fmt.Errorf("unsupported scan type for QuestionStatus: %T", src)
+  }
+  return nil
 }
 
 type NullQuestionStatus struct {
-	QuestionStatus QuestionStatus `json:"question_status"`
-	Valid          bool           `json:"valid"` // Valid is true if QuestionStatus is not NULL
+  QuestionStatus QuestionStatus `json:"question_status"`
+  Valid          bool           `json:"valid"` // Valid is true if QuestionStatus is not NULL
 }
 
 // Scan implements the Scanner interface.
 func (ns *NullQuestionStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.QuestionStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.QuestionStatus.Scan(value)
+  if value == nil {
+    ns.QuestionStatus, ns.Valid = "", false
+    return nil
+  }
+  ns.Valid = true
+  return ns.QuestionStatus.Scan(value)
 }
 
 // Value implements the driver Valuer interface.
 func (ns NullQuestionStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.QuestionStatus), nil
+  if !ns.Valid {
+    return nil, nil
+  }
+  return string(ns.QuestionStatus), nil
 }
 
 type SlackChannelPurpose string
 
 const (
-	SlackChannelPurposeProgress SlackChannelPurpose = "progress"
-	SlackChannelPurposeQuestion SlackChannelPurpose = "question"
-	SlackChannelPurposeNotice   SlackChannelPurpose = "notice"
+  SlackChannelPurposeProgress SlackChannelPurpose = "progress"
+  SlackChannelPurposeQuestion SlackChannelPurpose = "question"
+  SlackChannelPurposeNotice   SlackChannelPurpose = "notice"
 )
 
 func (e *SlackChannelPurpose) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = SlackChannelPurpose(s)
-	case string:
-		*e = SlackChannelPurpose(s)
-	default:
-		return fmt.Errorf("unsupported scan type for SlackChannelPurpose: %T", src)
-	}
-	return nil
+  switch s := src.(type) {
+  case []byte:
+    *e = SlackChannelPurpose(s)
+  case string:
+    *e = SlackChannelPurpose(s)
+  default:
+    return fmt.Errorf("unsupported scan type for SlackChannelPurpose: %T", src)
+  }
+  return nil
 }
 
 type NullSlackChannelPurpose struct {
-	SlackChannelPurpose SlackChannelPurpose `json:"slack_channel_purpose"`
-	Valid               bool                `json:"valid"` // Valid is true if SlackChannelPurpose is not NULL
+  SlackChannelPurpose SlackChannelPurpose `json:"slack_channel_purpose"`
+  Valid               bool                `json:"valid"` // Valid is true if SlackChannelPurpose is not NULL
 }
 
 // Scan implements the Scanner interface.
 func (ns *NullSlackChannelPurpose) Scan(value interface{}) error {
-	if value == nil {
-		ns.SlackChannelPurpose, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.SlackChannelPurpose.Scan(value)
+  if value == nil {
+    ns.SlackChannelPurpose, ns.Valid = "", false
+    return nil
+  }
+  ns.Valid = true
+  return ns.SlackChannelPurpose.Scan(value)
 }
 
 // Value implements the driver Valuer interface.
 func (ns NullSlackChannelPurpose) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.SlackChannelPurpose), nil
+  if !ns.Valid {
+    return nil, nil
+  }
+  return string(ns.SlackChannelPurpose), nil
 }
 
 type UserRole string
 
 const (
-	UserRoleParticipant UserRole = "participant"
-	UserRoleMentor      UserRole = "mentor"
+  UserRoleParticipant UserRole = "participant"
+  UserRoleMentor      UserRole = "mentor"
 )
 
 func (e *UserRole) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = UserRole(s)
-	case string:
-		*e = UserRole(s)
-	default:
-		return fmt.Errorf("unsupported scan type for UserRole: %T", src)
-	}
-	return nil
+  switch s := src.(type) {
+  case []byte:
+    *e = UserRole(s)
+  case string:
+    *e = UserRole(s)
+  default:
+    return fmt.Errorf("unsupported scan type for UserRole: %T", src)
+  }
+  return nil
 }
 
 type NullUserRole struct {
-	UserRole UserRole `json:"user_role"`
-	Valid    bool     `json:"valid"` // Valid is true if UserRole is not NULL
+  UserRole UserRole `json:"user_role"`
+  Valid    bool     `json:"valid"` // Valid is true if UserRole is not NULL
 }
 
 // Scan implements the Scanner interface.
 func (ns *NullUserRole) Scan(value interface{}) error {
-	if value == nil {
-		ns.UserRole, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.UserRole.Scan(value)
+  if value == nil {
+    ns.UserRole, ns.Valid = "", false
+    return nil
+  }
+  ns.Valid = true
+  return ns.UserRole.Scan(value)
 }
 
 // Value implements the driver Valuer interface.
 func (ns NullUserRole) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.UserRole), nil
+  if !ns.Valid {
+    return nil, nil
+  }
+  return string(ns.UserRole), nil
 }
 
 type ChannelPurposeAssignments struct {
-	SlackChannelID string    `json:"slack_channel_id"`
-	Purpose        string    `json:"purpose"`
-	CreatedAt      time.Time `json:"created_at"`
+  SlackChannelID string    `json:"slack_channel_id"`
+  Purpose        string    `json:"purpose"`
+  CreatedAt      time.Time `json:"created_at"`
 }
 
 type MentorTeamAssignments struct {
-	MentorUserID uuid.UUID `json:"mentor_user_id"`
-	TeamID       uuid.UUID `json:"team_id"`
-	CreatedAt    time.Time `json:"created_at"`
+  MentorUserID uuid.UUID `json:"mentor_user_id"`
+  TeamID       uuid.UUID `json:"team_id"`
+  CreatedAt    time.Time `json:"created_at"`
 }
 
 type Mentors struct {
-	UserID    uuid.UUID `json:"user_id"`
-	CreatedAt time.Time `json:"created_at"`
+  UserID    uuid.UUID `json:"user_id"`
+  CreatedAt time.Time `json:"created_at"`
 }
 
 type Participants struct {
-	UserID    uuid.UUID `json:"user_id"`
-	TeamID    uuid.UUID `json:"team_id"`
-	CreatedAt time.Time `json:"created_at"`
+  UserID    uuid.UUID `json:"user_id"`
+  TeamID    uuid.UUID `json:"team_id"`
+  CreatedAt time.Time `json:"created_at"`
 }
 
 type ProgressBodies struct {
-	ID            uuid.UUID      `json:"id"`
-	ProgressLogID uuid.UUID      `json:"progress_log_id"`
-	Phase         string         `json:"phase"`
-	Sos           bool           `json:"sos"`
-	Comment       sql.NullString `json:"comment"`
-	SubmittedAt   time.Time      `json:"submitted_at"`
+  ID            uuid.UUID      `json:"id"`
+  ProgressLogID uuid.UUID      `json:"progress_log_id"`
+  Phase         string         `json:"phase"`
+  Sos           bool           `json:"sos"`
+  Comment       sql.NullString `json:"comment"`
+  SubmittedAt   time.Time      `json:"submitted_at"`
 }
 
 type ProgressLogs struct {
-	ID            uuid.UUID `json:"id"`
-	ParticipantID uuid.UUID `json:"participant_id"`
-	CreatedAt     time.Time `json:"created_at"`
+  ID            uuid.UUID `json:"id"`
+  ParticipantID uuid.UUID `json:"participant_id"`
+  CreatedAt     time.Time `json:"created_at"`
 }
 
 type QuestionMentorAssignments struct {
-	QuestionID   uuid.UUID `json:"question_id"`
-	MentorUserID uuid.UUID `json:"mentor_user_id"`
-	CreatedAt    time.Time `json:"created_at"`
+  QuestionID   uuid.UUID `json:"question_id"`
+  MentorUserID uuid.UUID `json:"mentor_user_id"`
+  CreatedAt    time.Time `json:"created_at"`
 }
 
 type Questions struct {
-	ID             uuid.UUID `json:"id"`
-	ParticipantID  uuid.UUID `json:"participant_id"`
-	Title          string    `json:"title"`
-	SlackChannelID string    `json:"slack_channel_id"`
-	Status         string    `json:"status"`
-	SlackThreadTs  string    `json:"slack_thread_ts"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+  ID             uuid.UUID `json:"id"`
+  ParticipantID  uuid.UUID `json:"participant_id"`
+  Title          string    `json:"title"`
+  SlackChannelID string    `json:"slack_channel_id"`
+  Status         string    `json:"status"`
+  SlackThreadTs  string    `json:"slack_thread_ts"`
+  CreatedAt      time.Time `json:"created_at"`
+  UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type SlackChannels struct {
-	ID        string    `json:"id"`
-	TeamID    uuid.UUID `json:"team_id"`
-	CreatedAt time.Time `json:"created_at"`
+  ID        string    `json:"id"`
+  TeamID    uuid.UUID `json:"team_id"`
+  CreatedAt time.Time `json:"created_at"`
 }
 
 type Staff struct {
-	ID          uuid.UUID      `json:"id"`
-	SlackUserID sql.NullString `json:"slack_user_id"`
-	Name        string         `json:"name"`
-	Email       string         `json:"email"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+  ID          uuid.UUID      `json:"id"`
+  SlackUserID sql.NullString `json:"slack_user_id"`
+  Name        string         `json:"name"`
+  Email       string         `json:"email"`
+  CreatedAt   time.Time      `json:"created_at"`
+  UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 type TeamGithubRepositories struct {
-	ID            uuid.UUID `json:"id"`
-	TeamID        uuid.UUID `json:"team_id"`
-	GithubRepoUrl string    `json:"github_repo_url"`
-	EncryptedPat  string    `json:"encrypted_pat"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+  ID            uuid.UUID `json:"id"`
+  TeamID        uuid.UUID `json:"team_id"`
+  GithubRepoUrl string    `json:"github_repo_url"`
+  EncryptedPat  string    `json:"encrypted_pat"`
+  CreatedAt     time.Time `json:"created_at"`
+  UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type Teams struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+  ID        uuid.UUID `json:"id"`
+  Name      string    `json:"name"`
+  CreatedAt time.Time `json:"created_at"`
+  UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Users struct {
-	ID           uuid.UUID `json:"id"`
-	SlackUserID  string    `json:"slack_user_id"`
-	Name         string    `json:"name"`
-	Email        string    `json:"email"`
-	Role         string    `json:"role"`
-	PasswordHash string    `json:"password_hash"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+  ID           uuid.UUID `json:"id"`
+  SlackUserID  string    `json:"slack_user_id"`
+  Name         string    `json:"name"`
+  Email        string    `json:"email"`
+  Role         string    `json:"role"`
+  PasswordHash string    `json:"password_hash"`
+  CreatedAt    time.Time `json:"created_at"`
+  UpdatedAt    time.Time `json:"updated_at"`
 }

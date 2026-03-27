@@ -1,0 +1,52 @@
+name: Format Go
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/format-go.yml'
+
+jobs:
+  gofmt-check:
+    name: gofmt (2-space indent)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for go.mod
+        id: gomod
+        run: |
+          if [ -f backend/go.mod ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::backend/go.mod not found, skipping format check"
+          fi
+
+      - uses: actions/setup-go@v5
+        if: steps.gomod.outputs.present == 'true'
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Check Go formatting (2-space indent)
+        if: steps.gomod.outputs.present == 'true'
+        run: |
+          unformatted=""
+          for file in $(find backend -name '*.go' -not -path '*/vendor/*'); do
+            expected=$(gofmt "$file" | expand -t 2)
+            actual=$(cat "$file")
+            if [ "$expected" != "$actual" ]; then
+              unformatted="$unformatted\n$file"
+              diff <(echo "$actual") <(echo "$expected") --label "current" --label "expected" -u || true
+            fi
+          done
+          if [ -n "$unformatted" ]; then
+            echo ""
+            echo "::error::The following Go files are not formatted correctly (run: gofmt -w FILE && expand -t 2 FILE > FILE.tmp && mv FILE.tmp FILE):"
+            echo -e "$unformatted"
+            exit 1
+          fi
+          echo "All Go files are correctly formatted with 2-space indentation."

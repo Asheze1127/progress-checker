@@ -6,121 +6,121 @@
 package openapi
 
 import (
-	"bytes"
-	"compress/gzip"
-	"context"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"net/url"
-	"path"
-	"strings"
-	"time"
+  "bytes"
+  "compress/gzip"
+  "context"
+  "encoding/base64"
+  "encoding/json"
+  "fmt"
+  "net/http"
+  "net/url"
+  "path"
+  "strings"
+  "time"
 
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/oapi-codegen/runtime"
-	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
+  "github.com/getkin/kin-openapi/openapi3"
+  "github.com/oapi-codegen/runtime"
+  strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
 )
 
 const (
-	BearerAuthScopes = "bearerAuth.Scopes"
+  BearerAuthScopes = "bearerAuth.Scopes"
 )
 
 // CreateIssueRequest defines model for CreateIssueRequest.
 type CreateIssueRequest struct {
-	Body      string `json:"body"`
-	ChannelId string `json:"channel_id"`
-	Title     string `json:"title"`
+  Body      string `json:"body"`
+  ChannelId string `json:"channel_id"`
+  Title     string `json:"title"`
 }
 
 // CreateIssueResponse defines model for CreateIssueResponse.
 type CreateIssueResponse struct {
-	IssueUrl string `json:"issue_url"`
+  IssueUrl string `json:"issue_url"`
 }
 
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
-	Error string `json:"error"`
+  Error string `json:"error"`
 }
 
 // LatestProgressResponse defines model for LatestProgressResponse.
 type LatestProgressResponse struct {
-	Id             string                 `json:"id"`
-	ParticipantId  string                 `json:"participant_id"`
-	ProgressBodies []ProgressBodyResponse `json:"progress_bodies"`
+  Id             string                 `json:"id"`
+  ParticipantId  string                 `json:"participant_id"`
+  ProgressBodies []ProgressBodyResponse `json:"progress_bodies"`
 }
 
 // ListReposResponse defines model for ListReposResponse.
 type ListReposResponse struct {
-	Repos []RepoItem `json:"repos"`
+  Repos []RepoItem `json:"repos"`
 }
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+  Email    string `json:"email"`
+  Password string `json:"password"`
 }
 
 // LoginResponse defines model for LoginResponse.
 type LoginResponse struct {
-	Token string       `json:"token"`
-	User  UserResponse `json:"user"`
+  Token string       `json:"token"`
+  User  UserResponse `json:"user"`
 }
 
 // MessageResponse defines model for MessageResponse.
 type MessageResponse struct {
-	Message string `json:"message"`
+  Message string `json:"message"`
 }
 
 // ProgressBodyResponse defines model for ProgressBodyResponse.
 type ProgressBodyResponse struct {
-	Comment     string    `json:"comment"`
-	Phase       string    `json:"phase"`
-	Sos         bool      `json:"sos"`
-	SubmittedAt time.Time `json:"submitted_at"`
+  Comment     string    `json:"comment"`
+  Phase       string    `json:"phase"`
+  Sos         bool      `json:"sos"`
+  SubmittedAt time.Time `json:"submitted_at"`
 }
 
 // ProgressListResponse defines model for ProgressListResponse.
 type ProgressListResponse struct {
-	Data []TeamProgressResponse `json:"data"`
+  Data []TeamProgressResponse `json:"data"`
 }
 
 // RegisterRepoRequest defines model for RegisterRepoRequest.
 type RegisterRepoRequest struct {
-	GithubRepoUrl       string `json:"github_repo_url"`
-	PersonalAccessToken string `json:"personal_access_token"`
+  GithubRepoUrl       string `json:"github_repo_url"`
+  PersonalAccessToken string `json:"personal_access_token"`
 }
 
 // RepoItem defines model for RepoItem.
 type RepoItem struct {
-	Id       string `json:"id"`
-	Owner    string `json:"owner"`
-	RepoName string `json:"repo_name"`
+  Id       string `json:"id"`
+  Owner    string `json:"owner"`
+  RepoName string `json:"repo_name"`
 }
 
 // TeamProgressResponse defines model for TeamProgressResponse.
 type TeamProgressResponse struct {
-	LatestProgress *LatestProgressResponse `json:"latest_progress,omitempty"`
-	TeamId         string                  `json:"team_id"`
-	TeamName       string                  `json:"team_name"`
+  LatestProgress *LatestProgressResponse `json:"latest_progress,omitempty"`
+  TeamId         string                  `json:"team_id"`
+  TeamName       string                  `json:"team_name"`
 }
 
 // UpdateTokenRequest defines model for UpdateTokenRequest.
 type UpdateTokenRequest struct {
-	PersonalAccessToken string `json:"personal_access_token"`
+  PersonalAccessToken string `json:"personal_access_token"`
 }
 
 // UserResponse defines model for UserResponse.
 type UserResponse struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
-	Role string `json:"role"`
+  Id   string `json:"id"`
+  Name string `json:"name"`
+  Role string `json:"role"`
 }
 
 // ListProgressParams defines parameters for ListProgress.
 type ListProgressParams struct {
-	TeamId *string `form:"team_id,omitempty" json:"team_id,omitempty"`
+  TeamId *string `form:"team_id,omitempty" json:"team_id,omitempty"`
 }
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
@@ -137,34 +137,34 @@ type CreateIssueJSONRequestBody = CreateIssueRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Authenticate user and get JWT token
-	// (POST /api/v1/auth/login)
-	Login(w http.ResponseWriter, r *http.Request)
-	// List latest progress by team
-	// (GET /api/v1/progress)
-	ListProgress(w http.ResponseWriter, r *http.Request, params ListProgressParams)
-	// List GitHub repositories for a team
-	// (GET /api/v1/teams/{teamId}/github-repos)
-	ListRepositories(w http.ResponseWriter, r *http.Request, teamId string)
-	// Register a GitHub repository for a team
-	// (POST /api/v1/teams/{teamId}/github-repos)
-	RegisterRepository(w http.ResponseWriter, r *http.Request, teamId string)
-	// Remove a GitHub repository
-	// (DELETE /api/v1/teams/{teamId}/github-repos/{repoId})
-	RemoveRepository(w http.ResponseWriter, r *http.Request, teamId string, repoId string)
-	// Update GitHub repository token
-	// (PUT /api/v1/teams/{teamId}/github-repos/{repoId}/token)
-	UpdateToken(w http.ResponseWriter, r *http.Request, teamId string, repoId string)
-	// Create a GitHub issue (internal)
-	// (POST /internal/issues)
-	CreateIssue(w http.ResponseWriter, r *http.Request)
+  // Authenticate user and get JWT token
+  // (POST /api/v1/auth/login)
+  Login(w http.ResponseWriter, r *http.Request)
+  // List latest progress by team
+  // (GET /api/v1/progress)
+  ListProgress(w http.ResponseWriter, r *http.Request, params ListProgressParams)
+  // List GitHub repositories for a team
+  // (GET /api/v1/teams/{teamId}/github-repos)
+  ListRepositories(w http.ResponseWriter, r *http.Request, teamId string)
+  // Register a GitHub repository for a team
+  // (POST /api/v1/teams/{teamId}/github-repos)
+  RegisterRepository(w http.ResponseWriter, r *http.Request, teamId string)
+  // Remove a GitHub repository
+  // (DELETE /api/v1/teams/{teamId}/github-repos/{repoId})
+  RemoveRepository(w http.ResponseWriter, r *http.Request, teamId string, repoId string)
+  // Update GitHub repository token
+  // (PUT /api/v1/teams/{teamId}/github-repos/{repoId}/token)
+  UpdateToken(w http.ResponseWriter, r *http.Request, teamId string, repoId string)
+  // Create a GitHub issue (internal)
+  // (POST /internal/issues)
+  CreateIssue(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
 type ServerInterfaceWrapper struct {
-	Handler            ServerInterface
-	HandlerMiddlewares []MiddlewareFunc
-	ErrorHandlerFunc   func(w http.ResponseWriter, r *http.Request, err error)
+  Handler            ServerInterface
+  HandlerMiddlewares []MiddlewareFunc
+  ErrorHandlerFunc   func(w http.ResponseWriter, r *http.Request, err error)
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
@@ -172,866 +172,866 @@ type MiddlewareFunc func(http.Handler) http.Handler
 // Login operation middleware
 func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
 
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.Login(w, r)
-	}))
+  handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    siw.Handler.Login(w, r)
+  }))
 
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
+  for _, middleware := range siw.HandlerMiddlewares {
+    handler = middleware(handler)
+  }
 
-	handler.ServeHTTP(w, r)
+  handler.ServeHTTP(w, r)
 }
 
 // ListProgress operation middleware
 func (siw *ServerInterfaceWrapper) ListProgress(w http.ResponseWriter, r *http.Request) {
 
-	var err error
+  var err error
 
-	ctx := r.Context()
+  ctx := r.Context()
 
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+  ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
 
-	r = r.WithContext(ctx)
+  r = r.WithContext(ctx)
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ListProgressParams
+  // Parameter object where we will unmarshal all parameters from the context
+  var params ListProgressParams
 
-	// ------------- Optional query parameter "team_id" -------------
+  // ------------- Optional query parameter "team_id" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "team_id", r.URL.Query(), &params.TeamId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "team_id", Err: err})
-		return
-	}
+  err = runtime.BindQueryParameterWithOptions("form", true, false, "team_id", r.URL.Query(), &params.TeamId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+  if err != nil {
+    siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "team_id", Err: err})
+    return
+  }
 
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListProgress(w, r, params)
-	}))
+  handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    siw.Handler.ListProgress(w, r, params)
+  }))
 
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
+  for _, middleware := range siw.HandlerMiddlewares {
+    handler = middleware(handler)
+  }
 
-	handler.ServeHTTP(w, r)
+  handler.ServeHTTP(w, r)
 }
 
 // ListRepositories operation middleware
 func (siw *ServerInterfaceWrapper) ListRepositories(w http.ResponseWriter, r *http.Request) {
 
-	var err error
+  var err error
 
-	// ------------- Path parameter "teamId" -------------
-	var teamId string
+  // ------------- Path parameter "teamId" -------------
+  var teamId string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "teamId", r.PathValue("teamId"), &teamId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "teamId", Err: err})
-		return
-	}
+  err = runtime.BindStyledParameterWithOptions("simple", "teamId", r.PathValue("teamId"), &teamId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+  if err != nil {
+    siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "teamId", Err: err})
+    return
+  }
 
-	ctx := r.Context()
+  ctx := r.Context()
 
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+  ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
 
-	r = r.WithContext(ctx)
+  r = r.WithContext(ctx)
 
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListRepositories(w, r, teamId)
-	}))
+  handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    siw.Handler.ListRepositories(w, r, teamId)
+  }))
 
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
+  for _, middleware := range siw.HandlerMiddlewares {
+    handler = middleware(handler)
+  }
 
-	handler.ServeHTTP(w, r)
+  handler.ServeHTTP(w, r)
 }
 
 // RegisterRepository operation middleware
 func (siw *ServerInterfaceWrapper) RegisterRepository(w http.ResponseWriter, r *http.Request) {
 
-	var err error
+  var err error
 
-	// ------------- Path parameter "teamId" -------------
-	var teamId string
+  // ------------- Path parameter "teamId" -------------
+  var teamId string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "teamId", r.PathValue("teamId"), &teamId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "teamId", Err: err})
-		return
-	}
+  err = runtime.BindStyledParameterWithOptions("simple", "teamId", r.PathValue("teamId"), &teamId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+  if err != nil {
+    siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "teamId", Err: err})
+    return
+  }
 
-	ctx := r.Context()
+  ctx := r.Context()
 
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+  ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
 
-	r = r.WithContext(ctx)
+  r = r.WithContext(ctx)
 
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RegisterRepository(w, r, teamId)
-	}))
+  handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    siw.Handler.RegisterRepository(w, r, teamId)
+  }))
 
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
+  for _, middleware := range siw.HandlerMiddlewares {
+    handler = middleware(handler)
+  }
 
-	handler.ServeHTTP(w, r)
+  handler.ServeHTTP(w, r)
 }
 
 // RemoveRepository operation middleware
 func (siw *ServerInterfaceWrapper) RemoveRepository(w http.ResponseWriter, r *http.Request) {
 
-	var err error
+  var err error
 
-	// ------------- Path parameter "teamId" -------------
-	var teamId string
+  // ------------- Path parameter "teamId" -------------
+  var teamId string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "teamId", r.PathValue("teamId"), &teamId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "teamId", Err: err})
-		return
-	}
+  err = runtime.BindStyledParameterWithOptions("simple", "teamId", r.PathValue("teamId"), &teamId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+  if err != nil {
+    siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "teamId", Err: err})
+    return
+  }
 
-	// ------------- Path parameter "repoId" -------------
-	var repoId string
+  // ------------- Path parameter "repoId" -------------
+  var repoId string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "repoId", r.PathValue("repoId"), &repoId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "repoId", Err: err})
-		return
-	}
+  err = runtime.BindStyledParameterWithOptions("simple", "repoId", r.PathValue("repoId"), &repoId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+  if err != nil {
+    siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "repoId", Err: err})
+    return
+  }
 
-	ctx := r.Context()
+  ctx := r.Context()
 
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+  ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
 
-	r = r.WithContext(ctx)
+  r = r.WithContext(ctx)
 
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RemoveRepository(w, r, teamId, repoId)
-	}))
+  handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    siw.Handler.RemoveRepository(w, r, teamId, repoId)
+  }))
 
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
+  for _, middleware := range siw.HandlerMiddlewares {
+    handler = middleware(handler)
+  }
 
-	handler.ServeHTTP(w, r)
+  handler.ServeHTTP(w, r)
 }
 
 // UpdateToken operation middleware
 func (siw *ServerInterfaceWrapper) UpdateToken(w http.ResponseWriter, r *http.Request) {
 
-	var err error
+  var err error
 
-	// ------------- Path parameter "teamId" -------------
-	var teamId string
+  // ------------- Path parameter "teamId" -------------
+  var teamId string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "teamId", r.PathValue("teamId"), &teamId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "teamId", Err: err})
-		return
-	}
+  err = runtime.BindStyledParameterWithOptions("simple", "teamId", r.PathValue("teamId"), &teamId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+  if err != nil {
+    siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "teamId", Err: err})
+    return
+  }
 
-	// ------------- Path parameter "repoId" -------------
-	var repoId string
+  // ------------- Path parameter "repoId" -------------
+  var repoId string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "repoId", r.PathValue("repoId"), &repoId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "repoId", Err: err})
-		return
-	}
+  err = runtime.BindStyledParameterWithOptions("simple", "repoId", r.PathValue("repoId"), &repoId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+  if err != nil {
+    siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "repoId", Err: err})
+    return
+  }
 
-	ctx := r.Context()
+  ctx := r.Context()
 
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+  ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
 
-	r = r.WithContext(ctx)
+  r = r.WithContext(ctx)
 
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateToken(w, r, teamId, repoId)
-	}))
+  handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    siw.Handler.UpdateToken(w, r, teamId, repoId)
+  }))
 
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
+  for _, middleware := range siw.HandlerMiddlewares {
+    handler = middleware(handler)
+  }
 
-	handler.ServeHTTP(w, r)
+  handler.ServeHTTP(w, r)
 }
 
 // CreateIssue operation middleware
 func (siw *ServerInterfaceWrapper) CreateIssue(w http.ResponseWriter, r *http.Request) {
 
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateIssue(w, r)
-	}))
+  handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    siw.Handler.CreateIssue(w, r)
+  }))
 
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
+  for _, middleware := range siw.HandlerMiddlewares {
+    handler = middleware(handler)
+  }
 
-	handler.ServeHTTP(w, r)
+  handler.ServeHTTP(w, r)
 }
 
 type UnescapedCookieParamError struct {
-	ParamName string
-	Err       error
+  ParamName string
+  Err       error
 }
 
 func (e *UnescapedCookieParamError) Error() string {
-	return fmt.Sprintf("error unescaping cookie parameter '%s'", e.ParamName)
+  return fmt.Sprintf("error unescaping cookie parameter '%s'", e.ParamName)
 }
 
 func (e *UnescapedCookieParamError) Unwrap() error {
-	return e.Err
+  return e.Err
 }
 
 type UnmarshalingParamError struct {
-	ParamName string
-	Err       error
+  ParamName string
+  Err       error
 }
 
 func (e *UnmarshalingParamError) Error() string {
-	return fmt.Sprintf("Error unmarshaling parameter %s as JSON: %s", e.ParamName, e.Err.Error())
+  return fmt.Sprintf("Error unmarshaling parameter %s as JSON: %s", e.ParamName, e.Err.Error())
 }
 
 func (e *UnmarshalingParamError) Unwrap() error {
-	return e.Err
+  return e.Err
 }
 
 type RequiredParamError struct {
-	ParamName string
+  ParamName string
 }
 
 func (e *RequiredParamError) Error() string {
-	return fmt.Sprintf("Query argument %s is required, but not found", e.ParamName)
+  return fmt.Sprintf("Query argument %s is required, but not found", e.ParamName)
 }
 
 type RequiredHeaderError struct {
-	ParamName string
-	Err       error
+  ParamName string
+  Err       error
 }
 
 func (e *RequiredHeaderError) Error() string {
-	return fmt.Sprintf("Header parameter %s is required, but not found", e.ParamName)
+  return fmt.Sprintf("Header parameter %s is required, but not found", e.ParamName)
 }
 
 func (e *RequiredHeaderError) Unwrap() error {
-	return e.Err
+  return e.Err
 }
 
 type InvalidParamFormatError struct {
-	ParamName string
-	Err       error
+  ParamName string
+  Err       error
 }
 
 func (e *InvalidParamFormatError) Error() string {
-	return fmt.Sprintf("Invalid format for parameter %s: %s", e.ParamName, e.Err.Error())
+  return fmt.Sprintf("Invalid format for parameter %s: %s", e.ParamName, e.Err.Error())
 }
 
 func (e *InvalidParamFormatError) Unwrap() error {
-	return e.Err
+  return e.Err
 }
 
 type TooManyValuesForParamError struct {
-	ParamName string
-	Count     int
+  ParamName string
+  Count     int
 }
 
 func (e *TooManyValuesForParamError) Error() string {
-	return fmt.Sprintf("Expected one value for %s, got %d", e.ParamName, e.Count)
+  return fmt.Sprintf("Expected one value for %s, got %d", e.ParamName, e.Count)
 }
 
 // Handler creates http.Handler with routing matching OpenAPI spec.
 func Handler(si ServerInterface) http.Handler {
-	return HandlerWithOptions(si, StdHTTPServerOptions{})
+  return HandlerWithOptions(si, StdHTTPServerOptions{})
 }
 
 // ServeMux is an abstraction of http.ServeMux.
 type ServeMux interface {
-	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
-	ServeHTTP(w http.ResponseWriter, r *http.Request)
+  HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
+  ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
 type StdHTTPServerOptions struct {
-	BaseURL          string
-	BaseRouter       ServeMux
-	Middlewares      []MiddlewareFunc
-	ErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, err error)
+  BaseURL          string
+  BaseRouter       ServeMux
+  Middlewares      []MiddlewareFunc
+  ErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, err error)
 }
 
 // HandlerFromMux creates http.Handler with routing matching OpenAPI spec based on the provided mux.
 func HandlerFromMux(si ServerInterface, m ServeMux) http.Handler {
-	return HandlerWithOptions(si, StdHTTPServerOptions{
-		BaseRouter: m,
-	})
+  return HandlerWithOptions(si, StdHTTPServerOptions{
+    BaseRouter: m,
+  })
 }
 
 func HandlerFromMuxWithBaseURL(si ServerInterface, m ServeMux, baseURL string) http.Handler {
-	return HandlerWithOptions(si, StdHTTPServerOptions{
-		BaseURL:    baseURL,
-		BaseRouter: m,
-	})
+  return HandlerWithOptions(si, StdHTTPServerOptions{
+    BaseURL:    baseURL,
+    BaseRouter: m,
+  })
 }
 
 // HandlerWithOptions creates http.Handler with additional options
 func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.Handler {
-	m := options.BaseRouter
+  m := options.BaseRouter
 
-	if m == nil {
-		m = http.NewServeMux()
-	}
-	if options.ErrorHandlerFunc == nil {
-		options.ErrorHandlerFunc = func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
-	}
+  if m == nil {
+    m = http.NewServeMux()
+  }
+  if options.ErrorHandlerFunc == nil {
+    options.ErrorHandlerFunc = func(w http.ResponseWriter, r *http.Request, err error) {
+      http.Error(w, err.Error(), http.StatusBadRequest)
+    }
+  }
 
-	wrapper := ServerInterfaceWrapper{
-		Handler:            si,
-		HandlerMiddlewares: options.Middlewares,
-		ErrorHandlerFunc:   options.ErrorHandlerFunc,
-	}
+  wrapper := ServerInterfaceWrapper{
+    Handler:            si,
+    HandlerMiddlewares: options.Middlewares,
+    ErrorHandlerFunc:   options.ErrorHandlerFunc,
+  }
 
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/auth/login", wrapper.Login)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/progress", wrapper.ListProgress)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/teams/{teamId}/github-repos", wrapper.ListRepositories)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/teams/{teamId}/github-repos", wrapper.RegisterRepository)
-	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/teams/{teamId}/github-repos/{repoId}", wrapper.RemoveRepository)
-	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/teams/{teamId}/github-repos/{repoId}/token", wrapper.UpdateToken)
-	m.HandleFunc("POST "+options.BaseURL+"/internal/issues", wrapper.CreateIssue)
+  m.HandleFunc("POST "+options.BaseURL+"/api/v1/auth/login", wrapper.Login)
+  m.HandleFunc("GET "+options.BaseURL+"/api/v1/progress", wrapper.ListProgress)
+  m.HandleFunc("GET "+options.BaseURL+"/api/v1/teams/{teamId}/github-repos", wrapper.ListRepositories)
+  m.HandleFunc("POST "+options.BaseURL+"/api/v1/teams/{teamId}/github-repos", wrapper.RegisterRepository)
+  m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/teams/{teamId}/github-repos/{repoId}", wrapper.RemoveRepository)
+  m.HandleFunc("PUT "+options.BaseURL+"/api/v1/teams/{teamId}/github-repos/{repoId}/token", wrapper.UpdateToken)
+  m.HandleFunc("POST "+options.BaseURL+"/internal/issues", wrapper.CreateIssue)
 
-	return m
+  return m
 }
 
 type LoginRequestObject struct {
-	Body *LoginJSONRequestBody
+  Body *LoginJSONRequestBody
 }
 
 type LoginResponseObject interface {
-	VisitLoginResponse(w http.ResponseWriter) error
+  VisitLoginResponse(w http.ResponseWriter) error
 }
 
 type Login200JSONResponse LoginResponse
 
 func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(200)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type Login400JSONResponse ErrorResponse
 
 func (response Login400JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(400)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type Login401JSONResponse ErrorResponse
 
 func (response Login401JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(401)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type Login403JSONResponse ErrorResponse
 
 func (response Login403JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(403)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(403)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type ListProgressRequestObject struct {
-	Params ListProgressParams
+  Params ListProgressParams
 }
 
 type ListProgressResponseObject interface {
-	VisitListProgressResponse(w http.ResponseWriter) error
+  VisitListProgressResponse(w http.ResponseWriter) error
 }
 
 type ListProgress200JSONResponse ProgressListResponse
 
 func (response ListProgress200JSONResponse) VisitListProgressResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(200)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type ListProgress500JSONResponse ErrorResponse
 
 func (response ListProgress500JSONResponse) VisitListProgressResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(500)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type ListRepositoriesRequestObject struct {
-	TeamId string `json:"teamId"`
+  TeamId string `json:"teamId"`
 }
 
 type ListRepositoriesResponseObject interface {
-	VisitListRepositoriesResponse(w http.ResponseWriter) error
+  VisitListRepositoriesResponse(w http.ResponseWriter) error
 }
 
 type ListRepositories200JSONResponse ListReposResponse
 
 func (response ListRepositories200JSONResponse) VisitListRepositoriesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(200)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type ListRepositories400JSONResponse ErrorResponse
 
 func (response ListRepositories400JSONResponse) VisitListRepositoriesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(400)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type RegisterRepositoryRequestObject struct {
-	TeamId string `json:"teamId"`
-	Body   *RegisterRepositoryJSONRequestBody
+  TeamId string `json:"teamId"`
+  Body   *RegisterRepositoryJSONRequestBody
 }
 
 type RegisterRepositoryResponseObject interface {
-	VisitRegisterRepositoryResponse(w http.ResponseWriter) error
+  VisitRegisterRepositoryResponse(w http.ResponseWriter) error
 }
 
 type RegisterRepository201JSONResponse MessageResponse
 
 func (response RegisterRepository201JSONResponse) VisitRegisterRepositoryResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(201)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type RegisterRepository400JSONResponse ErrorResponse
 
 func (response RegisterRepository400JSONResponse) VisitRegisterRepositoryResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(400)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type RemoveRepositoryRequestObject struct {
-	TeamId string `json:"teamId"`
-	RepoId string `json:"repoId"`
+  TeamId string `json:"teamId"`
+  RepoId string `json:"repoId"`
 }
 
 type RemoveRepositoryResponseObject interface {
-	VisitRemoveRepositoryResponse(w http.ResponseWriter) error
+  VisitRemoveRepositoryResponse(w http.ResponseWriter) error
 }
 
 type RemoveRepository200JSONResponse MessageResponse
 
 func (response RemoveRepository200JSONResponse) VisitRemoveRepositoryResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(200)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type RemoveRepository400JSONResponse ErrorResponse
 
 func (response RemoveRepository400JSONResponse) VisitRemoveRepositoryResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(400)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type UpdateTokenRequestObject struct {
-	TeamId string `json:"teamId"`
-	RepoId string `json:"repoId"`
-	Body   *UpdateTokenJSONRequestBody
+  TeamId string `json:"teamId"`
+  RepoId string `json:"repoId"`
+  Body   *UpdateTokenJSONRequestBody
 }
 
 type UpdateTokenResponseObject interface {
-	VisitUpdateTokenResponse(w http.ResponseWriter) error
+  VisitUpdateTokenResponse(w http.ResponseWriter) error
 }
 
 type UpdateToken200JSONResponse MessageResponse
 
 func (response UpdateToken200JSONResponse) VisitUpdateTokenResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(200)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type UpdateToken400JSONResponse ErrorResponse
 
 func (response UpdateToken400JSONResponse) VisitUpdateTokenResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(400)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type CreateIssueRequestObject struct {
-	Body *CreateIssueJSONRequestBody
+  Body *CreateIssueJSONRequestBody
 }
 
 type CreateIssueResponseObject interface {
-	VisitCreateIssueResponse(w http.ResponseWriter) error
+  VisitCreateIssueResponse(w http.ResponseWriter) error
 }
 
 type CreateIssue201JSONResponse CreateIssueResponse
 
 func (response CreateIssue201JSONResponse) VisitCreateIssueResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(201)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 type CreateIssue400JSONResponse ErrorResponse
 
 func (response CreateIssue400JSONResponse) VisitCreateIssueResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
+  w.Header().Set("Content-Type", "application/json")
+  w.WriteHeader(400)
 
-	return json.NewEncoder(w).Encode(response)
+  return json.NewEncoder(w).Encode(response)
 }
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// Authenticate user and get JWT token
-	// (POST /api/v1/auth/login)
-	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
-	// List latest progress by team
-	// (GET /api/v1/progress)
-	ListProgress(ctx context.Context, request ListProgressRequestObject) (ListProgressResponseObject, error)
-	// List GitHub repositories for a team
-	// (GET /api/v1/teams/{teamId}/github-repos)
-	ListRepositories(ctx context.Context, request ListRepositoriesRequestObject) (ListRepositoriesResponseObject, error)
-	// Register a GitHub repository for a team
-	// (POST /api/v1/teams/{teamId}/github-repos)
-	RegisterRepository(ctx context.Context, request RegisterRepositoryRequestObject) (RegisterRepositoryResponseObject, error)
-	// Remove a GitHub repository
-	// (DELETE /api/v1/teams/{teamId}/github-repos/{repoId})
-	RemoveRepository(ctx context.Context, request RemoveRepositoryRequestObject) (RemoveRepositoryResponseObject, error)
-	// Update GitHub repository token
-	// (PUT /api/v1/teams/{teamId}/github-repos/{repoId}/token)
-	UpdateToken(ctx context.Context, request UpdateTokenRequestObject) (UpdateTokenResponseObject, error)
-	// Create a GitHub issue (internal)
-	// (POST /internal/issues)
-	CreateIssue(ctx context.Context, request CreateIssueRequestObject) (CreateIssueResponseObject, error)
+  // Authenticate user and get JWT token
+  // (POST /api/v1/auth/login)
+  Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+  // List latest progress by team
+  // (GET /api/v1/progress)
+  ListProgress(ctx context.Context, request ListProgressRequestObject) (ListProgressResponseObject, error)
+  // List GitHub repositories for a team
+  // (GET /api/v1/teams/{teamId}/github-repos)
+  ListRepositories(ctx context.Context, request ListRepositoriesRequestObject) (ListRepositoriesResponseObject, error)
+  // Register a GitHub repository for a team
+  // (POST /api/v1/teams/{teamId}/github-repos)
+  RegisterRepository(ctx context.Context, request RegisterRepositoryRequestObject) (RegisterRepositoryResponseObject, error)
+  // Remove a GitHub repository
+  // (DELETE /api/v1/teams/{teamId}/github-repos/{repoId})
+  RemoveRepository(ctx context.Context, request RemoveRepositoryRequestObject) (RemoveRepositoryResponseObject, error)
+  // Update GitHub repository token
+  // (PUT /api/v1/teams/{teamId}/github-repos/{repoId}/token)
+  UpdateToken(ctx context.Context, request UpdateTokenRequestObject) (UpdateTokenResponseObject, error)
+  // Create a GitHub issue (internal)
+  // (POST /internal/issues)
+  CreateIssue(ctx context.Context, request CreateIssueRequestObject) (CreateIssueResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
 type StrictMiddlewareFunc = strictnethttp.StrictHTTPMiddlewareFunc
 
 type StrictHTTPServerOptions struct {
-	RequestErrorHandlerFunc  func(w http.ResponseWriter, r *http.Request, err error)
-	ResponseErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, err error)
+  RequestErrorHandlerFunc  func(w http.ResponseWriter, r *http.Request, err error)
+  ResponseErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, err error)
 }
 
 func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc) ServerInterface {
-	return &strictHandler{ssi: ssi, middlewares: middlewares, options: StrictHTTPServerOptions{
-		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		},
-		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		},
-	}}
+  return &strictHandler{ssi: ssi, middlewares: middlewares, options: StrictHTTPServerOptions{
+    RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+      http.Error(w, err.Error(), http.StatusBadRequest)
+    },
+    ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+    },
+  }}
 }
 
 func NewStrictHandlerWithOptions(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc, options StrictHTTPServerOptions) ServerInterface {
-	return &strictHandler{ssi: ssi, middlewares: middlewares, options: options}
+  return &strictHandler{ssi: ssi, middlewares: middlewares, options: options}
 }
 
 type strictHandler struct {
-	ssi         StrictServerInterface
-	middlewares []StrictMiddlewareFunc
-	options     StrictHTTPServerOptions
+  ssi         StrictServerInterface
+  middlewares []StrictMiddlewareFunc
+  options     StrictHTTPServerOptions
 }
 
 // Login operation middleware
 func (sh *strictHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var request LoginRequestObject
+  var request LoginRequestObject
 
-	var body LoginJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
+  var body LoginJSONRequestBody
+  if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+    sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+    return
+  }
+  request.Body = &body
 
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.Login(ctx, request.(LoginRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Login")
-	}
+  handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+    return sh.ssi.Login(ctx, request.(LoginRequestObject))
+  }
+  for _, middleware := range sh.middlewares {
+    handler = middleware(handler, "Login")
+  }
 
-	response, err := handler(r.Context(), w, r, request)
+  response, err := handler(r.Context(), w, r, request)
 
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(LoginResponseObject); ok {
-		if err := validResponse.VisitLoginResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
+  if err != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, err)
+  } else if validResponse, ok := response.(LoginResponseObject); ok {
+    if err := validResponse.VisitLoginResponse(w); err != nil {
+      sh.options.ResponseErrorHandlerFunc(w, r, err)
+    }
+  } else if response != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+  }
 }
 
 // ListProgress operation middleware
 func (sh *strictHandler) ListProgress(w http.ResponseWriter, r *http.Request, params ListProgressParams) {
-	var request ListProgressRequestObject
+  var request ListProgressRequestObject
 
-	request.Params = params
+  request.Params = params
 
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListProgress(ctx, request.(ListProgressRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListProgress")
-	}
+  handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+    return sh.ssi.ListProgress(ctx, request.(ListProgressRequestObject))
+  }
+  for _, middleware := range sh.middlewares {
+    handler = middleware(handler, "ListProgress")
+  }
 
-	response, err := handler(r.Context(), w, r, request)
+  response, err := handler(r.Context(), w, r, request)
 
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListProgressResponseObject); ok {
-		if err := validResponse.VisitListProgressResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
+  if err != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, err)
+  } else if validResponse, ok := response.(ListProgressResponseObject); ok {
+    if err := validResponse.VisitListProgressResponse(w); err != nil {
+      sh.options.ResponseErrorHandlerFunc(w, r, err)
+    }
+  } else if response != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+  }
 }
 
 // ListRepositories operation middleware
 func (sh *strictHandler) ListRepositories(w http.ResponseWriter, r *http.Request, teamId string) {
-	var request ListRepositoriesRequestObject
+  var request ListRepositoriesRequestObject
 
-	request.TeamId = teamId
+  request.TeamId = teamId
 
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListRepositories(ctx, request.(ListRepositoriesRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListRepositories")
-	}
+  handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+    return sh.ssi.ListRepositories(ctx, request.(ListRepositoriesRequestObject))
+  }
+  for _, middleware := range sh.middlewares {
+    handler = middleware(handler, "ListRepositories")
+  }
 
-	response, err := handler(r.Context(), w, r, request)
+  response, err := handler(r.Context(), w, r, request)
 
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListRepositoriesResponseObject); ok {
-		if err := validResponse.VisitListRepositoriesResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
+  if err != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, err)
+  } else if validResponse, ok := response.(ListRepositoriesResponseObject); ok {
+    if err := validResponse.VisitListRepositoriesResponse(w); err != nil {
+      sh.options.ResponseErrorHandlerFunc(w, r, err)
+    }
+  } else if response != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+  }
 }
 
 // RegisterRepository operation middleware
 func (sh *strictHandler) RegisterRepository(w http.ResponseWriter, r *http.Request, teamId string) {
-	var request RegisterRepositoryRequestObject
+  var request RegisterRepositoryRequestObject
 
-	request.TeamId = teamId
+  request.TeamId = teamId
 
-	var body RegisterRepositoryJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
+  var body RegisterRepositoryJSONRequestBody
+  if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+    sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+    return
+  }
+  request.Body = &body
 
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.RegisterRepository(ctx, request.(RegisterRepositoryRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RegisterRepository")
-	}
+  handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+    return sh.ssi.RegisterRepository(ctx, request.(RegisterRepositoryRequestObject))
+  }
+  for _, middleware := range sh.middlewares {
+    handler = middleware(handler, "RegisterRepository")
+  }
 
-	response, err := handler(r.Context(), w, r, request)
+  response, err := handler(r.Context(), w, r, request)
 
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(RegisterRepositoryResponseObject); ok {
-		if err := validResponse.VisitRegisterRepositoryResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
+  if err != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, err)
+  } else if validResponse, ok := response.(RegisterRepositoryResponseObject); ok {
+    if err := validResponse.VisitRegisterRepositoryResponse(w); err != nil {
+      sh.options.ResponseErrorHandlerFunc(w, r, err)
+    }
+  } else if response != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+  }
 }
 
 // RemoveRepository operation middleware
 func (sh *strictHandler) RemoveRepository(w http.ResponseWriter, r *http.Request, teamId string, repoId string) {
-	var request RemoveRepositoryRequestObject
+  var request RemoveRepositoryRequestObject
 
-	request.TeamId = teamId
-	request.RepoId = repoId
+  request.TeamId = teamId
+  request.RepoId = repoId
 
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.RemoveRepository(ctx, request.(RemoveRepositoryRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RemoveRepository")
-	}
+  handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+    return sh.ssi.RemoveRepository(ctx, request.(RemoveRepositoryRequestObject))
+  }
+  for _, middleware := range sh.middlewares {
+    handler = middleware(handler, "RemoveRepository")
+  }
 
-	response, err := handler(r.Context(), w, r, request)
+  response, err := handler(r.Context(), w, r, request)
 
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(RemoveRepositoryResponseObject); ok {
-		if err := validResponse.VisitRemoveRepositoryResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
+  if err != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, err)
+  } else if validResponse, ok := response.(RemoveRepositoryResponseObject); ok {
+    if err := validResponse.VisitRemoveRepositoryResponse(w); err != nil {
+      sh.options.ResponseErrorHandlerFunc(w, r, err)
+    }
+  } else if response != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+  }
 }
 
 // UpdateToken operation middleware
 func (sh *strictHandler) UpdateToken(w http.ResponseWriter, r *http.Request, teamId string, repoId string) {
-	var request UpdateTokenRequestObject
+  var request UpdateTokenRequestObject
 
-	request.TeamId = teamId
-	request.RepoId = repoId
+  request.TeamId = teamId
+  request.RepoId = repoId
 
-	var body UpdateTokenJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
+  var body UpdateTokenJSONRequestBody
+  if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+    sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+    return
+  }
+  request.Body = &body
 
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateToken(ctx, request.(UpdateTokenRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateToken")
-	}
+  handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+    return sh.ssi.UpdateToken(ctx, request.(UpdateTokenRequestObject))
+  }
+  for _, middleware := range sh.middlewares {
+    handler = middleware(handler, "UpdateToken")
+  }
 
-	response, err := handler(r.Context(), w, r, request)
+  response, err := handler(r.Context(), w, r, request)
 
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(UpdateTokenResponseObject); ok {
-		if err := validResponse.VisitUpdateTokenResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
+  if err != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, err)
+  } else if validResponse, ok := response.(UpdateTokenResponseObject); ok {
+    if err := validResponse.VisitUpdateTokenResponse(w); err != nil {
+      sh.options.ResponseErrorHandlerFunc(w, r, err)
+    }
+  } else if response != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+  }
 }
 
 // CreateIssue operation middleware
 func (sh *strictHandler) CreateIssue(w http.ResponseWriter, r *http.Request) {
-	var request CreateIssueRequestObject
+  var request CreateIssueRequestObject
 
-	var body CreateIssueJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
+  var body CreateIssueJSONRequestBody
+  if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+    sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+    return
+  }
+  request.Body = &body
 
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateIssue(ctx, request.(CreateIssueRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateIssue")
-	}
+  handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+    return sh.ssi.CreateIssue(ctx, request.(CreateIssueRequestObject))
+  }
+  for _, middleware := range sh.middlewares {
+    handler = middleware(handler, "CreateIssue")
+  }
 
-	response, err := handler(r.Context(), w, r, request)
+  response, err := handler(r.Context(), w, r, request)
 
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(CreateIssueResponseObject); ok {
-		if err := validResponse.VisitCreateIssueResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
+  if err != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, err)
+  } else if validResponse, ok := response.(CreateIssueResponseObject); ok {
+    if err := validResponse.VisitCreateIssueResponse(w); err != nil {
+      sh.options.ResponseErrorHandlerFunc(w, r, err)
+    }
+  } else if response != nil {
+    sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+  }
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+  "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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
 // or error if failed to decode
 func decodeSpec() ([]byte, error) {
-	zipped, err := base64.StdEncoding.DecodeString(strings.Join(swaggerSpec, ""))
-	if err != nil {
-		return nil, fmt.Errorf("error base64 decoding spec: %w", err)
-	}
-	zr, err := gzip.NewReader(bytes.NewReader(zipped))
-	if err != nil {
-		return nil, fmt.Errorf("error decompressing spec: %w", err)
-	}
-	var buf bytes.Buffer
-	_, err = buf.ReadFrom(zr)
-	if err != nil {
-		return nil, fmt.Errorf("error decompressing spec: %w", err)
-	}
+  zipped, err := base64.StdEncoding.DecodeString(strings.Join(swaggerSpec, ""))
+  if err != nil {
+    return nil, fmt.Errorf("error base64 decoding spec: %w", err)
+  }
+  zr, err := gzip.NewReader(bytes.NewReader(zipped))
+  if err != nil {
+    return nil, fmt.Errorf("error decompressing spec: %w", err)
+  }
+  var buf bytes.Buffer
+  _, err = buf.ReadFrom(zr)
+  if err != nil {
+    return nil, fmt.Errorf("error decompressing spec: %w", err)
+  }
 
-	return buf.Bytes(), nil
+  return buf.Bytes(), nil
 }
 
 var rawSpec = decodeSpecCached()
 
 // a naive cached of a decoded swagger spec
 func decodeSpecCached() func() ([]byte, error) {
-	data, err := decodeSpec()
-	return func() ([]byte, error) {
-		return data, err
-	}
+  data, err := decodeSpec()
+  return func() ([]byte, error) {
+    return data, err
+  }
 }
 
 // Constructs a synthetic filesystem for resolving external references when loading openapi specifications.
 func PathToRawSpec(pathToFile string) map[string]func() ([]byte, error) {
-	res := make(map[string]func() ([]byte, error))
-	if len(pathToFile) > 0 {
-		res[pathToFile] = rawSpec
-	}
+  res := make(map[string]func() ([]byte, error))
+  if len(pathToFile) > 0 {
+    res[pathToFile] = rawSpec
+  }
 
-	return res
+  return res
 }
 
 // GetSwagger returns the Swagger specification corresponding to the generated code
@@ -1040,28 +1040,28 @@ func PathToRawSpec(pathToFile string) map[string]func() ([]byte, error) {
 // Externally referenced files must be embedded in the corresponding golang packages.
 // Urls can be supported but this task was out of the scope.
 func GetSwagger() (swagger *openapi3.T, err error) {
-	resolvePath := PathToRawSpec("")
+  resolvePath := PathToRawSpec("")
 
-	loader := openapi3.NewLoader()
-	loader.IsExternalRefsAllowed = true
-	loader.ReadFromURIFunc = func(loader *openapi3.Loader, url *url.URL) ([]byte, error) {
-		pathToFile := url.String()
-		pathToFile = path.Clean(pathToFile)
-		getSpec, ok := resolvePath[pathToFile]
-		if !ok {
-			err1 := fmt.Errorf("path not found: %s", pathToFile)
-			return nil, err1
-		}
-		return getSpec()
-	}
-	var specData []byte
-	specData, err = rawSpec()
-	if err != nil {
-		return
-	}
-	swagger, err = loader.LoadFromData(specData)
-	if err != nil {
-		return
-	}
-	return
+  loader := openapi3.NewLoader()
+  loader.IsExternalRefsAllowed = true
+  loader.ReadFromURIFunc = func(loader *openapi3.Loader, url *url.URL) ([]byte, error) {
+    pathToFile := url.String()
+    pathToFile = path.Clean(pathToFile)
+    getSpec, ok := resolvePath[pathToFile]
+    if !ok {
+      err1 := fmt.Errorf("path not found: %s", pathToFile)
+      return nil, err1
+    }
+    return getSpec()
+  }
+  var specData []byte
+  specData, err = rawSpec()
+  if err != nil {
+    return
+  }
+  swagger, err = loader.LoadFromData(specData)
+  if err != nil {
+    return
+  }
+  return
 }
