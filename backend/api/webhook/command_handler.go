@@ -14,6 +14,8 @@ import (
 
 var slackMentionRegex = regexp.MustCompile(`<@([A-Z0-9]+)(?:\|[^>]*)?>`)
 
+const maxTeamNameLength = 64
+
 // CommandHandler handles Slack slash commands.
 type CommandHandler struct {
 	createMentorUC *usecase.CreateMentorUseCase
@@ -52,12 +54,21 @@ func (h *CommandHandler) handleCreateMentor(c *gin.Context, callerSlackID, text 
 	result, err := h.createMentorUC.Execute(c.Request.Context(), callerSlackID, mentorSlackID, teamName)
 	if err != nil {
 		slog.Error("failed to create mentor", slog.String("error", err.Error()), slog.String("caller", callerSlackID))
+		// Return a safe message; full error is logged server-side
+		safeMsg := "Failed to create mentor. Please check the team name and user, then try again."
+		if strings.Contains(err.Error(), "not a registered staff") {
+			safeMsg = "You are not authorized to use this command."
+		} else if strings.Contains(err.Error(), "not found") {
+			safeMsg = fmt.Sprintf("Team %q not found. Please check the team name.", teamName)
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"response_type": "ephemeral",
-			"text":          fmt.Sprintf("Failed to create mentor: %s", err.Error()),
+			"text":          safeMsg,
 		})
 		return
 	}
+
+	slog.Info("mentor created", slog.String("mentor_id", string(result.User.ID)), slog.String("staff_caller", callerSlackID), slog.String("team", teamName))
 
 	c.JSON(http.StatusOK, gin.H{
 		"response_type": "ephemeral",
@@ -84,6 +95,10 @@ func parseCreateMentorArgs(text string) (slackUserID, teamName string, err error
 	remaining := strings.TrimSpace(slackMentionRegex.ReplaceAllString(text, ""))
 	if remaining == "" {
 		return "", "", fmt.Errorf("team name is required after the user mention")
+	}
+
+	if len(remaining) > maxTeamNameLength {
+		return "", "", fmt.Errorf("team name is too long (max %d characters)", maxTeamNameLength)
 	}
 
 	return slackUserID, remaining, nil

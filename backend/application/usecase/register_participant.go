@@ -73,6 +73,11 @@ func (uc *RegisterParticipantUseCase) Execute(ctx context.Context, slackUserID, 
 		return nil, fmt.Errorf("team not found")
 	}
 
+	// Check if user already exists
+	if existing, existErr := uc.userRepo.GetBySlackUserID(ctx, entities.SlackUserID(slackUserID)); existErr == nil && existing != nil {
+		return nil, fmt.Errorf("user with Slack ID %s already exists", slackUserID)
+	}
+
 	// Fetch user info from Slack
 	var slackUser *slackinfra.SlackUserInfo
 	slackUser, err = uc.slackClient.GetUserInfo(ctx, slackUserID)
@@ -87,7 +92,7 @@ func (uc *RegisterParticipantUseCase) Execute(ctx context.Context, slackUserID, 
 
 	email := slackUser.Email
 	if email == "" {
-		email = slackUserID + "@slack.local"
+		return nil, fmt.Errorf("slack user has no email address configured")
 	}
 
 	// Create participant user (no password needed)

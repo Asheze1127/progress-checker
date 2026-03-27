@@ -82,6 +82,11 @@ func (uc *CreateMentorUseCase) Execute(ctx context.Context, callerSlackID, mento
 		return nil, fmt.Errorf("failed to fetch slack user info: %w", err)
 	}
 
+	// Check if user already exists
+	if existing, err := uc.userRepo.GetBySlackUserID(ctx, entities.SlackUserID(mentorSlackID)); err == nil && existing != nil {
+		return nil, fmt.Errorf("user with Slack ID %s already exists", mentorSlackID)
+	}
+
 	name := slackUser.RealName
 	if name == "" {
 		name = mentorSlackID
@@ -89,7 +94,7 @@ func (uc *CreateMentorUseCase) Execute(ctx context.Context, callerSlackID, mento
 
 	email := slackUser.Email
 	if email == "" {
-		email = mentorSlackID + "@slack.local"
+		return nil, fmt.Errorf("slack user has no email address configured")
 	}
 
 	// Create the user with mentor role
