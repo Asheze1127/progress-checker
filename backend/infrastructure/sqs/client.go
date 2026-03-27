@@ -6,7 +6,12 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
+
+	messagequeue "github.com/Asheze1127/progress-checker/backend/application/service/message_queue"
 )
+
+// Compile-time check that Client implements messagequeue.MessageQueue.
+var _ messagequeue.MessageQueue = (*Client)(nil)
 
 // Client implements the port.MessageQueue interface using AWS SQS.
 type Client struct {

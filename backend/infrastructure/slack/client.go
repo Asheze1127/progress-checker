@@ -5,7 +5,12 @@ import (
 	"fmt"
 
 	"github.com/slack-go/slack"
+
+	slackposter "github.com/Asheze1127/progress-checker/backend/application/service/slack_poster"
 )
+
+// Compile-time check that Client implements slackposter.SlackClient.
+var _ slackposter.SlackClient = (*Client)(nil)
 
 // Client implements the SlackClient interface using the official slack-go library.
 type Client struct {
