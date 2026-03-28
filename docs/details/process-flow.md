@@ -34,9 +34,9 @@ flowchart LR
     R -->|progress| QP[SQS progress へ送信]
 
     R -->|question| QCHK{questionは継続回答か?}
-    QCHK -->|No| QN[SQS question:new へ送信]
+    QCHK -->|No| QN[SQS question-new へ送信]
     QCHK -->|Yes| QH[Slack APIでスレッド履歴取得]
-    QH --> QF[SQS question:followup へ送信<br/>thread_messages同梱]
+    QH --> QF[SQS question-followup へ送信<br/>thread_messages同梱]
 
     R -->|issue| IH[Slack APIでスレッド履歴取得]
     IH --> QI[SQS issue へ送信<br/>thread_messages同梱]

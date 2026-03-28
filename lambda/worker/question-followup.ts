@@ -202,7 +202,7 @@ async function processRecord(record: SQSRecord): Promise<void> {
 }
 
 /**
- * SQS Lambda handler for question:followup messages.
+ * SQS Lambda handler for question-followup messages.
  */
 export const handler: SQSHandler = async (event: SQSEvent): Promise<void> => {
   console.log(

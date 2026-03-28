@@ -33,9 +33,9 @@ interface QueueWorkerConfig {
 }
 
 const QUEUE_CONFIGS: QueueWorkerConfig[] = [
-  { queueName: "question:new", handler: questionHandler },
+  { queueName: "question-new", handler: questionHandler },
   { queueName: "issue", handler: issueHandler },
-  { queueName: "question:followup", handler: followupHandler },
+  { queueName: "question-followup", handler: followupHandler },
 ];
 
 // --- SQS Client ---
