@@ -1,15 +1,25 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { api } from "@/lib/api/client";
 
+const passwordRegex =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/;
+
 const setupSchema = z
   .object({
-    password: z.string().min(8, "パスワードは8文字以上で入力してください"),
+    password: z
+      .string()
+      .min(12, "パスワードは12文字以上で入力してください")
+      .max(72, "パスワードは72文字以下で入力してください")
+      .regex(
+        passwordRegex,
+        "大文字・小文字・数字・特殊文字をそれぞれ1つ以上含めてください",
+      ),
     confirmPassword: z.string().min(1, "確認用パスワードを入力してください"),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -21,9 +31,16 @@ type SetupFormData = z.infer<typeof setupSchema>;
 
 function SetupForm() {
   const searchParams = useSearchParams();
-  const token = searchParams.get("token");
+  const [token] = useState(() => searchParams.get("token"));
   const [serverError, setServerError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Remove token from URL to prevent leakage via browser history / Referer header.
+  useEffect(() => {
+    if (token) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [token]);
 
   const {
     register,
@@ -121,7 +138,7 @@ function SetupForm() {
                 autoComplete="new-password"
                 {...register("password")}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="8文字以上のパスワード"
+                placeholder="12文字以上（大文字・小文字・数字・特殊文字を含む）"
               />
               {errors.password && (
                 <p className="mt-1 text-sm text-red-600">

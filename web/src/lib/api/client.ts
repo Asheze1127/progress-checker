@@ -1,22 +1,31 @@
 import createClient from "openapi-fetch";
 import type { paths } from "./v1";
-import { getSession } from "@/lib/auth/session";
-import { getStaffSession } from "@/lib/auth/staff-session";
+import { clearSession } from "@/lib/auth/session";
+import { clearStaffSession } from "@/lib/auth/staff-session";
 import { env } from "@/lib/env";
 
 export const api = createClient<paths>({
   baseUrl: env.NEXT_PUBLIC_API_URL,
+  credentials: "include",
 });
 
-// Attach auth token to every request based on the API path
 api.use({
-  onRequest({ request }) {
-    const url = new URL(request.url);
-    const isStaffEndpoint = url.pathname.startsWith("/api/v1/staff");
-    const token = isStaffEndpoint ? getStaffSession() : getSession();
-    if (token) {
-      request.headers.set("Authorization", `Bearer ${token}`);
+  async onResponse({ response }) {
+    if (response.status === 401) {
+      const url = new URL(response.url);
+      const isStaffEndpoint = url.pathname.startsWith("/api/v1/staff");
+      if (isStaffEndpoint) {
+        await clearStaffSession();
+        if (typeof window !== "undefined") {
+          window.location.href = "/staff/login";
+        }
+      } else {
+        await clearSession();
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+      }
     }
-    return request;
+    return response;
   },
 });

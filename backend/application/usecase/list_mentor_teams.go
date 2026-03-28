@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/Asheze1127/progress-checker/backend/api/middleware"
+	"github.com/Asheze1127/progress-checker/backend/application/appcontext"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
@@ -27,7 +27,7 @@ func (uc *ListMentorTeamsUseCase) Execute(ctx context.Context) (result []*entiti
 		slog.LogAttrs(ctx, slog.LevelDebug, "ListMentorTeamsUseCase.Execute", attrs...)
 	}()
 
-	mentorUser := middleware.UserFromContext(ctx)
+	mentorUser := appcontext.UserFromContext(ctx)
 	if mentorUser == nil {
 		return nil, fmt.Errorf("not authorized: authentication required")
 	}

@@ -11,7 +11,7 @@ import (
 	slackinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/slack"
 )
 
-const setupTokenExpiry = 48 * time.Hour
+const setupTokenExpiry = 24 * time.Hour
 
 type CreateMentorResult struct {
 	User     entities.User

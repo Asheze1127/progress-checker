@@ -24,12 +24,12 @@ export function Sidebar({ variant }: { variant: "mentor" | "staff" }) {
   const router = useRouter();
   const nav = variant === "staff" ? staffNav : mentorNav;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (variant === "staff") {
-      clearStaffSession();
+      await clearStaffSession();
       router.push("/staff/login");
     } else {
-      clearSession();
+      await clearSession();
       router.push("/login");
     }
   };

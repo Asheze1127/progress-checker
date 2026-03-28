@@ -25,8 +25,8 @@ func (h *SetupHandler) SetupPassword(ctx context.Context, request openapi.SetupP
 
 	err := h.setupPasswordUC.Execute(ctx, request.Body.Token, request.Body.Password)
 	if err != nil {
-		if errors.Is(err, usecase.ErrPasswordTooShort) {
-			return openapi.SetupPassword400JSONResponse{Error: err.Error()}, nil
+		if errors.Is(err, usecase.ErrPasswordTooShort) || errors.Is(err, usecase.ErrPasswordTooLong) || errors.Is(err, usecase.ErrPasswordTooWeak) {
+			return openapi.SetupPassword400JSONResponse{Error: "password does not meet the requirements"}, nil
 		}
 		if errors.Is(err, usecase.ErrSetupTokenInvalid) ||
 			errors.Is(err, usecase.ErrSetupTokenExpired) ||

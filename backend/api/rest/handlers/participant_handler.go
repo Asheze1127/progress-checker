@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/Asheze1127/progress-checker/backend/api/openapi"
@@ -28,8 +29,8 @@ func NewParticipantHandler(
 func (h *ParticipantHandler) ListTeamParticipants(ctx context.Context, request openapi.ListTeamParticipantsRequestObject) (openapi.ListTeamParticipantsResponseObject, error) {
 	participants, err := h.listTeamParticipantsUC.Execute(ctx, request.TeamId)
 	if err != nil {
-		if strings.Contains(err.Error(), "not authorized") {
-			return openapi.ListTeamParticipants403JSONResponse{Error: err.Error()}, nil
+		if errors.Is(err, usecase.ErrNotAuthorized) || errors.Is(err, usecase.ErrNotAuthorizedForTeam) {
+			return openapi.ListTeamParticipants403JSONResponse{Error: "not authorized"}, nil
 		}
 		return openapi.ListTeamParticipants500JSONResponse{Error: "failed to list participants"}, nil
 	}
@@ -58,10 +59,10 @@ func (h *ParticipantHandler) RegisterParticipant(ctx context.Context, request op
 
 	result, err := h.registerParticipantUC.Execute(ctx, body.SlackUserId, body.TeamId)
 	if err != nil {
-		if strings.Contains(err.Error(), "not authorized") {
-			return openapi.RegisterParticipant403JSONResponse{Error: err.Error()}, nil
+		if errors.Is(err, usecase.ErrNotAuthorized) || errors.Is(err, usecase.ErrNotAuthorizedForTeam) {
+			return openapi.RegisterParticipant403JSONResponse{Error: "not authorized"}, nil
 		}
-		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "already") {
+		if errors.Is(err, usecase.ErrTeamNotFound) || errors.Is(err, usecase.ErrUserAlreadyExists) {
 			return openapi.RegisterParticipant400JSONResponse{Error: err.Error()}, nil
 		}
 		return nil, err

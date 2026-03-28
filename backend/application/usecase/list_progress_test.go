@@ -3,8 +3,13 @@ package usecase
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/gin-gonic/gin"
+
+	"github.com/Asheze1127/progress-checker/backend/api/middleware"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
@@ -22,7 +27,44 @@ func (m *mockProgressQueryRepository) ListLatestByTeamID(ctx context.Context, te
 	return m.listLatestByTeamIDFunc(ctx, teamID)
 }
 
-func TestListProgressUseCase_Execute(t *testing.T) {
+type mockMentorRepository struct {
+	getByUserIDFunc func(ctx context.Context, userID entities.UserID) (*entities.Mentor, error)
+}
+
+func (m *mockMentorRepository) Create(_ context.Context, _ entities.UserID) error {
+	return errors.New("not implemented")
+}
+
+func (m *mockMentorRepository) AssignTeam(_ context.Context, _ entities.UserID, _ entities.TeamID) error {
+	return errors.New("not implemented")
+}
+
+func (m *mockMentorRepository) GetByUserID(ctx context.Context, userID entities.UserID) (*entities.Mentor, error) {
+	if m.getByUserIDFunc != nil {
+		return m.getByUserIDFunc(ctx, userID)
+	}
+	return nil, errors.New("not found")
+}
+
+func (m *mockMentorRepository) GetTeamIDs(_ context.Context, _ entities.UserID) ([]entities.TeamID, error) {
+	return nil, errors.New("not implemented")
+}
+
+// contextWithMentorUser creates a Gin context with an authenticated mentor user.
+func contextWithMentorUser(userID entities.UserID) context.Context {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Set(middleware.GinKeyUser, &entities.User{
+		ID:   userID,
+		Name: "Test Mentor",
+		Role: entities.UserRoleMentor,
+	})
+	return c
+}
+
+func TestListProgressUseCase_Execute_WithAuth(t *testing.T) {
 	sampleProgress := []entities.TeamProgress{
 		{
 			TeamID:   "team-1",
@@ -34,21 +76,31 @@ func TestListProgressUseCase_Execute(t *testing.T) {
 		},
 	}
 
+	mentor := entities.NewMentor("user-1", []entities.TeamID{"team-1"})
+
 	tests := []struct {
 		name          string
 		teamID        string
 		mockRepo      *mockProgressQueryRepository
+		mockMentor    *mockMentorRepository
+		ctx           context.Context
 		expectedCount int
 		expectedError bool
 	}{
 		{
-			name:   "list all teams when team_id is empty",
+			name:   "list progress for mentor's teams",
 			teamID: "",
 			mockRepo: &mockProgressQueryRepository{
-				listLatestByTeamFunc: func(ctx context.Context) ([]entities.TeamProgress, error) {
+				listLatestByTeamIDFunc: func(_ context.Context, _ entities.TeamID) ([]entities.TeamProgress, error) {
 					return sampleProgress, nil
 				},
 			},
+			mockMentor: &mockMentorRepository{
+				getByUserIDFunc: func(_ context.Context, _ entities.UserID) (*entities.Mentor, error) {
+					return mentor, nil
+				},
+			},
+			ctx:           contextWithMentorUser("user-1"),
 			expectedCount: 1,
 			expectedError: false,
 		},
@@ -56,55 +108,54 @@ func TestListProgressUseCase_Execute(t *testing.T) {
 			name:   "filter by team_id when provided",
 			teamID: "team-1",
 			mockRepo: &mockProgressQueryRepository{
-				listLatestByTeamIDFunc: func(ctx context.Context, teamID entities.TeamID) ([]entities.TeamProgress, error) {
+				listLatestByTeamIDFunc: func(_ context.Context, teamID entities.TeamID) ([]entities.TeamProgress, error) {
 					if teamID != "team-1" {
 						t.Errorf("expected teamID %q, got %q", "team-1", teamID)
 					}
 					return sampleProgress, nil
 				},
 			},
+			mockMentor: &mockMentorRepository{
+				getByUserIDFunc: func(_ context.Context, _ entities.UserID) (*entities.Mentor, error) {
+					return mentor, nil
+				},
+			},
+			ctx:           contextWithMentorUser("user-1"),
 			expectedCount: 1,
 			expectedError: false,
 		},
 		{
-			name:   "return error when repository fails for all teams",
+			name:   "error when not authenticated",
 			teamID: "",
-			mockRepo: &mockProgressQueryRepository{
-				listLatestByTeamFunc: func(ctx context.Context) ([]entities.TeamProgress, error) {
-					return nil, errors.New("database connection failed")
-				},
-			},
+			mockRepo: &mockProgressQueryRepository{},
+			mockMentor: &mockMentorRepository{},
+			ctx:           context.Background(),
 			expectedCount: 0,
 			expectedError: true,
 		},
 		{
-			name:   "return error when repository fails for filtered team",
+			name:   "error when repository fails",
 			teamID: "team-1",
 			mockRepo: &mockProgressQueryRepository{
-				listLatestByTeamIDFunc: func(ctx context.Context, teamID entities.TeamID) ([]entities.TeamProgress, error) {
+				listLatestByTeamIDFunc: func(_ context.Context, _ entities.TeamID) ([]entities.TeamProgress, error) {
 					return nil, errors.New("database connection failed")
 				},
 			},
-			expectedCount: 0,
-			expectedError: true,
-		},
-		{
-			name:   "return empty list when no progress exists",
-			teamID: "",
-			mockRepo: &mockProgressQueryRepository{
-				listLatestByTeamFunc: func(ctx context.Context) ([]entities.TeamProgress, error) {
-					return []entities.TeamProgress{}, nil
+			mockMentor: &mockMentorRepository{
+				getByUserIDFunc: func(_ context.Context, _ entities.UserID) (*entities.Mentor, error) {
+					return mentor, nil
 				},
 			},
+			ctx:           contextWithMentorUser("user-1"),
 			expectedCount: 0,
-			expectedError: false,
+			expectedError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uc := NewListProgressUseCase(tt.mockRepo)
-			results, err := uc.Execute(context.Background(), tt.teamID)
+			uc := NewListProgressUseCase(tt.mockRepo, tt.mockMentor)
+			results, err := uc.Execute(tt.ctx, tt.teamID)
 
 			if tt.expectedError && err == nil {
 				t.Error("expected error, got nil")

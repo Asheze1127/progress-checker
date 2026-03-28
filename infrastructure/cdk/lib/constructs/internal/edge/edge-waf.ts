@@ -33,6 +33,70 @@ export function attachEdgeWaf(scope: Construct, props: EdgeWafProps): void {
           sampledRequestsEnabled: true,
         },
       },
+      {
+        name: "AWSManagedRulesKnownBadInputsRuleSet",
+        priority: 2,
+        overrideAction: { none: {} },
+        statement: {
+          managedRuleGroupStatement: {
+            vendorName: "AWS",
+            name: "AWSManagedRulesKnownBadInputsRuleSet",
+          },
+        },
+        visibilityConfig: {
+          cloudWatchMetricsEnabled: true,
+          metricName: `${props.publicWebAclName}-known-bad-inputs`,
+          sampledRequestsEnabled: true,
+        },
+      },
+      {
+        name: "AWSManagedRulesSQLiRuleSet",
+        priority: 3,
+        overrideAction: { none: {} },
+        statement: {
+          managedRuleGroupStatement: {
+            vendorName: "AWS",
+            name: "AWSManagedRulesSQLiRuleSet",
+          },
+        },
+        visibilityConfig: {
+          cloudWatchMetricsEnabled: true,
+          metricName: `${props.publicWebAclName}-sqli`,
+          sampledRequestsEnabled: true,
+        },
+      },
+      {
+        name: "AWSManagedRulesAmazonIpReputationList",
+        priority: 4,
+        overrideAction: { none: {} },
+        statement: {
+          managedRuleGroupStatement: {
+            vendorName: "AWS",
+            name: "AWSManagedRulesAmazonIpReputationList",
+          },
+        },
+        visibilityConfig: {
+          cloudWatchMetricsEnabled: true,
+          metricName: `${props.publicWebAclName}-ip-reputation`,
+          sampledRequestsEnabled: true,
+        },
+      },
+      {
+        name: "RateLimitRule",
+        priority: 5,
+        action: { block: {} },
+        statement: {
+          rateBasedStatement: {
+            limit: 2000,
+            aggregateKeyType: "IP",
+          },
+        },
+        visibilityConfig: {
+          cloudWatchMetricsEnabled: true,
+          metricName: `${props.publicWebAclName}-rate-limit`,
+          sampledRequestsEnabled: true,
+        },
+      },
     ],
     scope: "REGIONAL",
     visibilityConfig: {

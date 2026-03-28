@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/Asheze1127/progress-checker/backend/api/openapi"
@@ -78,7 +79,7 @@ func (h *StaffHandler) StaffCreateTeam(ctx context.Context, request openapi.Staf
 
 	team, err := h.createTeamUC.Execute(ctx, name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create team: %w", err)
 	}
 
 	return openapi.StaffCreateTeam201JSONResponse{

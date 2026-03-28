@@ -111,7 +111,7 @@ async function summarizeThread(threadMessages: ThreadMessage[]): Promise<string>
 }
 
 async function createGitHubIssue(channelId: string, title: string, body: string): Promise<IssueApiResponse> {
-  const url = `https://${ISSUE_API_HOSTNAME}/internal/issues`;
+  const url = `http://${ISSUE_API_HOSTNAME}/internal/issues`;
 
   const response = await fetch(url, {
     method: "POST",

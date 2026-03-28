@@ -15,7 +15,7 @@ concurrency:
 jobs:
   deploy-staging:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, staging]
     environment: staging
     permissions:
       contents: read
@@ -48,7 +48,7 @@ jobs:
 
   deploy-production:
     if: github.ref == 'refs/heads/production'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, production]
     environment: production
     permissions:
       contents: read

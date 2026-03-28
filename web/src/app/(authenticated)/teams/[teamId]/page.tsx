@@ -39,20 +39,24 @@ export default function TeamDetailPage() {
       if (data) {
         setParticipants(data.participants);
       }
-    } catch {
-      // fallback
+    } catch (err) {
+      console.error("Failed to fetch participants:", err);
     } finally {
       setIsLoading(false);
     }
   }, [teamId]);
 
   const fetchTeamName = useCallback(async () => {
-    const { data } = await api.GET("/api/v1/teams");
-    if (data) {
-      const team = data.teams.find((t) => t.id === teamId);
-      if (team) {
-        setTeamName(team.name);
+    try {
+      const { data } = await api.GET("/api/v1/teams");
+      if (data) {
+        const team = data.teams.find((t) => t.id === teamId);
+        if (team) {
+          setTeamName(team.name);
+        }
       }
+    } catch (err) {
+      console.error("Failed to fetch team name:", err);
     }
   }, [teamId]);
 
@@ -63,8 +67,8 @@ export default function TeamDetailPage() {
       if (data) {
         setSlackUsers(data.users);
       }
-    } catch {
-      // fallback
+    } catch (err) {
+      console.error("Failed to fetch Slack users:", err);
     } finally {
       setIsLoadingUsers(false);
     }

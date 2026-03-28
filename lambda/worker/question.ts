@@ -98,6 +98,33 @@ export function buildResponseBlocks(
   ];
 }
 
+// --- Message validation ---
+
+function parseQuestionMessage(raw: unknown): QuestionMessage {
+  if (typeof raw !== "object" || raw === null) {
+    throw new Error("Message body is not a valid object");
+  }
+  const msg = raw as Record<string, unknown>;
+  const requiredFields = [
+    "type",
+    "question_id",
+    "participant_id",
+    "title",
+    "text",
+    "slack_channel_id",
+    "slack_thread_ts",
+  ] as const;
+  for (const field of requiredFields) {
+    if (typeof msg[field] !== "string" || (msg[field] as string).length === 0) {
+      throw new Error(`Missing or invalid field: ${field}`);
+    }
+  }
+  if (msg.type !== "question_new") {
+    throw new Error(`Unexpected message type: ${msg.type}`);
+  }
+  return msg as unknown as QuestionMessage;
+}
+
 // --- Core processing (testable with injected dependencies) ---
 
 export async function processNewQuestion(
@@ -164,7 +191,7 @@ export const handler: SQSHandler = async (event: SQSEvent) => {
 
   for (const record of event.Records) {
     try {
-      const message: QuestionMessage = JSON.parse(record.body);
+      const message = parseQuestionMessage(JSON.parse(record.body));
       await processNewQuestion(message, deps);
     } catch (error) {
       const errorMessage =

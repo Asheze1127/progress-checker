@@ -154,7 +154,7 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	})
 
 	do.Provide(injector, func(i do.Injector) (*jwt.JWTService, error) {
-		return jwt.NewJWTService(cfg.JWTSecret), nil
+		return jwt.NewJWTService(cfg.JWTSecret)
 	})
 
 	do.Provide(injector, func(i do.Injector) (*util.PasswordHasher, error) {
@@ -177,8 +177,9 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	// --- Use Cases ---
 	do.Provide(injector, func(i do.Injector) (*usecase.HandleProgressUseCase, error) {
 		progressRepo := do.MustInvoke[*postgres.ProgressRepository](i)
+		userRepo := do.MustInvoke[*postgres.UserRepository](i)
 		poster := do.MustInvoke[*slackposter.SlackPoster](i)
-		return usecase.NewHandleProgressUseCase(progressRepo, poster), nil
+		return usecase.NewHandleProgressUseCase(progressRepo, userRepo, poster), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*usecase.ListProgressUseCase, error) {
@@ -258,7 +259,8 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		setupTokenRepo := do.MustInvoke[*postgres.SetupTokenRepository](i)
 		userRepo := do.MustInvoke[*postgres.UserRepository](i)
 		hasher := do.MustInvoke[*util.PasswordHasher](i)
-		return usecase.NewSetupPasswordUseCase(setupTokenRepo, userRepo, hasher), nil
+		database := do.MustInvoke[*sql.DB](i)
+		return usecase.NewSetupPasswordUseCase(setupTokenRepo, userRepo, hasher, database), nil
 	})
 
 	// --- Handlers ---

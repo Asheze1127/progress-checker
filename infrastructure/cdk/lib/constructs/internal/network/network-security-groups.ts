@@ -30,6 +30,11 @@ export function createNetworkSecurityGroups(
     ec2.Port.tcp(80),
     "Allow inbound HTTP traffic from the internet.",
   );
+  publicAlbSecurityGroup.addIngressRule(
+    ec2.Peer.anyIpv4(),
+    ec2.Port.tcp(443),
+    "Allow inbound HTTPS traffic from the internet.",
+  );
 
   const internalAlbSecurityGroup = new ec2.SecurityGroup(scope, "InternalAlbSecurityGroup", {
     allowAllOutbound: true,
@@ -65,7 +70,7 @@ export function createNetworkSecurityGroups(
   });
 
   const databaseSecurityGroup = new ec2.SecurityGroup(scope, "DatabaseSecurityGroup", {
-    allowAllOutbound: true,
+    allowAllOutbound: false,
     description: "Security group for the PostgreSQL instance.",
     vpc: props.vpc,
   });

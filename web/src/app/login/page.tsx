@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { setSession } from "@/lib/auth/session";
-import { api } from "@/lib/api/client";
 
 const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
@@ -31,16 +29,19 @@ export default function LoginPage() {
     setServerError(null);
 
     try {
-      const { data: result, error } = await api.POST("/api/v1/auth/login", {
-        body: data,
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       });
 
-      if (error) {
-        setServerError(error.error || "Login failed");
+      const result = await res.json();
+
+      if (!res.ok) {
+        setServerError(result.error || "Login failed");
         return;
       }
 
-      setSession(result.token);
       router.push("/progress");
     } catch {
       setServerError("Network error. Please try again.");

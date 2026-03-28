@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { setStaffSession } from "@/lib/auth/staff-session";
-import { api } from "@/lib/api/client";
 
 const loginSchema = z.object({
   email: z.string().email("有効なメールアドレスを入力してください"),
@@ -31,16 +29,19 @@ export default function StaffLoginPage() {
     setServerError(null);
 
     try {
-      const { data: result, error } = await api.POST("/api/v1/staff/auth/login", {
-        body: data,
+      const res = await fetch("/api/auth/staff/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       });
 
-      if (error) {
-        setServerError(error.error || "ログインに失敗しました");
+      const result = await res.json();
+
+      if (!res.ok) {
+        setServerError(result.error || "ログインに失敗しました");
         return;
       }
 
-      setStaffSession(result.token);
       router.push("/staff/dashboard");
     } catch {
       setServerError("ネットワークエラーが発生しました。もう一度お試しください。");

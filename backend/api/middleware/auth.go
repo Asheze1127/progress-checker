@@ -3,23 +3,23 @@ package middleware
 import (
 	"context"
 	"crypto/subtle"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/Asheze1127/progress-checker/backend/api/openapi"
+	"github.com/Asheze1127/progress-checker/backend/application/appcontext"
 	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
-// ginKeyUser is the Gin context key for storing the authenticated user.
-// Using a plain string so that Gin's Value() can find it via c.Get()
-// when *gin.Context is passed as context.Context through oapi-codegen strict handlers.
-const ginKeyUser = "middleware.authenticated_user"
+// GinKeyUser is the Gin context key for storing the authenticated user.
+const GinKeyUser = appcontext.KeyUser
 
-// ginKeyStaff is the Gin context key for storing the authenticated staff.
-const ginKeyStaff = "middleware.authenticated_staff"
+// GinKeyStaff is the Gin context key for storing the authenticated staff.
+const GinKeyStaff = appcontext.KeyStaff
 
 // SecurityMiddleware returns an oapi-codegen MiddlewareFunc that dispatches
 // authentication based on OpenAPI security scopes set by the generated code.
@@ -28,7 +28,10 @@ const ginKeyStaff = "middleware.authenticated_staff"
 //   - Neither → pass through (public endpoint)
 func SecurityMiddleware(jwtService *jwt.JWTService, internalToken string) openapi.MiddlewareFunc {
 	if len(internalToken) < 32 {
-		panic("SecurityMiddleware: internalToken must be at least 32 bytes")
+		slog.Error("SecurityMiddleware: internalToken must be at least 32 bytes")
+		return func(c *gin.Context) {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "server misconfiguration"})
+		}
 	}
 
 	return func(c *gin.Context) {
@@ -66,7 +69,7 @@ func handleBearerAuth(c *gin.Context, jwtService *jwt.JWTService) {
 		return
 	}
 
-	if claims.UserRole != entities.UserRoleMentor {
+	if claims.RawRole != string(entities.UserRoleMentor) {
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions: mentor role required"})
 		return
 	}
@@ -77,7 +80,7 @@ func handleBearerAuth(c *gin.Context, jwtService *jwt.JWTService) {
 		Role: claims.UserRole,
 	}
 
-	c.Set(ginKeyUser, user)
+	c.Set(GinKeyUser, user)
 }
 
 // handleInternalTokenAuth validates the X-Internal-Token header.
@@ -113,25 +116,17 @@ func handleStaffBearerAuth(c *gin.Context, jwtService *jwt.JWTService) {
 		Name: claims.UserName,
 	}
 
-	c.Set(ginKeyStaff, staff)
+	c.Set(GinKeyStaff, staff)
 }
 
 // StaffFromContext retrieves the authenticated staff from the request context.
 func StaffFromContext(ctx context.Context) *entities.Staff {
-	staff, ok := ctx.Value(ginKeyStaff).(*entities.Staff)
-	if !ok {
-		return nil
-	}
-	return staff
+	return appcontext.StaffFromContext(ctx)
 }
 
 // UserFromContext retrieves the authenticated user from the request context.
 func UserFromContext(ctx context.Context) *entities.User {
-	user, ok := ctx.Value(ginKeyUser).(*entities.User)
-	if !ok {
-		return nil
-	}
-	return user
+	return appcontext.UserFromContext(ctx)
 }
 
 // extractBearerToken extracts the token from the Authorization header value.

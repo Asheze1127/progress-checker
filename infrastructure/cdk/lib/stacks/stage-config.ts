@@ -18,6 +18,7 @@ export interface StageStackConfiguration {
   issueApiRecordName: string;
   privateHostedZoneName: string;
   publicWebAclName: string;
+  internalApiTokenSecretName?: string;
   queueNames: {
     question: QueueNames;
     issue: QueueNames;
@@ -42,6 +43,7 @@ export const STAGE_CONFIGS: Record<StageName, StageStackConfiguration> = {
     natGatewayCount: NAT_GATEWAY_COUNT,
     privateHostedZoneName: "stg.internal.example.com",
     publicWebAclName: "kcl-progress-board-stg-public-alb-web-acl",
+    internalApiTokenSecretName: "kcl-progress-board/stg/internal-api-token",
     region: "ap-northeast-1",
     stackId: "KclProgressBoardStgStack",
     queueNames: {
@@ -62,6 +64,7 @@ export const STAGE_CONFIGS: Record<StageName, StageStackConfiguration> = {
     natGatewayCount: NAT_GATEWAY_COUNT,
     privateHostedZoneName: "internal.example.com",
     publicWebAclName: "kcl-progress-board-prod-public-alb-web-acl",
+    internalApiTokenSecretName: "kcl-progress-board/prod/internal-api-token",
     region: "ap-northeast-1",
     stackId: "KclProgressBoardProdStack",
     queueNames: {

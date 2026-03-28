@@ -23,24 +23,32 @@ export default function StaffDashboardPage() {
   const router = useRouter();
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamError, setTeamError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isLoadingTeams, setIsLoadingTeams] = useState(true);
 
   const teamForm = useForm<CreateTeamData>({
     resolver: zodResolver(createTeamSchema),
   });
 
   const fetchTeams = useCallback(async () => {
+    setFetchError(null);
+    setIsLoadingTeams(true);
     try {
-      const { data, error, response } = await api.GET("/api/v1/staff/teams");
+      const { data, response } = await api.GET("/api/v1/staff/teams");
       if (response.status === 401 || response.status === 403) {
-        clearStaffSession();
+        await clearStaffSession();
         router.push("/staff/login");
         return;
       }
       if (data) {
         setTeams(data.teams);
+      } else {
+        setFetchError("チーム一覧の取得に失敗しました");
       }
     } catch {
-      // network error
+      setFetchError("ネットワークエラーが発生しました");
+    } finally {
+      setIsLoadingTeams(false);
     }
   }, [router]);
 
@@ -103,8 +111,15 @@ export default function StaffDashboardPage() {
             <p className="text-sm text-red-600 mb-2">{teamError}</p>
           )}
 
+          {fetchError && (
+            <p className="text-sm text-red-600 mb-2">{fetchError}</p>
+          )}
           <div className="border rounded-md divide-y">
-            {teams.length === 0 ? (
+            {isLoadingTeams ? (
+              <p className="px-4 py-3 text-sm text-gray-500">
+                読み込み中...
+              </p>
+            ) : teams.length === 0 ? (
               <p className="px-4 py-3 text-sm text-gray-500">
                 チームがまだありません
               </p>

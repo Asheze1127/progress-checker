@@ -61,7 +61,10 @@ func hashPassword(t *testing.T, password string) string {
 }
 
 func newTestLoginUseCase(userRepo entities.UserRepository) *LoginUseCase {
-	jwtSvc := jwt.NewJWTService("test-secret-key-for-testing-only")
+	jwtSvc, err := jwt.NewJWTService("test-secret-key-for-testing-only!!")
+	if err != nil {
+		panic("failed to create JWT service: " + err.Error())
+	}
 	hasher := util.NewPasswordHasher()
 	return NewLoginUseCase(userRepo, jwtSvc, hasher)
 }
@@ -158,8 +161,8 @@ func TestLoginUseCase_Execute_NotMentor(t *testing.T) {
 
 	uc := newTestLoginUseCase(userRepo)
 	_, err := uc.Execute(context.Background(), "participant@example.com", "correct-password")
-	if !errors.Is(err, ErrUserNotMentor) {
-		t.Errorf("Execute() error = %v, want %v", err, ErrUserNotMentor)
+	if !errors.Is(err, ErrInvalidCredentials) {
+		t.Errorf("Execute() error = %v, want %v", err, ErrInvalidCredentials)
 	}
 }
 

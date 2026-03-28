@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -118,7 +119,13 @@ type RouterConfig struct {
 // the security scopes set by the generated code.
 func NewRouter(cfg RouterConfig) http.Handler {
 	r := gin.New()
+	// Only trust loopback and private-network proxies so c.ClientIP() is reliable.
+	r.SetTrustedProxies([]string{"127.0.0.1", "::1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"})
 	r.Use(gin.Recovery())
+
+	// --- Rate limiting for auth endpoints ---
+	authRateLimiter := middleware.NewRateLimiter(10, 1*time.Minute)
+	r.Use(middleware.AuthPathRateLimitMiddleware(authRateLimiter))
 
 	// --- Health ---
 	r.GET("/healthz", handleHealthz)
@@ -179,6 +186,10 @@ func setCORSHeaders(c *gin.Context, allowedOrigins []string) {
 		return
 	}
 	for _, allowed := range allowedOrigins {
+		if allowed == "*" {
+			slog.Warn("CORS wildcard '*' is ignored; specify explicit origins")
+			continue
+		}
 		if origin == allowed {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")

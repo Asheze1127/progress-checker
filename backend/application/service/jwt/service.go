@@ -9,9 +9,12 @@ import (
 	jwtlib "github.com/golang-jwt/jwt/v5"
 )
 
-const TokenExpiry = 24 * time.Hour
+const TokenExpiry = 2 * time.Hour
 
-var ErrInvalidToken = errors.New("invalid or expired token")
+var (
+	ErrInvalidToken  = errors.New("invalid or expired token")
+	ErrWeakSecret    = errors.New("JWT secret must be at least 32 bytes")
+)
 
 type TokenClaims struct {
 	UserID   entities.UserID
@@ -27,8 +30,11 @@ type JWTService struct {
 	now    func() time.Time
 }
 
-func NewJWTService(secret string) *JWTService {
-	return &JWTService{secret: []byte(secret), now: time.Now}
+func NewJWTService(secret string) (*JWTService, error) {
+	if len(secret) < 32 {
+		return nil, ErrWeakSecret
+	}
+	return &JWTService{secret: []byte(secret), now: time.Now}, nil
 }
 
 // RoleStaff is the role claim value for staff tokens.
@@ -71,10 +77,16 @@ func (s *JWTService) ValidateToken(tokenString string) (*TokenClaims, error) {
 	if !ok || !token.Valid {
 		return nil, ErrInvalidToken
 	}
-	sub, _ := claims["sub"].(string)
-	name, _ := claims["name"].(string)
-	role, _ := claims["role"].(string)
-	if sub == "" {
+	sub, ok := claims["sub"].(string)
+	if !ok || sub == "" {
+		return nil, ErrInvalidToken
+	}
+	name, ok := claims["name"].(string)
+	if !ok {
+		return nil, ErrInvalidToken
+	}
+	role, ok := claims["role"].(string)
+	if !ok || role == "" {
 		return nil, ErrInvalidToken
 	}
 	userRole := entities.UserRole(role)

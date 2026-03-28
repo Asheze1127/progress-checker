@@ -17,6 +17,16 @@ const (
 	ProgressPhaseDemo    ProgressPhase = "demo"
 )
 
+// IsValid returns true if the phase is a known valid value.
+func (p ProgressPhase) IsValid() bool {
+	switch p {
+	case ProgressPhaseIdea, ProgressPhaseDesign, ProgressPhaseCoding, ProgressPhaseTesting, ProgressPhaseDemo:
+		return true
+	default:
+		return false
+	}
+}
+
 type ProgressLogID string
 
 type ProgressLog struct {

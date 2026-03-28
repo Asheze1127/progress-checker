@@ -1,4 +1,5 @@
 import * as cdk from "aws-cdk-lib";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import type { Construct } from "constructs";
 import { ApiService } from "../constructs/api-service";
 import { Database } from "../constructs/database";
@@ -66,6 +67,16 @@ export class ProgressBoardStack extends cdk.Stack {
 
     const issueApiHostname = `${configuration.issueApiRecordName}.${configuration.privateHostedZoneName}`;
 
+    const internalApiTokenSecret = configuration.internalApiTokenSecretName
+      ? secretsmanager.Secret.fromSecretNameV2(this, "InternalApiTokenSecret", configuration.internalApiTokenSecretName)
+      : undefined;
+
+    const slackBotTokenSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      "SlackBotTokenSecret",
+      `kcl-progress-board/${configuration.stageName}/slack-bot-token`,
+    );
+
     const apiService = new ApiService(this, "ApiService", {
       apiContainerImageUri: apiContainerImageUri.valueAsString,
       apiContainerPort: API_CONTAINER_PORT,
@@ -108,32 +119,43 @@ export class ProgressBoardStack extends cdk.Stack {
       vpc: network.vpc,
     });
 
+    // Grant ECS API service permission to send messages to SQS queues
+    questionQueue.queue.grantSendMessages(apiService.taskDefinition.taskRole);
+    issueQueue.queue.grantSendMessages(apiService.taskDefinition.taskRole);
+
     new LambdaWithSqs(this, "QuestionLambda", {
       appEnvironment: configuration.stageName,
       appSubnetName: APP_SUBNET_NAME,
       databaseHost: database.instance.instanceEndpoint.hostname,
       databaseName: databaseName.valueAsString,
       databaseSecret: database.instance.secret,
+      slackBotTokenSecret: slackBotTokenSecret,
       lambdaName: "question",
       lambdaSecurityGroup: network.lambdaSecurityGroup,
       queue: questionQueue.queue,
       vpc: network.vpc,
     });
 
-    new LambdaWithSqs(this, "IssueLambda", {
+    const issueLambda = new LambdaWithSqs(this, "IssueLambda", {
       appEnvironment: configuration.stageName,
       appSubnetName: APP_SUBNET_NAME,
       databaseHost: database.instance.instanceEndpoint.hostname,
       databaseName: databaseName.valueAsString,
       databaseSecret: database.instance.secret,
+      slackBotTokenSecret: slackBotTokenSecret,
       extraEnvironment: {
         ISSUE_API_HOSTNAME: edge.issueApiFqdn,
+        INTERNAL_API_TOKEN_SECRET_ARN: internalApiTokenSecret?.secretArn ?? "",
       },
       lambdaName: "issue",
       lambdaSecurityGroup: network.lambdaSecurityGroup,
       queue: issueQueue.queue,
       vpc: network.vpc,
     });
+
+    if (internalApiTokenSecret) {
+      internalApiTokenSecret.grantRead(issueLambda.lambdaFunction);
+    }
 
     new cdk.CfnOutput(this, "PublicAlbDnsName", {
       value: edge.publicAlb.loadBalancerDnsName,

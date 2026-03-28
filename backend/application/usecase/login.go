@@ -47,7 +47,7 @@ func NewLoginUseCase(
 // and generates a JWT token.
 func (uc *LoginUseCase) Execute(ctx context.Context, email, password string) (result *LoginResult, err error) {
 	defer func() {
-		attrs := []slog.Attr{slog.String("email", email)}
+		attrs := []slog.Attr{slog.Bool("has_email", email != "")}
 		if err != nil {
 			attrs = append(attrs, slog.String("error", err.Error()))
 		}
@@ -66,12 +66,16 @@ func (uc *LoginUseCase) Execute(ctx context.Context, email, password string) (re
 		return nil, ErrInvalidCredentials
 	}
 
+	if userWithPw.PasswordHash == "" {
+		return nil, ErrInvalidCredentials
+	}
+
 	if err := uc.hasher.Verify(userWithPw.PasswordHash, password); err != nil {
 		return nil, ErrInvalidCredentials
 	}
 
 	if !userWithPw.IsMentor() {
-		return nil, ErrUserNotMentor
+		return nil, ErrInvalidCredentials
 	}
 
 	token, err := uc.jwt.GenerateToken(&userWithPw.User)

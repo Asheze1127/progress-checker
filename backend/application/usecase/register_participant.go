@@ -2,13 +2,19 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 
-	"github.com/Asheze1127/progress-checker/backend/api/middleware"
+	"github.com/Asheze1127/progress-checker/backend/application/appcontext"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 	slackinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/slack"
+)
+
+var (
+	ErrTeamNotFound    = errors.New("team not found")
+	ErrUserAlreadyExists = errors.New("user already exists")
 )
 
 type RegisterParticipantUseCase struct {
@@ -55,9 +61,9 @@ func (uc *RegisterParticipantUseCase) Execute(ctx context.Context, slackUserID, 
 	}
 
 	// Get the authenticated mentor from context
-	mentorUser := middleware.UserFromContext(ctx)
+	mentorUser := appcontext.UserFromContext(ctx)
 	if mentorUser == nil {
-		return nil, fmt.Errorf("not authorized: authentication required")
+		return nil, ErrNotAuthorized
 	}
 
 	// Verify the mentor is assigned to this team
@@ -67,17 +73,17 @@ func (uc *RegisterParticipantUseCase) Execute(ctx context.Context, slackUserID, 
 	}
 
 	if !mentor.BelongsToTeam(entities.TeamID(teamID)) {
-		return nil, fmt.Errorf("not authorized for this team")
+		return nil, ErrNotAuthorizedForTeam
 	}
 
 	// Verify team exists
 	if _, err := uc.teamRepo.GetByID(ctx, entities.TeamID(teamID)); err != nil {
-		return nil, fmt.Errorf("team not found")
+		return nil, ErrTeamNotFound
 	}
 
 	// Check if user already exists
 	if existing, existErr := uc.userRepo.GetBySlackUserID(ctx, entities.SlackUserID(slackUserID)); existErr == nil && existing != nil {
-		return nil, fmt.Errorf("user with Slack ID %s already exists", slackUserID)
+		return nil, ErrUserAlreadyExists
 	}
 
 	// Fetch user info from Slack

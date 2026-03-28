@@ -2,11 +2,17 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
-	"github.com/Asheze1127/progress-checker/backend/api/middleware"
+	"github.com/Asheze1127/progress-checker/backend/application/appcontext"
 	"github.com/Asheze1127/progress-checker/backend/entities"
+)
+
+var (
+	ErrNotAuthorized       = errors.New("not authorized")
+	ErrNotAuthorizedForTeam = errors.New("not authorized for this team")
 )
 
 type ListTeamParticipantsUseCase struct {
@@ -33,9 +39,9 @@ func (uc *ListTeamParticipantsUseCase) Execute(ctx context.Context, teamID strin
 		slog.LogAttrs(ctx, slog.LevelDebug, "ListTeamParticipantsUseCase.Execute", attrs...)
 	}()
 
-	mentorUser := middleware.UserFromContext(ctx)
+	mentorUser := appcontext.UserFromContext(ctx)
 	if mentorUser == nil {
-		return nil, fmt.Errorf("not authorized: authentication required")
+		return nil, ErrNotAuthorized
 	}
 
 	mentor, err := uc.mentorRepo.GetByUserID(ctx, mentorUser.ID)
@@ -44,7 +50,7 @@ func (uc *ListTeamParticipantsUseCase) Execute(ctx context.Context, teamID strin
 	}
 
 	if !mentor.BelongsToTeam(entities.TeamID(teamID)) {
-		return nil, fmt.Errorf("not authorized for this team")
+		return nil, ErrNotAuthorizedForTeam
 	}
 
 	participants, err := uc.participantRepo.ListByTeamID(ctx, entities.TeamID(teamID))
