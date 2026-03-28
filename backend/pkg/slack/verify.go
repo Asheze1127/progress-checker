@@ -21,10 +21,14 @@ type Verifier struct {
 }
 
 // NewVerifier creates a new Verifier with the given Slack signing secret.
-func NewVerifier(signingSecret string) *Verifier {
+// Returns an error if the signing secret is empty.
+func NewVerifier(signingSecret string) (*Verifier, error) {
+	if len(signingSecret) == 0 {
+		return nil, errors.New("slack signing secret must not be empty")
+	}
 	return &Verifier{
 		signingSecret: signingSecret,
-	}
+	}, nil
 }
 
 // Verify checks that the request has a valid Slack signature using slack-go's SecretsVerifier.
@@ -35,7 +39,8 @@ func (v *Verifier) Verify(r *http.Request) ([]byte, error) {
 		return nil, ErrInvalidSignature
 	}
 
-	body, err := io.ReadAll(io.TeeReader(r.Body, &sv))
+	const maxSlackBodyBytes = 2 << 20 // 2 MB
+	body, err := io.ReadAll(io.TeeReader(io.LimitReader(r.Body, maxSlackBodyBytes), &sv))
 	if err != nil {
 		return nil, fmt.Errorf("reading request body: %w", err)
 	}

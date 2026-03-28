@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -37,7 +38,7 @@ func (h *CommandHandler) HandleCommand(c *gin.Context) {
 	case "/create-mentor":
 		h.handleCreateMentor(c, callerID, text)
 	default:
-		c.JSON(http.StatusOK, gin.H{"text": fmt.Sprintf("Unknown command: %s", command)})
+		c.JSON(http.StatusOK, gin.H{"text": "Unsupported command"})
 	}
 }
 
@@ -56,9 +57,9 @@ func (h *CommandHandler) handleCreateMentor(c *gin.Context, callerSlackID, text 
 		slog.Error("failed to create mentor", slog.String("error", err.Error()), slog.String("caller", callerSlackID))
 		// Return a safe message; full error is logged server-side
 		safeMsg := "Failed to create mentor. Please check the team name and user, then try again."
-		if strings.Contains(err.Error(), "not a registered staff") {
+		if errors.Is(err, usecase.ErrNotStaff) {
 			safeMsg = "You are not authorized to use this command."
-		} else if strings.Contains(err.Error(), "not found") {
+		} else if errors.Is(err, usecase.ErrTeamNotFound) {
 			safeMsg = fmt.Sprintf("Team %q not found. Please check the team name.", teamName)
 		}
 		c.JSON(http.StatusOK, gin.H{
@@ -68,13 +69,13 @@ func (h *CommandHandler) handleCreateMentor(c *gin.Context, callerSlackID, text 
 		return
 	}
 
-	slog.Info("mentor created", slog.String("mentor_id", string(result.User.ID)), slog.String("staff_caller", callerSlackID), slog.String("team", teamName))
+	slog.Info("mentor created", slog.String("mentor_id", string(result.User.ID)), slog.String("caller", callerSlackID), slog.String("team", teamName))
 
 	c.JSON(http.StatusOK, gin.H{
 		"response_type": "ephemeral",
 		"text": fmt.Sprintf(
 			"Mentor created successfully!\nName: %s\nTeam: %s\nSetup URL: %s\n\nPlease share this URL with the mentor to set their password.",
-			result.User.Name, teamName, result.SetupURL,
+			sanitizeSlackText(result.User.Name), teamName, result.SetupURL,
 		),
 	})
 }
@@ -101,5 +102,15 @@ func parseCreateMentorArgs(text string) (slackUserID, teamName string, err error
 		return "", "", fmt.Errorf("team name is too long (max %d characters)", maxTeamNameLength)
 	}
 
+	// Sanitize Slack formatting metacharacters to prevent injection
+	remaining = sanitizeSlackText(remaining)
+
 	return slackUserID, remaining, nil
+}
+
+// sanitizeSlackText strips Slack mrkdwn metacharacters that could be abused
+// for link injection, channel mentions, or user mentions.
+func sanitizeSlackText(s string) string {
+	r := strings.NewReplacer("<", "", ">", "", "&", "&amp;")
+	return r.Replace(s)
 }

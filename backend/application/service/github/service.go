@@ -2,24 +2,48 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/Asheze1127/progress-checker/backend/application/appcontext"
 	githubissuecreator "github.com/Asheze1127/progress-checker/backend/application/service/github_issue_creator"
 	"github.com/Asheze1127/progress-checker/backend/application/service/token_encryptor"
 	"github.com/Asheze1127/progress-checker/backend/entities"
+)
+
+var (
+	ErrGitHubNotAuthorized        = errors.New("not authorized")
+	ErrGitHubNotAuthorizedForTeam = errors.New("not authorized for this team")
 )
 
 type GitHubService struct {
 	repo       entities.GitHubRepoRepository
 	encryptor  tokenencryptor.TokenEncryptor
 	ghClient   githubissuecreator.GitHubIssueCreator
+	mentorRepo entities.MentorRepository
 	idProvider func() string
 }
 
-func NewGitHubService(repo entities.GitHubRepoRepository, encryptor tokenencryptor.TokenEncryptor, ghClient githubissuecreator.GitHubIssueCreator, idProvider func() string) *GitHubService {
-	return &GitHubService{repo: repo, encryptor: encryptor, ghClient: ghClient, idProvider: idProvider}
+func NewGitHubService(repo entities.GitHubRepoRepository, encryptor tokenencryptor.TokenEncryptor, ghClient githubissuecreator.GitHubIssueCreator, mentorRepo entities.MentorRepository, idProvider func() string) *GitHubService {
+	return &GitHubService{repo: repo, encryptor: encryptor, ghClient: ghClient, mentorRepo: mentorRepo, idProvider: idProvider}
+}
+
+// verifyTeamAccess checks that the authenticated mentor from context is a member of the given team.
+func (s *GitHubService) verifyTeamAccess(ctx context.Context, teamID string) error {
+	user := appcontext.UserFromContext(ctx)
+	if user == nil {
+		return ErrGitHubNotAuthorized
+	}
+	mentor, err := s.mentorRepo.GetByUserID(ctx, user.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get mentor: %w", err)
+	}
+	if !mentor.BelongsToTeam(entities.TeamID(teamID)) {
+		return ErrGitHubNotAuthorizedForTeam
+	}
+	return nil
 }
 
 func (s *GitHubService) RegisterRepository(ctx context.Context, teamID string, repoURL string, pat string) error {
@@ -28,6 +52,9 @@ func (s *GitHubService) RegisterRepository(ctx context.Context, teamID string, r
 	}
 	if strings.TrimSpace(pat) == "" {
 		return fmt.Errorf("personal_access_token is required")
+	}
+	if err := s.verifyTeamAccess(ctx, teamID); err != nil {
+		return err
 	}
 	owner, repoName, err := entities.ParseGitHubRepoURL(repoURL)
 	if err != nil {
@@ -49,6 +76,9 @@ func (s *GitHubService) ListRepositories(ctx context.Context, teamID string) ([]
 	if strings.TrimSpace(teamID) == "" {
 		return nil, fmt.Errorf("team_id is required")
 	}
+	if err := s.verifyTeamAccess(ctx, teamID); err != nil {
+		return nil, err
+	}
 	repos, err := s.repo.FindByTeamID(ctx, teamID)
 	if err != nil {
 		return nil, fmt.Errorf("find github repos: %w", err)
@@ -62,6 +92,9 @@ func (s *GitHubService) RemoveRepository(ctx context.Context, teamID string, rep
 	}
 	if strings.TrimSpace(repoID) == "" {
 		return fmt.Errorf("repo_id is required")
+	}
+	if err := s.verifyTeamAccess(ctx, teamID); err != nil {
+		return err
 	}
 	existing, err := s.repo.FindByID(ctx, repoID)
 	if err != nil {
@@ -85,6 +118,9 @@ func (s *GitHubService) UpdateToken(ctx context.Context, teamID string, repoID s
 	}
 	if strings.TrimSpace(newPAT) == "" {
 		return fmt.Errorf("personal_access_token is required")
+	}
+	if err := s.verifyTeamAccess(ctx, teamID); err != nil {
+		return err
 	}
 	existing, err := s.repo.FindByID(ctx, repoID)
 	if err != nil {

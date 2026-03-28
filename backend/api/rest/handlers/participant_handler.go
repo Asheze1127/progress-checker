@@ -62,8 +62,11 @@ func (h *ParticipantHandler) RegisterParticipant(ctx context.Context, request op
 		if errors.Is(err, usecase.ErrNotAuthorized) || errors.Is(err, usecase.ErrNotAuthorizedForTeam) {
 			return openapi.RegisterParticipant403JSONResponse{Error: "not authorized"}, nil
 		}
-		if errors.Is(err, usecase.ErrTeamNotFound) || errors.Is(err, usecase.ErrUserAlreadyExists) {
-			return openapi.RegisterParticipant400JSONResponse{Error: err.Error()}, nil
+		if errors.Is(err, usecase.ErrTeamNotFound) {
+			return openapi.RegisterParticipant400JSONResponse{Error: "team not found"}, nil
+		}
+		if errors.Is(err, usecase.ErrUserAlreadyExists) {
+			return openapi.RegisterParticipant400JSONResponse{Error: "participant already registered"}, nil
 		}
 		return nil, err
 	}

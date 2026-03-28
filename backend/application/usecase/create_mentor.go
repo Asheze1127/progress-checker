@@ -2,13 +2,21 @@ package usecase
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
+	db "github.com/Asheze1127/progress-checker/backend/database/postgres/generated"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 	slackinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/slack"
+	"github.com/google/uuid"
+)
+
+var (
+	ErrNotStaff = errors.New("caller is not a registered staff member")
 )
 
 const setupTokenExpiry = 24 * time.Hour
@@ -27,9 +35,8 @@ type CreateMentorUseCase struct {
 	staffRepo       entities.StaffRepository
 	userRepo        entities.UserRepository
 	teamRepo        entities.TeamRepository
-	setupTokenRepo  entities.SetupTokenRepository
-	mentorRepo      entities.MentorRepository
 	slackClient     SlackUserInfoFetcher
+	database        *sql.DB
 	frontendBaseURL string
 	now             func() time.Time
 }
@@ -38,18 +45,16 @@ func NewCreateMentorUseCase(
 	staffRepo entities.StaffRepository,
 	userRepo entities.UserRepository,
 	teamRepo entities.TeamRepository,
-	setupTokenRepo entities.SetupTokenRepository,
-	mentorRepo entities.MentorRepository,
 	slackClient SlackUserInfoFetcher,
+	database *sql.DB,
 	frontendBaseURL string,
 ) *CreateMentorUseCase {
 	return &CreateMentorUseCase{
 		staffRepo:       staffRepo,
 		userRepo:        userRepo,
 		teamRepo:        teamRepo,
-		setupTokenRepo:  setupTokenRepo,
-		mentorRepo:      mentorRepo,
 		slackClient:     slackClient,
+		database:        database,
 		frontendBaseURL: frontendBaseURL,
 		now:             time.Now,
 	}
@@ -83,13 +88,16 @@ func (uc *CreateMentorUseCase) Execute(ctx context.Context, callerSlackID, mento
 		return nil, fmt.Errorf("caller has no email address in Slack profile")
 	}
 	if _, err := uc.staffRepo.FindByEmail(ctx, callerSlackUser.Email); err != nil {
-		return nil, fmt.Errorf("caller is not a registered staff member")
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotStaff
+		}
+		return nil, fmt.Errorf("failed to verify staff status: %w", err)
 	}
 
 	// Find the team by name
 	team, err := uc.teamRepo.GetByName(ctx, teamName)
 	if err != nil {
-		return nil, fmt.Errorf("team %q not found", teamName)
+		return nil, ErrTeamNotFound
 	}
 
 	// Fetch mentor's Slack profile
@@ -99,8 +107,12 @@ func (uc *CreateMentorUseCase) Execute(ctx context.Context, callerSlackID, mento
 	}
 
 	// Check if user already exists
-	if existing, err := uc.userRepo.GetBySlackUserID(ctx, entities.SlackUserID(mentorSlackID)); err == nil && existing != nil {
+	_, existErr := uc.userRepo.GetBySlackUserID(ctx, entities.SlackUserID(mentorSlackID))
+	if existErr == nil {
 		return nil, fmt.Errorf("user with Slack ID %s already exists", mentorSlackID)
+	}
+	if !errors.Is(existErr, sql.ErrNoRows) {
+		return nil, fmt.Errorf("failed to check existing user: %w", existErr)
 	}
 
 	name := slackUser.RealName
@@ -113,39 +125,72 @@ func (uc *CreateMentorUseCase) Execute(ctx context.Context, callerSlackID, mento
 		return nil, fmt.Errorf("slack user has no email address configured")
 	}
 
-	// Create the user with mentor role
-	user := &entities.User{
-		SlackUserID: entities.SlackUserID(mentorSlackID),
-		Name:        name,
-		Email:       email,
-		Role:        entities.UserRoleMentor,
-	}
-
-	createdUser, err := uc.userRepo.Create(ctx, user, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create mentor user: %w", err)
-	}
-
-	// Create mentor record + team assignment
-	if err := uc.mentorRepo.Create(ctx, createdUser.ID); err != nil {
-		return nil, fmt.Errorf("failed to create mentor record: %w", err)
-	}
-
-	if err := uc.mentorRepo.AssignTeam(ctx, createdUser.ID, team.ID); err != nil {
-		return nil, fmt.Errorf("failed to assign mentor to team: %w", err)
-	}
-
-	// Generate setup token
+	// Generate setup token before the transaction
 	rawToken, err := generateSetupToken()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate setup token: %w", err)
 	}
-
 	tokenHash := hashToken(rawToken)
 	expiresAt := uc.now().Add(setupTokenExpiry)
 
-	if _, err := uc.setupTokenRepo.Create(ctx, createdUser.ID, tokenHash, expiresAt); err != nil {
+	teamID, err := uuid.Parse(string(team.ID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse team ID: %w", err)
+	}
+
+	// Execute all DB writes in a single transaction
+	tx, err := uc.database.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	qtx := db.New(tx)
+
+	// Create user
+	userRow, err := qtx.CreateUser(ctx, db.CreateUserParams{
+		SlackUserID:  mentorSlackID,
+		Name:         name,
+		Email:        email,
+		Role:         string(entities.UserRoleMentor),
+		PasswordHash: "",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create mentor user: %w", err)
+	}
+
+	// Create mentor record
+	if err := qtx.CreateMentor(ctx, userRow.ID); err != nil {
+		return nil, fmt.Errorf("failed to create mentor record: %w", err)
+	}
+
+	// Assign team
+	if err := qtx.CreateMentorTeamAssignment(ctx, db.CreateMentorTeamAssignmentParams{
+		MentorUserID: userRow.ID,
+		TeamID:       teamID,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to assign mentor to team: %w", err)
+	}
+
+	// Create setup token
+	if _, err := qtx.CreateSetupToken(ctx, db.CreateSetupTokenParams{
+		UserID:    userRow.ID,
+		TokenHash: tokenHash,
+		ExpiresAt: expiresAt,
+	}); err != nil {
 		return nil, fmt.Errorf("failed to store setup token: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	createdUser := &entities.User{
+		ID:          entities.UserID(userRow.ID.String()),
+		SlackUserID: entities.SlackUserID(userRow.SlackUserID),
+		Name:        userRow.Name,
+		Email:       userRow.Email,
+		Role:        entities.UserRole(userRow.Role),
 	}
 
 	setupURL := fmt.Sprintf("%s/setup?token=%s", strings.TrimRight(uc.frontendBaseURL, "/"), rawToken)

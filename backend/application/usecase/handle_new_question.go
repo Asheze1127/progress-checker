@@ -44,6 +44,9 @@ func (uc *HandleNewQuestionUseCase) Execute(ctx context.Context, input HandleNew
 	}()
 
 	questionID := uuid.New().String()
+	// TODO: SlackThreadTS should be set after the Slack message is posted by the queue consumer,
+	// not as a UUID placeholder. This requires making SlackThreadTS optional in the entity
+	// and updating it after the consumer posts the message and receives the actual thread_ts.
 	threadTS := uuid.New().String()
 
 	question := &entities.Question{

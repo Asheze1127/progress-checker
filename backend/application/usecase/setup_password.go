@@ -63,10 +63,10 @@ func (uc *SetupPasswordUseCase) Execute(ctx context.Context, rawToken, password 
 	if rawToken == "" {
 		return ErrSetupTokenInvalid
 	}
-	if len(password) < minPasswordLength {
+	if len([]rune(password)) < minPasswordLength {
 		return ErrPasswordTooShort
 	}
-	if len(password) > maxPasswordLength {
+	if len([]rune(password)) > maxPasswordLength {
 		return ErrPasswordTooLong
 	}
 	if !isPasswordComplex(password) {
