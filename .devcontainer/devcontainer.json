@@ -7,7 +7,8 @@
 
   "containerEnv": {
     "DEVCONTAINER": "true",
-    "TZ": "Asia/Tokyo"
+    "TZ": "Asia/Tokyo",
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"
   },
 
   "features": {
