@@ -1,5 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import type * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as eventsources from "aws-cdk-lib/aws-lambda-event-sources";
 import type * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
@@ -21,6 +22,7 @@ export type LambdaWithSqsProps = {
   databaseName: string;
   databaseHost: string;
   databaseSecret?: secretsmanager.ISecret;
+  slackBotTokenSecret?: secretsmanager.ISecret;
   lambdaName: LambdaName;
   extraEnvironment?: Record<string, string>;
 };
@@ -62,5 +64,16 @@ export class LambdaWithSqs extends Construct {
     if (props.databaseSecret) {
       props.databaseSecret.grantRead(this.lambdaFunction);
     }
+
+    if (props.slackBotTokenSecret) {
+      props.slackBotTokenSecret.grantRead(this.lambdaFunction);
+    }
+
+    this.lambdaFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel"],
+        resources: ["*"],
+      }),
+    );
   }
 }

@@ -6,11 +6,18 @@ package db
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 )
 
 type Querier interface {
+	CreateMentor(ctx context.Context, userID uuid.UUID) error
+	CreateMentorTeamAssignment(ctx context.Context, arg CreateMentorTeamAssignmentParams) error
+	CreateParticipant(ctx context.Context, arg CreateParticipantParams) error
+	CreateSetupToken(ctx context.Context, arg CreateSetupTokenParams) (SetupTokens, error)
+	CreateTeam(ctx context.Context, name string) (Teams, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (Users, error)
 	DeleteGitHubRepo(ctx context.Context, id uuid.UUID) error
 	GetAwaitingQuestionByChannelAndThread(ctx context.Context, arg GetAwaitingQuestionByChannelAndThreadParams) (Questions, error)
 	GetGitHubRepoByChannelID(ctx context.Context, id string) (TeamGithubRepositories, error)
@@ -18,9 +25,15 @@ type Querier interface {
 	GetGitHubReposByTeamID(ctx context.Context, teamID uuid.UUID) ([]TeamGithubRepositories, error)
 	GetLatestProgressByTeam(ctx context.Context) ([]GetLatestProgressByTeamRow, error)
 	GetLatestProgressByTeamID(ctx context.Context, id uuid.UUID) ([]GetLatestProgressByTeamIDRow, error)
+	GetMentorTeamIDs(ctx context.Context, mentorUserID uuid.UUID) ([]uuid.UUID, error)
 	GetQuestionByID(ctx context.Context, id uuid.UUID) (Questions, error)
 	GetQuestionByThreadTS(ctx context.Context, arg GetQuestionByThreadTSParams) (Questions, error)
+	GetSetupTokenByHash(ctx context.Context, tokenHash string) (SetupTokens, error)
+	GetStaffByEmail(ctx context.Context, email string) (GetStaffByEmailRow, error)
+	GetStaffByID(ctx context.Context, id uuid.UUID) (Staff, error)
+	GetStaffBySlackUserID(ctx context.Context, slackUserID sql.NullString) (Staff, error)
 	GetTeamByID(ctx context.Context, id uuid.UUID) (Teams, error)
+	GetTeamByName(ctx context.Context, name string) (Teams, error)
 	GetUserByEmail(ctx context.Context, email string) (Users, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (Users, error)
 	GetUserBySlackUserID(ctx context.Context, slackUserID string) (Users, error)
@@ -30,9 +43,14 @@ type Querier interface {
 	InsertProgressLog(ctx context.Context, arg InsertProgressLogParams) (ProgressLogs, error)
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (Questions, error)
 	InsertQuestionMentorAssignment(ctx context.Context, arg InsertQuestionMentorAssignmentParams) error
+	ListParticipantsByTeamID(ctx context.Context, teamID uuid.UUID) ([]ListParticipantsByTeamIDRow, error)
 	ListTeams(ctx context.Context) ([]Teams, error)
+	ListUsers(ctx context.Context) ([]Users, error)
+	MarkSetupTokenUsed(ctx context.Context, id uuid.UUID) error
 	UpdateGitHubRepoToken(ctx context.Context, arg UpdateGitHubRepoTokenParams) error
 	UpdateQuestionStatus(ctx context.Context, arg UpdateQuestionStatusParams) error
+	UpdateStaffSlackUserID(ctx context.Context, arg UpdateStaffSlackUserIDParams) error
+	UpdateUserPasswordHash(ctx context.Context, arg UpdateUserPasswordHashParams) error
 }
 
 var _ Querier = (*Queries)(nil)

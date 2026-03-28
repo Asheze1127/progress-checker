@@ -21,6 +21,16 @@ func (m *Mentor) ID() MentorID {
 	return MentorID(m.id)
 }
 
+// BelongsToTeam returns true if the mentor is assigned to the given team.
+func (m *Mentor) BelongsToTeam(teamID TeamID) bool {
+	for _, tid := range m.TeamIDs {
+		if tid == teamID {
+			return true
+		}
+	}
+	return false
+}
+
 func (m Mentor) Validate() error {
 	var errs []error
 

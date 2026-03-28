@@ -35,13 +35,17 @@ func (h *WebhookHandler) HandleWebhook(c *gin.Context) {
 }
 
 func (h *WebhookHandler) handleProgress(c *gin.Context, userID, teamID, channelID string) {
-	phase := c.PostForm("phase")
+	phase := entities.ProgressPhase(c.PostForm("phase"))
+	if !phase.IsValid() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid phase value"})
+		return
+	}
 	sos := c.PostForm("sos") == "true"
 	comment := c.PostForm("comment")
 
 	input := usecase.HandleProgressInput{
 		SlackUserID: userID, TeamID: teamID, ChannelID: channelID,
-		Phase: entities.ProgressPhase(phase), SOS: sos, Comment: comment,
+		Phase: phase, SOS: sos, Comment: comment,
 	}
 
 	if err := h.progressUseCase.Execute(c.Request.Context(), input); err != nil {

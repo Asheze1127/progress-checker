@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/Asheze1127/progress-checker/backend/application/service/slack_notifier"
 	"github.com/Asheze1127/progress-checker/backend/entities"
@@ -25,7 +26,15 @@ func NewEscalateQuestionUseCase(repo entities.QuestionRepository, notifier slack
 
 // Execute escalates the given question to a mentor. It is idempotent: if the
 // question is already assigned to a mentor, no update is performed.
-func (u *EscalateQuestionUseCase) Execute(ctx context.Context, questionID entities.QuestionID) error {
+func (u *EscalateQuestionUseCase) Execute(ctx context.Context, questionID entities.QuestionID) (err error) {
+	defer func() {
+		attrs := []slog.Attr{slog.String("question_id", string(questionID))}
+		if err != nil {
+			attrs = append(attrs, slog.String("error", err.Error()))
+		}
+		slog.LogAttrs(ctx, slog.LevelDebug, "EscalateQuestionUseCase.Execute", attrs...)
+	}()
+
 	question, err := u.questionRepo.GetByID(ctx, questionID)
 	if err != nil {
 		return fmt.Errorf("finding question %q: %w", questionID, err)

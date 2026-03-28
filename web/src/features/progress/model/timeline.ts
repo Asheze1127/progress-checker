@@ -3,6 +3,8 @@
  * Shared types (Phase, ProgressBody, PHASES) are defined in progress.ts.
  */
 
+import type { ProgressBody } from "./progress";
+
 export type { Phase, ProgressBody } from "./progress";
 export { PHASES } from "./progress";
 

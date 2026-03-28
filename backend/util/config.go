@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 
+	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 )
 
@@ -29,6 +30,7 @@ type Config struct {
 	CORSAllowedOrigin    string `envconfig:"CORS_ALLOWED_ORIGIN"`
 	AWSRegion            string `envconfig:"AWS_REGION" default:"ap-northeast-1"`
 	SlackMentorChannelID string `envconfig:"SLACK_MENTOR_CHANNEL_ID" required:"true"`
+	FrontendBaseURL      string `envconfig:"FRONTEND_BASE_URL" default:"http://localhost:3000"`
 }
 
 // validEncryptionKeyLengths are the valid AES key lengths in bytes.
@@ -37,6 +39,7 @@ var validEncryptionKeyLengths = map[int]bool{16: true, 24: true, 32: true}
 // LoadConfig reads configuration from environment variables.
 // It returns an error if any required environment variable is missing.
 func LoadConfig() (*Config, error) {
+	_ = godotenv.Load()
 	var cfg Config
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, err

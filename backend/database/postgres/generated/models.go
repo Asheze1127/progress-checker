@@ -194,6 +194,12 @@ type ChannelPurposeAssignments struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
+type IdempotencyKeys struct {
+	Key       string    `json:"key"`
+	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
 type MentorTeamAssignments struct {
 	MentorUserID uuid.UUID `json:"mentor_user_id"`
 	TeamID       uuid.UUID `json:"team_id"`
@@ -243,6 +249,15 @@ type Questions struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
+type SetupTokens struct {
+	ID        uuid.UUID    `json:"id"`
+	UserID    uuid.UUID    `json:"user_id"`
+	TokenHash string       `json:"token_hash"`
+	ExpiresAt time.Time    `json:"expires_at"`
+	UsedAt    sql.NullTime `json:"used_at"`
+	CreatedAt time.Time    `json:"created_at"`
+}
+
 type SlackChannels struct {
 	ID        string    `json:"id"`
 	TeamID    uuid.UUID `json:"team_id"`
@@ -250,12 +265,13 @@ type SlackChannels struct {
 }
 
 type Staff struct {
-	ID          uuid.UUID      `json:"id"`
-	SlackUserID sql.NullString `json:"slack_user_id"`
-	Name        string         `json:"name"`
-	Email       string         `json:"email"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID           uuid.UUID      `json:"id"`
+	SlackUserID  sql.NullString `json:"slack_user_id"`
+	Name         string         `json:"name"`
+	Email        string         `json:"email"`
+	PasswordHash string         `json:"password_hash"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }
 
 type TeamGithubRepositories struct {

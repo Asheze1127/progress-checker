@@ -36,3 +36,9 @@ func (s Staff) Validate() error {
 
 	return errors.Join(errs...)
 }
+
+// StaffWithPassword extends Staff with a hashed password for credential verification.
+type StaffWithPassword struct {
+	Staff
+	PasswordHash string
+}

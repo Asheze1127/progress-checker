@@ -117,6 +117,31 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		return postgres.NewGitHubRepoRepository(db), nil
 	})
 
+	do.Provide(injector, func(i do.Injector) (*postgres.StaffRepository, error) {
+		db := do.MustInvoke[*sql.DB](i)
+		return postgres.NewStaffRepository(db), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*postgres.SetupTokenRepository, error) {
+		db := do.MustInvoke[*sql.DB](i)
+		return postgres.NewSetupTokenRepository(db), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*postgres.ParticipantRepository, error) {
+		db := do.MustInvoke[*sql.DB](i)
+		return postgres.NewParticipantRepository(db), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*postgres.MentorRepository, error) {
+		db := do.MustInvoke[*sql.DB](i)
+		return postgres.NewMentorRepository(db), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*postgres.TeamRepository, error) {
+		db := do.MustInvoke[*sql.DB](i)
+		return postgres.NewTeamRepository(db), nil
+	})
+
 	// --- Services ---
 	do.Provide(injector, func(i do.Injector) (*progressformatter.ProgressFormatter, error) {
 		return progressformatter.NewProgressFormatter(), nil
@@ -129,7 +154,7 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	})
 
 	do.Provide(injector, func(i do.Injector) (*jwt.JWTService, error) {
-		return jwt.NewJWTService(cfg.JWTSecret), nil
+		return jwt.NewJWTService(cfg.JWTSecret)
 	})
 
 	do.Provide(injector, func(i do.Injector) (*util.PasswordHasher, error) {
@@ -152,13 +177,15 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	// --- Use Cases ---
 	do.Provide(injector, func(i do.Injector) (*usecase.HandleProgressUseCase, error) {
 		progressRepo := do.MustInvoke[*postgres.ProgressRepository](i)
+		userRepo := do.MustInvoke[*postgres.UserRepository](i)
 		poster := do.MustInvoke[*slackposter.SlackPoster](i)
-		return usecase.NewHandleProgressUseCase(progressRepo, poster), nil
+		return usecase.NewHandleProgressUseCase(progressRepo, userRepo, poster), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*usecase.ListProgressUseCase, error) {
 		progressQueryRepo := do.MustInvoke[*postgres.ProgressQueryRepository](i)
-		return usecase.NewListProgressUseCase(progressQueryRepo), nil
+		mentorRepo := do.MustInvoke[*postgres.MentorRepository](i)
+		return usecase.NewListProgressUseCase(progressQueryRepo, mentorRepo), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*usecase.LoginUseCase, error) {
@@ -195,6 +222,45 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		slackClient := do.MustInvoke[*slackinfra.Client](i)
 		sqsClient := do.MustInvoke[*sqsinfra.Client](i)
 		return usecase.NewTriggerIssueCreationUseCase(slackClient, sqsClient), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*usecase.StaffLoginUseCase, error) {
+		staffRepo := do.MustInvoke[*postgres.StaffRepository](i)
+		jwtService := do.MustInvoke[*jwt.JWTService](i)
+		hasher := do.MustInvoke[*util.PasswordHasher](i)
+		return usecase.NewStaffLoginUseCase(staffRepo, jwtService, hasher), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*usecase.CreateTeamUseCase, error) {
+		teamRepo := do.MustInvoke[*postgres.TeamRepository](i)
+		return usecase.NewCreateTeamUseCase(teamRepo), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*usecase.CreateMentorUseCase, error) {
+		staffRepo := do.MustInvoke[*postgres.StaffRepository](i)
+		userRepo := do.MustInvoke[*postgres.UserRepository](i)
+		teamRepo := do.MustInvoke[*postgres.TeamRepository](i)
+		setupTokenRepo := do.MustInvoke[*postgres.SetupTokenRepository](i)
+		mentorRepo := do.MustInvoke[*postgres.MentorRepository](i)
+		slackClient := do.MustInvoke[*slackinfra.Client](i)
+		return usecase.NewCreateMentorUseCase(staffRepo, userRepo, teamRepo, setupTokenRepo, mentorRepo, slackClient, cfg.FrontendBaseURL), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*usecase.RegisterParticipantUseCase, error) {
+		userRepo := do.MustInvoke[*postgres.UserRepository](i)
+		teamRepo := do.MustInvoke[*postgres.TeamRepository](i)
+		mentorRepo := do.MustInvoke[*postgres.MentorRepository](i)
+		participantRepo := do.MustInvoke[*postgres.ParticipantRepository](i)
+		slackClient := do.MustInvoke[*slackinfra.Client](i)
+		return usecase.NewRegisterParticipantUseCase(userRepo, teamRepo, mentorRepo, participantRepo, slackClient), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*usecase.SetupPasswordUseCase, error) {
+		setupTokenRepo := do.MustInvoke[*postgres.SetupTokenRepository](i)
+		userRepo := do.MustInvoke[*postgres.UserRepository](i)
+		hasher := do.MustInvoke[*util.PasswordHasher](i)
+		database := do.MustInvoke[*sql.DB](i)
+		return usecase.NewSetupPasswordUseCase(setupTokenRepo, userRepo, hasher, database), nil
 	})
 
 	// --- Handlers ---
@@ -240,6 +306,56 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		return webhook.NewInteractionHandler(resolveUC, continueUC, escalateUC), nil
 	})
 
+	do.Provide(injector, func(i do.Injector) (*handlers.StaffHandler, error) {
+		staffLoginUC := do.MustInvoke[*usecase.StaffLoginUseCase](i)
+		createTeamUC := do.MustInvoke[*usecase.CreateTeamUseCase](i)
+		teamRepo := do.MustInvoke[*postgres.TeamRepository](i)
+		return handlers.NewStaffHandler(staffLoginUC, createTeamUC, teamRepo), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*usecase.ListSlackUsersUseCase, error) {
+		slackClient := do.MustInvoke[*slackinfra.Client](i)
+		return usecase.NewListSlackUsersUseCase(slackClient), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*usecase.ListMentorTeamsUseCase, error) {
+		mentorRepo := do.MustInvoke[*postgres.MentorRepository](i)
+		teamRepo := do.MustInvoke[*postgres.TeamRepository](i)
+		return usecase.NewListMentorTeamsUseCase(mentorRepo, teamRepo), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*handlers.TeamHandler, error) {
+		uc := do.MustInvoke[*usecase.ListMentorTeamsUseCase](i)
+		return handlers.NewTeamHandler(uc), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*handlers.SlackHandler, error) {
+		uc := do.MustInvoke[*usecase.ListSlackUsersUseCase](i)
+		return handlers.NewSlackHandler(uc), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*usecase.ListTeamParticipantsUseCase, error) {
+		participantRepo := do.MustInvoke[*postgres.ParticipantRepository](i)
+		mentorRepo := do.MustInvoke[*postgres.MentorRepository](i)
+		return usecase.NewListTeamParticipantsUseCase(participantRepo, mentorRepo), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*handlers.ParticipantHandler, error) {
+		registerUC := do.MustInvoke[*usecase.RegisterParticipantUseCase](i)
+		listUC := do.MustInvoke[*usecase.ListTeamParticipantsUseCase](i)
+		return handlers.NewParticipantHandler(registerUC, listUC), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*webhook.CommandHandler, error) {
+		uc := do.MustInvoke[*usecase.CreateMentorUseCase](i)
+		return webhook.NewCommandHandler(uc), nil
+	})
+
+	do.Provide(injector, func(i do.Injector) (*handlers.SetupHandler, error) {
+		setupPasswordUC := do.MustInvoke[*usecase.SetupPasswordUseCase](i)
+		return handlers.NewSetupHandler(setupPasswordUC), nil
+	})
+
 	// --- Router ---
 	do.Provide(injector, func(i do.Injector) (http.Handler, error) {
 		jwtService := do.MustInvoke[*jwt.JWTService](i)
@@ -257,6 +373,12 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 			ProgressHandler:    do.MustInvoke[*handlers.ProgressHandler](i),
 			GitHubHandler:      do.MustInvoke[*handlers.GitHubHandler](i),
 			InternalHandler:    do.MustInvoke[*handlers.InternalHandler](i),
+			StaffHandler:       do.MustInvoke[*handlers.StaffHandler](i),
+			SetupHandler:       do.MustInvoke[*handlers.SetupHandler](i),
+			ParticipantHandler: do.MustInvoke[*handlers.ParticipantHandler](i),
+			SlackHandler:       do.MustInvoke[*handlers.SlackHandler](i),
+			TeamHandler:        do.MustInvoke[*handlers.TeamHandler](i),
+			CommandHandler:     do.MustInvoke[*webhook.CommandHandler](i),
 			WebhookHandler:     do.MustInvoke[*webhook.WebhookHandler](i),
 			QuestionHandler:    do.MustInvoke[*webhook.QuestionHandler](i),
 			EventHandler:       do.MustInvoke[*webhook.EventHandler](i),

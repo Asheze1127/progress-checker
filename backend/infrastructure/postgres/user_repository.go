@@ -73,6 +73,43 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*entiti
 	}, nil
 }
 
+func (r *UserRepository) Create(ctx context.Context, user *entities.User, passwordHash string) (*entities.User, error) {
+	row, err := r.queries.CreateUser(ctx, db.CreateUserParams{
+		SlackUserID:  string(user.SlackUserID),
+		Name:         user.Name,
+		Email:        user.Email,
+		Role:         string(user.Role),
+		PasswordHash: passwordHash,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create user: %w", err)
+	}
+	return toUserEntity(row), nil
+}
+
+func (r *UserRepository) UpdatePasswordHash(ctx context.Context, id entities.UserID, passwordHash string) error {
+	uid, err := uuid.Parse(string(id))
+	if err != nil {
+		return err
+	}
+	return r.queries.UpdateUserPasswordHash(ctx, db.UpdateUserPasswordHashParams{
+		PasswordHash: passwordHash,
+		ID:           uid,
+	})
+}
+
+func (r *UserRepository) List(ctx context.Context) ([]*entities.User, error) {
+	rows, err := r.queries.ListUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	users := make([]*entities.User, len(rows))
+	for i, row := range rows {
+		users[i] = toUserEntity(row)
+	}
+	return users, nil
+}
+
 func toUserEntity(row db.Users) *entities.User {
 	return &entities.User{
 		ID:          entities.UserID(row.ID.String()),

@@ -35,10 +35,50 @@ func (m *mockSlackClient) PostMessage(_ context.Context, channelID string, text 
 	return m.err
 }
 
-func newTestUseCase(repo entities.ProgressRepository, slackClient slackposter.SlackClient) *HandleProgressUseCase {
+// mockUserRepoForProgress is a test double for entities.UserRepository (progress tests).
+type mockUserRepoForProgress struct {
+	user *entities.User
+	err  error
+}
+
+func (m *mockUserRepoForProgress) GetByID(_ context.Context, _ entities.UserID) (*entities.User, error) {
+	return m.user, m.err
+}
+func (m *mockUserRepoForProgress) GetByEmail(_ context.Context, _ string) (*entities.User, error) {
+	return m.user, m.err
+}
+func (m *mockUserRepoForProgress) GetBySlackUserID(_ context.Context, _ entities.SlackUserID) (*entities.User, error) {
+	return m.user, m.err
+}
+func (m *mockUserRepoForProgress) FindByEmail(_ context.Context, _ string) (*entities.UserWithPassword, error) {
+	return nil, m.err
+}
+func (m *mockUserRepoForProgress) Create(_ context.Context, _ *entities.User, _ string) (*entities.User, error) {
+	return m.user, m.err
+}
+func (m *mockUserRepoForProgress) UpdatePasswordHash(_ context.Context, _ entities.UserID, _ string) error {
+	return m.err
+}
+func (m *mockUserRepoForProgress) List(_ context.Context) ([]*entities.User, error) {
+	return nil, m.err
+}
+
+func newTestUseCase(repo entities.ProgressRepository, userRepo entities.UserRepository, slackClient slackposter.SlackClient) *HandleProgressUseCase {
 	formatter := progressformatter.NewProgressFormatter()
 	poster := slackposter.NewSlackPoster(slackClient, formatter)
-	return NewHandleProgressUseCase(repo, poster)
+	return NewHandleProgressUseCase(repo, userRepo, poster)
+}
+
+func defaultMockUserRepo() *mockUserRepoForProgress {
+	return &mockUserRepoForProgress{
+		user: &entities.User{
+			ID:          "user-uuid-123",
+			SlackUserID: "U12345",
+			Name:        "Test User",
+			Email:       "test@example.com",
+			Role:        entities.UserRoleParticipant,
+		},
+	}
 }
 
 func TestHandleProgressUseCaseExecute(t *testing.T) {
@@ -46,6 +86,7 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 		name           string
 		input          HandleProgressInput
 		repoErr        error
+		userRepoErr    error
 		slackErr       error
 		wantErr        bool
 		wantErrContain string
@@ -86,6 +127,30 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 			wantErrContain: "channel_id is required",
 		},
 		{
+			name: "invalid phase",
+			input: HandleProgressInput{
+				SlackUserID: "U12345",
+				ChannelID:   "C12345",
+				Phase:       entities.ProgressPhase("invalid"),
+				Comment:     "some text",
+			},
+			wantErr:        true,
+			wantErrContain: "invalid phase",
+		},
+		{
+			name: "user not found",
+			input: HandleProgressInput{
+				SlackUserID: "U99999",
+				TeamID:      "team-alpha",
+				ChannelID:   "C12345",
+				Phase:       entities.ProgressPhaseCoding,
+				Comment:     "progress update",
+			},
+			userRepoErr:    errors.New("user not found"),
+			wantErr:        true,
+			wantErrContain: "failed to find user",
+		},
+		{
 			name: "repository save error",
 			input: HandleProgressInput{
 				SlackUserID: "U12345",
@@ -117,8 +182,13 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := &mockProgressRepository{err: tt.repoErr}
 			slackClient := &mockSlackClient{err: tt.slackErr}
+			userRepo := defaultMockUserRepo()
+			if tt.userRepoErr != nil {
+				userRepo.err = tt.userRepoErr
+				userRepo.user = nil
+			}
 
-			uc := newTestUseCase(repo, slackClient)
+			uc := newTestUseCase(repo, userRepo, slackClient)
 			err := uc.Execute(context.Background(), tt.input)
 
 			if tt.wantErr {
@@ -142,8 +212,8 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 			if repo.savedLog.ID == "" {
 				t.Fatal("expected progress log to have a generated ID")
 			}
-			if repo.savedLog.ParticipantID != entities.ParticipantID(tt.input.SlackUserID) {
-				t.Fatalf("expected ParticipantID %q, got %q", tt.input.SlackUserID, repo.savedLog.ParticipantID)
+			if repo.savedLog.ParticipantID != entities.ParticipantID("user-uuid-123") {
+				t.Fatalf("expected ParticipantID %q, got %q", "user-uuid-123", repo.savedLog.ParticipantID)
 			}
 
 			// Verify Slack was called
@@ -160,8 +230,9 @@ func TestHandleProgressUseCaseExecute(t *testing.T) {
 func TestHandleProgressUseCaseSlackMessageFormat(t *testing.T) {
 	repo := &mockProgressRepository{}
 	slackClient := &mockSlackClient{}
+	userRepo := defaultMockUserRepo()
 
-	uc := newTestUseCase(repo, slackClient)
+	uc := newTestUseCase(repo, userRepo, slackClient)
 
 	input := HandleProgressInput{
 		SlackUserID: "U12345",

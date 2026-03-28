@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
@@ -20,7 +21,15 @@ func NewContinueQuestionUseCase(repo entities.QuestionRepository) *ContinueQuest
 
 // Execute sets the given question to in_progress. It is idempotent: if the
 // question is already in progress, no update is performed.
-func (u *ContinueQuestionUseCase) Execute(ctx context.Context, questionID entities.QuestionID) error {
+func (u *ContinueQuestionUseCase) Execute(ctx context.Context, questionID entities.QuestionID) (err error) {
+	defer func() {
+		attrs := []slog.Attr{slog.String("question_id", string(questionID))}
+		if err != nil {
+			attrs = append(attrs, slog.String("error", err.Error()))
+		}
+		slog.LogAttrs(ctx, slog.LevelDebug, "ContinueQuestionUseCase.Execute", attrs...)
+	}()
+
 	question, err := u.questionRepo.GetByID(ctx, questionID)
 	if err != nil {
 		return fmt.Errorf("finding question %q: %w", questionID, err)

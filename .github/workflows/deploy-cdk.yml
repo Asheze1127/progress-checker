@@ -65,9 +65,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
-      - name: Install dependencies
-        working-directory: ${{ env.WORKING_DIRECTORY }}
+      - name: Install all workspace dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build Lambda workers
+        working-directory: lambda
+        run: pnpm run build
 
       - name: Deploy to staging
         working-directory: ${{ env.WORKING_DIRECTORY }}
@@ -95,9 +98,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
-      - name: Install dependencies
-        working-directory: ${{ env.WORKING_DIRECTORY }}
+      - name: Install all workspace dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build Lambda workers
+        working-directory: lambda
+        run: pnpm run build
 
       - name: Deploy to production
         working-directory: ${{ env.WORKING_DIRECTORY }}

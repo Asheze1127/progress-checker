@@ -1,0 +1,3 @@
+-- This file is kept for reference only.
+-- Seed data is now managed by the Go seed command: backend/cmd/seed/main.go
+-- Run: make loadseed_db

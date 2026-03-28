@@ -11,6 +11,42 @@ import (
 	"github.com/google/uuid"
 )
 
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (slack_user_id, name, email, role, password_hash)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, slack_user_id, name, email, role, password_hash, created_at, updated_at
+`
+
+type CreateUserParams struct {
+	SlackUserID  string `json:"slack_user_id"`
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	Role         string `json:"role"`
+	PasswordHash string `json:"password_hash"`
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (Users, error) {
+	row := q.db.QueryRowContext(ctx, createUser,
+		arg.SlackUserID,
+		arg.Name,
+		arg.Email,
+		arg.Role,
+		arg.PasswordHash,
+	)
+	var i Users
+	err := row.Scan(
+		&i.ID,
+		&i.SlackUserID,
+		&i.Name,
+		&i.Email,
+		&i.Role,
+		&i.PasswordHash,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, slack_user_id, name, email, role, password_hash, created_at, updated_at FROM users WHERE email = $1
 `
@@ -96,4 +132,54 @@ func (q *Queries) GetUserWithPasswordByEmail(ctx context.Context, email string) 
 		&i.PasswordHash,
 	)
 	return i, err
+}
+
+const listUsers = `-- name: ListUsers :many
+SELECT id, slack_user_id, name, email, role, password_hash, created_at, updated_at FROM users ORDER BY name
+`
+
+func (q *Queries) ListUsers(ctx context.Context) ([]Users, error) {
+	rows, err := q.db.QueryContext(ctx, listUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Users{}
+	for rows.Next() {
+		var i Users
+		if err := rows.Scan(
+			&i.ID,
+			&i.SlackUserID,
+			&i.Name,
+			&i.Email,
+			&i.Role,
+			&i.PasswordHash,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateUserPasswordHash = `-- name: UpdateUserPasswordHash :exec
+UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2
+`
+
+type UpdateUserPasswordHashParams struct {
+	PasswordHash string    `json:"password_hash"`
+	ID           uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateUserPasswordHash(ctx context.Context, arg UpdateUserPasswordHashParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserPasswordHash, arg.PasswordHash, arg.ID)
+	return err
 }

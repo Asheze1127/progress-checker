@@ -1,11 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { ProgressListResponse, TeamProgress } from "../model/progress";
+import type { TeamProgress } from "../model/progress";
 import { ProgressList } from "../element/ProgressList";
-import { fetchAPI } from "@/lib/fetcher/api";
-
-const PROGRESS_API_PATH = "/api/v1/progress";
+import { api } from "@/lib/api/client";
 
 type LoadingState = "loading" | "error" | "success";
 
@@ -23,12 +21,17 @@ export function ProgressDashboardContainer() {
     setErrorMessage("");
 
     try {
-      const response = await fetchAPI<ProgressListResponse>(PROGRESS_API_PATH);
-      setTeams(response.data);
+      const { data, error } = await api.GET("/api/v1/progress");
+      if (error) {
+        setErrorMessage(error.error || "Unknown error occurred");
+        setState("error");
+        return;
+      }
+      setTeams(data.data as TeamProgress[]);
       setState("success");
-    } catch (error) {
+    } catch (err) {
       const message =
-        error instanceof Error ? error.message : "Unknown error occurred";
+        err instanceof Error ? err.message : "Unknown error occurred";
       setErrorMessage(message);
       setState("error");
     }

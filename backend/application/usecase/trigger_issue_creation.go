@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/Asheze1127/progress-checker/backend/application/service/message_queue"
@@ -71,7 +72,15 @@ func NewTriggerIssueCreationUseCase(
 }
 
 // Execute validates input, fetches thread history, and enqueues to the issue queue.
-func (uc *TriggerIssueCreationUseCase) Execute(ctx context.Context, input TriggerIssueCreationInput) error {
+func (uc *TriggerIssueCreationUseCase) Execute(ctx context.Context, input TriggerIssueCreationInput) (err error) {
+	defer func() {
+		attrs := []slog.Attr{slog.String("channel_id", input.ChannelID), slog.String("trigger_type", input.TriggerType)}
+		if err != nil {
+			attrs = append(attrs, slog.String("error", err.Error()))
+		}
+		slog.LogAttrs(ctx, slog.LevelDebug, "TriggerIssueCreationUseCase.Execute", attrs...)
+	}()
+
 	if err := input.Validate(); err != nil {
 		return fmt.Errorf("invalid input: %w", err)
 	}

@@ -31,9 +31,6 @@ func (h *AuthHandler) Login(ctx context.Context, request openapi.LoginRequestObj
 		if errors.Is(err, usecase.ErrInvalidCredentials) {
 			return openapi.Login401JSONResponse{Error: "invalid email or password"}, nil
 		}
-		if errors.Is(err, usecase.ErrUserNotMentor) {
-			return openapi.Login403JSONResponse{Error: "only mentors can log in"}, nil
-		}
 		return nil, err
 	}
 

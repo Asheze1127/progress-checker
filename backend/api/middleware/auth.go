@@ -3,21 +3,23 @@ package middleware
 import (
 	"context"
 	"crypto/subtle"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/Asheze1127/progress-checker/backend/api/openapi"
+	"github.com/Asheze1127/progress-checker/backend/application/appcontext"
 	"github.com/Asheze1127/progress-checker/backend/application/service/jwt"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 )
 
-// contextKey is an unexported type used for context keys to avoid collisions.
-type contextKey string
+// GinKeyUser is the Gin context key for storing the authenticated user.
+const GinKeyUser = appcontext.KeyUser
 
-// userContextKey is the context key for storing the authenticated user.
-const userContextKey contextKey = "authenticated_user"
+// GinKeyStaff is the Gin context key for storing the authenticated staff.
+const GinKeyStaff = appcontext.KeyStaff
 
 // SecurityMiddleware returns an oapi-codegen MiddlewareFunc that dispatches
 // authentication based on OpenAPI security scopes set by the generated code.
@@ -26,12 +28,20 @@ const userContextKey contextKey = "authenticated_user"
 //   - Neither → pass through (public endpoint)
 func SecurityMiddleware(jwtService *jwt.JWTService, internalToken string) openapi.MiddlewareFunc {
 	if len(internalToken) < 32 {
-		panic("SecurityMiddleware: internalToken must be at least 32 bytes")
+		slog.Error("SecurityMiddleware: internalToken must be at least 32 bytes")
+		return func(c *gin.Context) {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "server misconfiguration"})
+		}
 	}
 
 	return func(c *gin.Context) {
 		if _, exists := c.Get(openapi.BearerAuthScopes); exists {
 			handleBearerAuth(c, jwtService)
+			return
+		}
+
+		if _, exists := c.Get(openapi.StaffBearerAuthScopes); exists {
+			handleStaffBearerAuth(c, jwtService)
 			return
 		}
 
@@ -59,7 +69,7 @@ func handleBearerAuth(c *gin.Context, jwtService *jwt.JWTService) {
 		return
 	}
 
-	if claims.UserRole != entities.UserRoleMentor {
+	if claims.RawRole != string(entities.UserRoleMentor) {
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions: mentor role required"})
 		return
 	}
@@ -70,8 +80,7 @@ func handleBearerAuth(c *gin.Context, jwtService *jwt.JWTService) {
 		Role: claims.UserRole,
 	}
 
-	ctx := context.WithValue(c.Request.Context(), userContextKey, user)
-	c.Request = c.Request.WithContext(ctx)
+	c.Set(GinKeyUser, user)
 }
 
 // handleInternalTokenAuth validates the X-Internal-Token header.
@@ -83,14 +92,41 @@ func handleInternalTokenAuth(c *gin.Context, expectedToken string) {
 	}
 }
 
-// UserFromContext retrieves the authenticated user from the request context.
-// Returns nil if no user is present.
-func UserFromContext(ctx context.Context) *entities.User {
-	user, ok := ctx.Value(userContextKey).(*entities.User)
-	if !ok {
-		return nil
+// handleStaffBearerAuth validates the JWT bearer token and stores the staff in context.
+func handleStaffBearerAuth(c *gin.Context, jwtService *jwt.JWTService) {
+	token := extractBearerToken(c.GetHeader("Authorization"))
+	if token == "" {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing or invalid authorization header"})
+		return
 	}
-	return user
+
+	claims, err := jwtService.ValidateToken(token)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+
+	if claims.RawRole != jwt.RoleStaff {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions: staff role required"})
+		return
+	}
+
+	staff := &entities.Staff{
+		ID:   entities.StaffID(string(claims.UserID)),
+		Name: claims.UserName,
+	}
+
+	c.Set(GinKeyStaff, staff)
+}
+
+// StaffFromContext retrieves the authenticated staff from the request context.
+func StaffFromContext(ctx context.Context) *entities.Staff {
+	return appcontext.StaffFromContext(ctx)
+}
+
+// UserFromContext retrieves the authenticated user from the request context.
+func UserFromContext(ctx context.Context) *entities.User {
+	return appcontext.UserFromContext(ctx)
 }
 
 // extractBearerToken extracts the token from the Authorization header value.

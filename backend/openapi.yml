@@ -189,6 +189,208 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/staff/auth/login:
+    post:
+      operationId: staffLogin
+      summary: Authenticate staff and get JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffLoginRequest'
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffLoginResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/staff/teams:
+    get:
+      operationId: staffListTeams
+      summary: List all teams (staff only)
+      security:
+        - staffBearerAuth: []
+      responses:
+        '200':
+          description: Team list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListTeamsResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: staffCreateTeam
+      summary: Create a new team (staff only)
+      security:
+        - staffBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTeamRequest'
+      responses:
+        '201':
+          description: Team created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateTeamResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/slack/users:
+    get:
+      operationId: listSlackUsers
+      summary: List Slack workspace users (mentor only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Slack user list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListSlackUsersResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/teams:
+    get:
+      operationId: listMentorTeams
+      summary: List teams the authenticated mentor belongs to
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Team list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListTeamsResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/teams/{teamId}/participants:
+    get:
+      operationId: listTeamParticipants
+      summary: List participants in a team (mentor only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Participant list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListParticipantsResponse'
+        '403':
+          description: Not authorized for this team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/participants:
+    post:
+      operationId: registerParticipant
+      summary: Register a participant in a team (mentor only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterParticipantRequest'
+      responses:
+        '201':
+          description: Participant registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterParticipantResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not authorized for this team
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/setup:
+    post:
+      operationId: setupPassword
+      summary: Set password using setup token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupPasswordRequest'
+      responses:
+        '200':
+          description: Password set successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /internal/issues:
     post:
       operationId: createIssue
@@ -218,6 +420,10 @@ paths:
 components:
   securitySchemes:
     bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    staffBearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
@@ -362,6 +568,132 @@ components:
         title:
           type: string
         body:
+          type: string
+
+    StaffLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    StaffLoginResponse:
+      type: object
+      required: [token, staff]
+      properties:
+        token:
+          type: string
+        staff:
+          $ref: '#/components/schemas/StaffResponse'
+
+    StaffResponse:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    RegisterParticipantRequest:
+      type: object
+      required: [slack_user_id, team_id]
+      properties:
+        slack_user_id:
+          type: string
+        team_id:
+          type: string
+
+    RegisterParticipantResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: '#/components/schemas/UserResponse'
+
+    CreateTeamRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+
+    CreateTeamResponse:
+      type: object
+      required: [team]
+      properties:
+        team:
+          $ref: '#/components/schemas/TeamResponse'
+
+    TeamResponse:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    ListTeamsResponse:
+      type: object
+      required: [teams]
+      properties:
+        teams:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamResponse'
+
+    SetupPasswordRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token:
+          type: string
+        password:
+          type: string
+
+    ListParticipantsResponse:
+      type: object
+      required: [participants]
+      properties:
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParticipantResponse'
+
+    ParticipantResponse:
+      type: object
+      required: [id, slack_user_id, name, email]
+      properties:
+        id:
+          type: string
+        slack_user_id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+
+    ListSlackUsersResponse:
+      type: object
+      required: [users]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/SlackUserResponse'
+
+    SlackUserResponse:
+      type: object
+      required: [id, name, email]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
           type: string
 
     CreateIssueResponse:

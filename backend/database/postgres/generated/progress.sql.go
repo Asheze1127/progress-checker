@@ -14,25 +14,28 @@ import (
 )
 
 const getLatestProgressByTeam = `-- name: GetLatestProgressByTeam :many
+WITH latest_logs AS (
+    SELECT DISTINCT ON (p.team_id)
+           pl.id, pl.participant_id, pl.created_at, p.team_id
+    FROM progress_logs pl
+    JOIN participants p ON p.user_id = pl.participant_id
+    ORDER BY p.team_id, pl.created_at DESC
+)
 SELECT t.id AS team_id, t.name AS team_name,
-       pl.id AS progress_log_id, pl.participant_id, pl.created_at AS log_created_at,
+       ll.id AS progress_log_id, ll.participant_id, ll.created_at AS log_created_at,
        pb.id AS body_id, pb.phase, pb.sos, pb.comment, pb.submitted_at
 FROM teams t
-LEFT JOIN LATERAL (
-    SELECT pl2.id, pl2.participant_id, pl2.created_at FROM progress_logs pl2
-    JOIN participants p ON p.user_id = pl2.participant_id
-    WHERE p.team_id = t.id ORDER BY pl2.created_at DESC LIMIT 1
-) pl ON true
-LEFT JOIN progress_bodies pb ON pb.progress_log_id = pl.id
+LEFT JOIN latest_logs ll ON ll.team_id = t.id
+LEFT JOIN progress_bodies pb ON pb.progress_log_id = ll.id
 ORDER BY t.name, pb.submitted_at DESC
 `
 
 type GetLatestProgressByTeamRow struct {
 	TeamID        uuid.UUID         `json:"team_id"`
 	TeamName      string            `json:"team_name"`
-	ProgressLogID uuid.UUID         `json:"progress_log_id"`
-	ParticipantID uuid.UUID         `json:"participant_id"`
-	LogCreatedAt  time.Time         `json:"log_created_at"`
+	ProgressLogID uuid.NullUUID     `json:"progress_log_id"`
+	ParticipantID uuid.NullUUID     `json:"participant_id"`
+	LogCreatedAt  sql.NullTime      `json:"log_created_at"`
 	BodyID        uuid.NullUUID     `json:"body_id"`
 	Phase         NullProgressPhase `json:"phase"`
 	Sos           sql.NullBool      `json:"sos"`
@@ -75,25 +78,28 @@ func (q *Queries) GetLatestProgressByTeam(ctx context.Context) ([]GetLatestProgr
 }
 
 const getLatestProgressByTeamID = `-- name: GetLatestProgressByTeamID :many
+WITH latest_logs AS (
+    SELECT DISTINCT ON (p.team_id)
+           pl.id, pl.participant_id, pl.created_at, p.team_id
+    FROM progress_logs pl
+    JOIN participants p ON p.user_id = pl.participant_id
+    ORDER BY p.team_id, pl.created_at DESC
+)
 SELECT t.id AS team_id, t.name AS team_name,
-       pl.id AS progress_log_id, pl.participant_id, pl.created_at AS log_created_at,
+       ll.id AS progress_log_id, ll.participant_id, ll.created_at AS log_created_at,
        pb.id AS body_id, pb.phase, pb.sos, pb.comment, pb.submitted_at
 FROM teams t
-LEFT JOIN LATERAL (
-    SELECT pl2.id, pl2.participant_id, pl2.created_at FROM progress_logs pl2
-    JOIN participants p ON p.user_id = pl2.participant_id
-    WHERE p.team_id = t.id ORDER BY pl2.created_at DESC LIMIT 1
-) pl ON true
-LEFT JOIN progress_bodies pb ON pb.progress_log_id = pl.id
+LEFT JOIN latest_logs ll ON ll.team_id = t.id
+LEFT JOIN progress_bodies pb ON pb.progress_log_id = ll.id
 WHERE t.id = $1 ORDER BY pb.submitted_at DESC
 `
 
 type GetLatestProgressByTeamIDRow struct {
 	TeamID        uuid.UUID         `json:"team_id"`
 	TeamName      string            `json:"team_name"`
-	ProgressLogID uuid.UUID         `json:"progress_log_id"`
-	ParticipantID uuid.UUID         `json:"participant_id"`
-	LogCreatedAt  time.Time         `json:"log_created_at"`
+	ProgressLogID uuid.NullUUID     `json:"progress_log_id"`
+	ParticipantID uuid.NullUUID     `json:"participant_id"`
+	LogCreatedAt  sql.NullTime      `json:"log_created_at"`
 	BodyID        uuid.NullUUID     `json:"body_id"`
 	Phase         NullProgressPhase `json:"phase"`
 	Sos           sql.NullBool      `json:"sos"`

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -17,16 +18,41 @@ import (
 
 // compositeHandler combines individual handlers into openapi.StrictServerInterface.
 type compositeHandler struct {
-	auth     *handlers.AuthHandler
-	progress *handlers.ProgressHandler
-	github   *handlers.GitHubHandler
-	internal *handlers.InternalHandler
+	auth        *handlers.AuthHandler
+	progress    *handlers.ProgressHandler
+	github      *handlers.GitHubHandler
+	internal    *handlers.InternalHandler
+	staff       *handlers.StaffHandler
+	setup       *handlers.SetupHandler
+	participant *handlers.ParticipantHandler
+	slack       *handlers.SlackHandler
+	team        *handlers.TeamHandler
 }
 
 var _ openapi.StrictServerInterface = (*compositeHandler)(nil)
 
 func (c *compositeHandler) Login(ctx context.Context, req openapi.LoginRequestObject) (openapi.LoginResponseObject, error) {
 	return c.auth.Login(ctx, req)
+}
+
+func (c *compositeHandler) SetupPassword(ctx context.Context, req openapi.SetupPasswordRequestObject) (openapi.SetupPasswordResponseObject, error) {
+	return c.setup.SetupPassword(ctx, req)
+}
+
+func (c *compositeHandler) StaffLogin(ctx context.Context, req openapi.StaffLoginRequestObject) (openapi.StaffLoginResponseObject, error) {
+	return c.staff.StaffLogin(ctx, req)
+}
+
+func (c *compositeHandler) StaffListTeams(ctx context.Context, req openapi.StaffListTeamsRequestObject) (openapi.StaffListTeamsResponseObject, error) {
+	return c.staff.StaffListTeams(ctx, req)
+}
+
+func (c *compositeHandler) StaffCreateTeam(ctx context.Context, req openapi.StaffCreateTeamRequestObject) (openapi.StaffCreateTeamResponseObject, error) {
+	return c.staff.StaffCreateTeam(ctx, req)
+}
+
+func (c *compositeHandler) RegisterParticipant(ctx context.Context, req openapi.RegisterParticipantRequestObject) (openapi.RegisterParticipantResponseObject, error) {
+	return c.participant.RegisterParticipant(ctx, req)
 }
 
 func (c *compositeHandler) ListProgress(ctx context.Context, req openapi.ListProgressRequestObject) (openapi.ListProgressResponseObject, error) {
@@ -53,12 +79,30 @@ func (c *compositeHandler) CreateIssue(ctx context.Context, req openapi.CreateIs
 	return c.internal.CreateIssue(ctx, req)
 }
 
+func (c *compositeHandler) ListSlackUsers(ctx context.Context, req openapi.ListSlackUsersRequestObject) (openapi.ListSlackUsersResponseObject, error) {
+	return c.slack.ListSlackUsers(ctx, req)
+}
+
+func (c *compositeHandler) ListTeamParticipants(ctx context.Context, req openapi.ListTeamParticipantsRequestObject) (openapi.ListTeamParticipantsResponseObject, error) {
+	return c.participant.ListTeamParticipants(ctx, req)
+}
+
+func (c *compositeHandler) ListMentorTeams(ctx context.Context, req openapi.ListMentorTeamsRequestObject) (openapi.ListMentorTeamsResponseObject, error) {
+	return c.team.ListMentorTeams(ctx, req)
+}
+
 // RouterConfig holds all dependencies needed to create the Gin router.
 type RouterConfig struct {
 	AuthHandler        *handlers.AuthHandler
 	ProgressHandler    *handlers.ProgressHandler
 	GitHubHandler      *handlers.GitHubHandler
 	InternalHandler    *handlers.InternalHandler
+	StaffHandler       *handlers.StaffHandler
+	SetupHandler       *handlers.SetupHandler
+	ParticipantHandler *handlers.ParticipantHandler
+	SlackHandler       *handlers.SlackHandler
+	TeamHandler        *handlers.TeamHandler
+	CommandHandler     *webhook.CommandHandler
 	WebhookHandler     *webhook.WebhookHandler
 	QuestionHandler    *webhook.QuestionHandler
 	EventHandler       *webhook.EventHandler
@@ -75,17 +119,28 @@ type RouterConfig struct {
 // the security scopes set by the generated code.
 func NewRouter(cfg RouterConfig) http.Handler {
 	r := gin.New()
+	// Only trust loopback and private-network proxies so c.ClientIP() is reliable.
+	r.SetTrustedProxies([]string{"127.0.0.1", "::1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"})
 	r.Use(gin.Recovery())
+
+	// --- Rate limiting for auth endpoints ---
+	authRateLimiter := middleware.NewRateLimiter(10, 1*time.Minute)
+	r.Use(middleware.AuthPathRateLimitMiddleware(authRateLimiter))
 
 	// --- Health ---
 	r.GET("/healthz", handleHealthz)
 
 	// --- OpenAPI routes (auto-registered with security + CORS middleware) ---
 	composite := &compositeHandler{
-		auth:     cfg.AuthHandler,
-		progress: cfg.ProgressHandler,
-		github:   cfg.GitHubHandler,
-		internal: cfg.InternalHandler,
+		auth:        cfg.AuthHandler,
+		progress:    cfg.ProgressHandler,
+		github:      cfg.GitHubHandler,
+		internal:    cfg.InternalHandler,
+		staff:       cfg.StaffHandler,
+		setup:       cfg.SetupHandler,
+		participant: cfg.ParticipantHandler,
+		slack:       cfg.SlackHandler,
+		team:        cfg.TeamHandler,
 	}
 	si := openapi.NewStrictHandler(composite, nil)
 
@@ -117,6 +172,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		slackGroup.POST("/questions", cfg.QuestionHandler.HandleWebhook)
 		slackGroup.POST("/events", cfg.EventHandler.HandleSlackEvents)
 		slackGroup.POST("/interactions", cfg.InteractionHandler.HandleInteraction)
+		slackGroup.POST("/commands", cfg.CommandHandler.HandleCommand)
 	}
 
 	return r
@@ -130,6 +186,10 @@ func setCORSHeaders(c *gin.Context, allowedOrigins []string) {
 		return
 	}
 	for _, allowed := range allowedOrigins {
+		if allowed == "*" {
+			slog.Warn("CORS wildcard '*' is ignored; specify explicit origins")
+			continue
+		}
 		if origin == allowed {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -155,7 +215,14 @@ func registerPreflightRoutes(r *gin.Engine, allowedOrigins []string) {
 	}
 
 	r.OPTIONS("/api/v1/auth/login", corsHandler)
+	r.OPTIONS("/api/v1/auth/setup", corsHandler)
 	r.OPTIONS("/api/v1/progress", corsHandler)
+	r.OPTIONS("/api/v1/staff/auth/login", corsHandler)
+	r.OPTIONS("/api/v1/staff/teams", corsHandler)
+	r.OPTIONS("/api/v1/participants", corsHandler)
+	r.OPTIONS("/api/v1/teams", corsHandler)
+	r.OPTIONS("/api/v1/slack/users", corsHandler)
+	r.OPTIONS("/api/v1/teams/:teamId/participants", corsHandler)
 	r.OPTIONS("/api/v1/teams/:teamId/github-repos", corsHandler)
 	r.OPTIONS("/api/v1/teams/:teamId/github-repos/:repoId", corsHandler)
 	r.OPTIONS("/api/v1/teams/:teamId/github-repos/:repoId/token", corsHandler)

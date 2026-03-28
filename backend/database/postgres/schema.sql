@@ -10,6 +10,17 @@ CREATE TYPE progress_phase AS ENUM ('idea', 'design', 'coding', 'testing', 'demo
 CREATE TYPE question_status AS ENUM ('open', 'in_progress', 'awaiting_user', 'assigned_mentor', 'resolved');
 
 -- =============================================================================
+-- Trigger function: auto-update updated_at on row modification
+-- =============================================================================
+CREATE OR REPLACE FUNCTION trigger_set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =============================================================================
 -- Users: participants and mentors authenticate via Slack
 -- =============================================================================
 CREATE TABLE users (
@@ -18,20 +29,30 @@ CREATE TABLE users (
     name          VARCHAR     NOT NULL,
     email         VARCHAR     NOT NULL,
     role          user_role   NOT NULL,
-    password_hash VARCHAR     NOT NULL DEFAULT '',
+    password_hash VARCHAR     NOT NULL DEFAULT '!',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX idx_users_email ON users (email);
+
+CREATE TRIGGER set_users_updated_at
+    BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
 
 -- =============================================================================
 -- Teams: groups of participants and mentors
 -- =============================================================================
 CREATE TABLE teams (
     id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    name       VARCHAR     NOT NULL,
+    name       VARCHAR     NOT NULL UNIQUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE TRIGGER set_teams_updated_at
+    BEFORE UPDATE ON teams
+    FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
 
 -- =============================================================================
 -- Slack channels: linked to a team, identified by Slack's own channel ID
@@ -94,10 +115,29 @@ CREATE TABLE staff (
     id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     slack_user_id VARCHAR     UNIQUE,
     name          VARCHAR     NOT NULL,
-    email         VARCHAR     NOT NULL,
+    email         VARCHAR     NOT NULL UNIQUE,
+    password_hash VARCHAR     NOT NULL DEFAULT '!',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE TRIGGER set_staff_updated_at
+    BEFORE UPDATE ON staff
+    FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+-- =============================================================================
+-- Setup tokens: one-time password setup links for new users
+-- =============================================================================
+CREATE TABLE setup_tokens (
+    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    token_hash VARCHAR     NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at    TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_setup_tokens_user_id ON setup_tokens (user_id);
 
 -- =============================================================================
 -- Progress logs: one log per participant submission
@@ -122,6 +162,7 @@ CREATE TABLE progress_bodies (
     submitted_at    TIMESTAMPTZ   NOT NULL
 );
 
+CREATE UNIQUE INDEX idx_progress_bodies_log_phase ON progress_bodies (progress_log_id, phase);
 CREATE INDEX idx_progress_bodies_progress_log_id ON progress_bodies (progress_log_id);
 
 -- =============================================================================
@@ -141,6 +182,11 @@ CREATE TABLE questions (
 CREATE INDEX idx_questions_participant_id ON questions (participant_id);
 CREATE INDEX idx_questions_slack_channel_id ON questions (slack_channel_id);
 CREATE INDEX idx_questions_status ON questions (status);
+CREATE INDEX idx_questions_channel_thread ON questions (slack_channel_id, slack_thread_ts);
+
+CREATE TRIGGER set_questions_updated_at
+    BEFORE UPDATE ON questions
+    FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
 
 -- =============================================================================
 -- Question-mentor assignments: many-to-many between questions and mentors
@@ -173,8 +219,13 @@ CREATE TABLE team_github_repositories (
     team_id         UUID        NOT NULL REFERENCES teams (id) ON DELETE CASCADE,
     github_repo_url VARCHAR     NOT NULL,
     encrypted_pat   VARCHAR     NOT NULL,
+    UNIQUE (team_id, github_repo_url),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_team_github_repositories_team_id ON team_github_repositories (team_id);
+
+CREATE TRIGGER set_team_github_repositories_updated_at
+    BEFORE UPDATE ON team_github_repositories
+    FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
