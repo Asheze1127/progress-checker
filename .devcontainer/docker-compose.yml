@@ -8,8 +8,9 @@ services:
     network_mode: service:postgres
     volumes:
       - ..:/workspaces/progress-checker:cached
-      # Reuse local AWS credentials inside the dev container.
+      # Reuse local credentials inside the dev container.
       - ${HOME}/.aws:/home/vscode/.aws:cached
+      - ${HOME}/.claude:/home/vscode/.claude:cached
       # Keep persistent tool state between rebuilds. See .devcontainer/on-create.sh.
       - asdf:/home/vscode/.asdf
       - node_modules:/workspaces/progress-checker/node_modules
