@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -39,15 +40,14 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 
 	// --- Infrastructure ---
 	do.Provide(injector, func(i do.Injector) (*sql.DB, error) {
-		dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
-			url.PathEscape(cfg.DatabaseUser),
-			url.PathEscape(cfg.DatabasePass),
-			url.PathEscape(cfg.DatabaseHost),
-			url.PathEscape(cfg.DatabasePort),
-			url.PathEscape(cfg.DatabaseName),
-			url.QueryEscape(cfg.DatabaseSSLMode),
-		)
-		db, err := sql.Open("postgres", dsn)
+		u := &url.URL{
+			Scheme:   "postgres",
+			User:     url.UserPassword(cfg.DatabaseUser, cfg.DatabasePass),
+			Host:     net.JoinHostPort(cfg.DatabaseHost, cfg.DatabasePort),
+			Path:     cfg.DatabaseName,
+			RawQuery: url.Values{"sslmode": {cfg.DatabaseSSLMode}}.Encode(),
+		}
+		db, err := sql.Open("postgres", u.String())
 		if err != nil {
 			return nil, fmt.Errorf("failed to open database: %w", err)
 		}
@@ -162,14 +162,15 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 	})
 
 	do.Provide(injector, func(i do.Injector) (*pkgslack.Verifier, error) {
-		return pkgslack.NewVerifier(cfg.SlackSigningSecret), nil
+		return pkgslack.NewVerifier(cfg.SlackSigningSecret)
 	})
 
 	do.Provide(injector, func(i do.Injector) (*githubsvc.GitHubService, error) {
 		ghRepoRepo := do.MustInvoke[*postgres.GitHubRepoRepository](i)
 		encryptor := do.MustInvoke[*encryption.AESEncryptor](i)
 		ghClient := do.MustInvoke[*githubclient.Client](i) // implements githubissuecreator.GitHubIssueCreator
-		return githubsvc.NewGitHubService(ghRepoRepo, encryptor, ghClient, func() string {
+		mentorRepo := do.MustInvoke[*postgres.MentorRepository](i)
+		return githubsvc.NewGitHubService(ghRepoRepo, encryptor, ghClient, mentorRepo, func() string {
 			return uuid.New().String()
 		}), nil
 	})
@@ -240,19 +241,18 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		staffRepo := do.MustInvoke[*postgres.StaffRepository](i)
 		userRepo := do.MustInvoke[*postgres.UserRepository](i)
 		teamRepo := do.MustInvoke[*postgres.TeamRepository](i)
-		setupTokenRepo := do.MustInvoke[*postgres.SetupTokenRepository](i)
-		mentorRepo := do.MustInvoke[*postgres.MentorRepository](i)
 		slackClient := do.MustInvoke[*slackinfra.Client](i)
-		return usecase.NewCreateMentorUseCase(staffRepo, userRepo, teamRepo, setupTokenRepo, mentorRepo, slackClient, cfg.FrontendBaseURL), nil
+		database := do.MustInvoke[*sql.DB](i)
+		return usecase.NewCreateMentorUseCase(staffRepo, userRepo, teamRepo, slackClient, database, cfg.FrontendBaseURL), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*usecase.RegisterParticipantUseCase, error) {
 		userRepo := do.MustInvoke[*postgres.UserRepository](i)
 		teamRepo := do.MustInvoke[*postgres.TeamRepository](i)
 		mentorRepo := do.MustInvoke[*postgres.MentorRepository](i)
-		participantRepo := do.MustInvoke[*postgres.ParticipantRepository](i)
 		slackClient := do.MustInvoke[*slackinfra.Client](i)
-		return usecase.NewRegisterParticipantUseCase(userRepo, teamRepo, mentorRepo, participantRepo, slackClient), nil
+		database := do.MustInvoke[*sql.DB](i)
+		return usecase.NewRegisterParticipantUseCase(userRepo, teamRepo, mentorRepo, slackClient, database), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*usecase.SetupPasswordUseCase, error) {

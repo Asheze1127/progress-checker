@@ -2,14 +2,17 @@ package usecase
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 
 	"github.com/Asheze1127/progress-checker/backend/application/appcontext"
+	db "github.com/Asheze1127/progress-checker/backend/database/postgres/generated"
 	"github.com/Asheze1127/progress-checker/backend/entities"
 	slackinfra "github.com/Asheze1127/progress-checker/backend/infrastructure/slack"
+	"github.com/google/uuid"
 )
 
 var (
@@ -21,8 +24,8 @@ type RegisterParticipantUseCase struct {
 	userRepo        entities.UserRepository
 	teamRepo        entities.TeamRepository
 	mentorRepo      entities.MentorRepository
-	participantRepo entities.ParticipantRepository
 	slackClient     SlackUserInfoFetcher
+	database        *sql.DB
 }
 
 // SlackUserInfoFetcher is already defined in create_mentor.go but we need it here too.
@@ -32,15 +35,15 @@ func NewRegisterParticipantUseCase(
 	userRepo entities.UserRepository,
 	teamRepo entities.TeamRepository,
 	mentorRepo entities.MentorRepository,
-	participantRepo entities.ParticipantRepository,
 	slackClient SlackUserInfoFetcher,
+	database *sql.DB,
 ) *RegisterParticipantUseCase {
 	return &RegisterParticipantUseCase{
-		userRepo:        userRepo,
-		teamRepo:        teamRepo,
-		mentorRepo:      mentorRepo,
-		participantRepo: participantRepo,
-		slackClient:     slackClient,
+		userRepo:    userRepo,
+		teamRepo:    teamRepo,
+		mentorRepo:  mentorRepo,
+		slackClient: slackClient,
+		database:    database,
 	}
 }
 
@@ -103,21 +106,48 @@ func (uc *RegisterParticipantUseCase) Execute(ctx context.Context, slackUserID, 
 		return nil, fmt.Errorf("slack user has no email address configured")
 	}
 
-	// Create participant user (no password needed)
-	user := &entities.User{
-		SlackUserID: entities.SlackUserID(slackUserID),
-		Name:        name,
-		Email:       email,
-		Role:        entities.UserRoleParticipant,
+	teamUUID, err := uuid.Parse(teamID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid team ID: %w", err)
 	}
 
-	createdUser, err := uc.userRepo.Create(ctx, user, "")
+	// Execute both DB writes in a single transaction
+	tx, err := uc.database.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	qtx := db.New(tx)
+
+	userRow, err := qtx.CreateUser(ctx, db.CreateUserParams{
+		SlackUserID:  slackUserID,
+		Name:         name,
+		Email:        email,
+		Role:         string(entities.UserRoleParticipant),
+		PasswordHash: "",
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create participant: %w", err)
 	}
 
-	if err := uc.participantRepo.Create(ctx, createdUser.ID, entities.TeamID(teamID)); err != nil {
+	if err := qtx.CreateParticipant(ctx, db.CreateParticipantParams{
+		UserID: userRow.ID,
+		TeamID: teamUUID,
+	}); err != nil {
 		return nil, fmt.Errorf("failed to create participant record: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	createdUser := &entities.User{
+		ID:          entities.UserID(userRow.ID.String()),
+		SlackUserID: entities.SlackUserID(userRow.SlackUserID),
+		Name:        userRow.Name,
+		Email:       userRow.Email,
+		Role:        entities.UserRole(userRow.Role),
 	}
 
 	return createdUser, nil

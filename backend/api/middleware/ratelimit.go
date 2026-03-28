@@ -57,6 +57,8 @@ func (rl *RateLimiter) cleanup() {
 	}
 }
 
+const maxRateLimitEntries = 100000
+
 func (rl *RateLimiter) Allow(key string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -64,11 +66,17 @@ func (rl *RateLimiter) Allow(key string) bool {
 	now := time.Now()
 	entry, exists := rl.entries[key]
 	if !exists || now.After(entry.resetAt) {
+		if len(rl.entries) >= maxRateLimitEntries {
+			return false
+		}
 		rl.entries[key] = &rateLimitEntry{count: 1, resetAt: now.Add(rl.window)}
 		return true
 	}
+	if entry.count >= rl.limit {
+		return false
+	}
 	entry.count++
-	return entry.count <= rl.limit
+	return true
 }
 
 // authRateLimitedPaths are the paths that should be rate limited.

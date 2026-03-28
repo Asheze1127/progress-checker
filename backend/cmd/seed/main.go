@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net"
 	"net/url"
 	"os"
 
@@ -13,16 +14,14 @@ import (
 )
 
 type seedStaff struct {
-	Name     string
-	Email    string
-	Password string
+	Name  string
+	Email string
 }
 
 var staffMembers = []seedStaff{
 	{
-		Name:     "Tsubasa Ito",
-		Email:    "ito.tsubasa577@gmail.com",
-		Password: "ito.tsubasa577@gmail.com",
+		Name:  "Tsubasa Ito",
+		Email: "ito.tsubasa577@gmail.com",
 	},
 }
 
@@ -42,10 +41,15 @@ func main() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 
+	seedPassword := os.Getenv("SEED_STAFF_PASSWORD")
+	if seedPassword == "" {
+		log.Fatal("SEED_STAFF_PASSWORD environment variable is required")
+	}
+
 	hasher := util.NewPasswordHasher()
 
 	for _, s := range staffMembers {
-		hash, err := hasher.Hash(s.Password)
+		hash, err := hasher.Hash(seedPassword)
 		if err != nil {
 			log.Fatalf("failed to hash password for %s: %v", s.Email, err)
 		}
@@ -75,17 +79,16 @@ func loadDBConfig() (string, error) {
 	name := envOrDefault("DATABASE_NAME", "progress_checker")
 	user := envOrDefault("DATABASE_USER", "postgres")
 	pass := envOrDefault("DATABASE_PASS", "postgres")
-	sslMode := envOrDefault("DATABASE_SSL_MODE", "disable")
+	sslMode := envOrDefault("DATABASE_SSL_MODE", "require")
 
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
-		url.PathEscape(user),
-		url.PathEscape(pass),
-		url.PathEscape(host),
-		url.PathEscape(port),
-		url.PathEscape(name),
-		url.QueryEscape(sslMode),
-	)
-	return dsn, nil
+	u := &url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(user, pass),
+		Host:     net.JoinHostPort(host, port),
+		Path:     name,
+		RawQuery: url.Values{"sslmode": {sslMode}}.Encode(),
+	}
+	return u.String(), nil
 }
 
 func envOrDefault(key, defaultValue string) string {

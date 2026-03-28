@@ -26,7 +26,7 @@ func SlackVerification(verifier *pkgslack.Verifier) gin.HandlerFunc {
 			slog.String("method", c.Request.Method),
 			slog.String("path", c.Request.URL.Path),
 			slog.String("content_type", c.GetHeader("Content-Type")),
-			slog.String("body", string(body)),
+			slog.Int("body_length", len(body)),
 		)
 
 		c.Request.Body = io.NopCloser(bytes.NewReader(body))

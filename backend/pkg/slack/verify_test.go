@@ -84,7 +84,10 @@ func TestVerifier_Verify(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			verifier := NewVerifier(signingSecret)
+			verifier, err := NewVerifier(signingSecret)
+			if err != nil {
+				t.Fatalf("failed to create verifier: %v", err)
+			}
 
 			req := httptest.NewRequest(http.MethodPost, "/webhook/slack", strings.NewReader(tt.body))
 			if tt.signature != "" {
