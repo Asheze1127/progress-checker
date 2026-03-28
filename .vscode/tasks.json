@@ -36,8 +36,20 @@
       "problemMatcher": []
     },
     {
+      "label": "local-worker",
+      "type": "shell",
+      "command": "cd lambda && SQS_ENDPOINT=http://localhost:9324 pnpm run local-worker",
+      "dependsOn": ["setup_db"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
       "label": "dev",
-      "dependsOn": ["backend", "frontend"],
+      "dependsOn": ["backend", "frontend", "local-worker"],
       "dependsOrder": "parallel",
       "problemMatcher": []
     }
