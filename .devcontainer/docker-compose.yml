@@ -16,6 +16,15 @@ services:
       - command-history:/commandhistory
     environment:
       HISTFILE: /commandhistory/.zsh_history
+  elasticmq:
+    image: softwaremill/elasticmq-native:1.6.9
+    restart: unless-stopped
+    network_mode: service:postgres
+    depends_on:
+      - postgres
+    volumes:
+      - ../elasticmq.conf:/opt/elasticmq.conf
+
   postgres:
     image: postgres:16-bookworm
     restart: unless-stopped

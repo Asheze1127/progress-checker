@@ -83,7 +83,14 @@ func wireRouter(cfg *util.Config) (http.Handler, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to load AWS config: %w", err)
 		}
-		return sqsinfra.NewClient(sqs.NewFromConfig(awsCfg)), nil
+		var opts []func(*sqs.Options)
+		if cfg.SQSEndpoint != "" {
+			endpoint := cfg.SQSEndpoint
+			opts = append(opts, func(o *sqs.Options) {
+				o.BaseEndpoint = &endpoint
+			})
+		}
+		return sqsinfra.NewClient(sqs.NewFromConfig(awsCfg, opts...)), nil
 	})
 
 	do.Provide(injector, func(i do.Injector) (*slackinfra.MentorNotifier, error) {

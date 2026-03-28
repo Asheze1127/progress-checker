@@ -1,4 +1,4 @@
-.PHONY: dev setup_db backend frontend
+.PHONY: dev setup_db backend frontend local-worker
 
 # Open backend and frontend in separate VS Code terminals
 dev: setup_db
@@ -15,3 +15,7 @@ backend:
 # Start frontend dev server
 frontend:
 	@cd web && pnpm dev
+
+# Start local SQS worker (requires ElasticMQ running via docker-compose)
+local-worker:
+	@cd lambda && SQS_ENDPOINT=http://localhost:9324 pnpm run local-worker
