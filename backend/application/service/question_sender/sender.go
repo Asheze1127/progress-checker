@@ -8,7 +8,7 @@ import (
 	"github.com/Asheze1127/progress-checker/backend/application/service/message_queue"
 )
 
-const queueNameQuestionNew = "question:new"
+const queueNameQuestionNew = "question-new"
 
 type QuestionNewMessage struct {
 	Type           string `json:"type"`

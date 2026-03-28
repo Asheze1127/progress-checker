@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
@@ -29,6 +30,7 @@ type Config struct {
 	IssueTriggerEmoji    string `envconfig:"ISSUE_TRIGGER_EMOJI" default:"ticket"`
 	CORSAllowedOrigin    string `envconfig:"CORS_ALLOWED_ORIGIN"`
 	AWSRegion            string `envconfig:"AWS_REGION" default:"ap-northeast-1"`
+	SQSEndpoint          string `envconfig:"SQS_ENDPOINT"`
 	SlackMentorChannelID string `envconfig:"SLACK_MENTOR_CHANNEL_ID" required:"true"`
 	FrontendBaseURL      string `envconfig:"FRONTEND_BASE_URL" default:"http://localhost:3000"`
 }
@@ -52,6 +54,15 @@ func LoadConfig() (*Config, error) {
 	}
 	if len(cfg.InternalToken) < 32 {
 		return nil, fmt.Errorf("INTERNAL_TOKEN must be at least 32 bytes")
+	}
+	if cfg.SQSEndpoint != "" {
+		u, err := url.Parse(cfg.SQSEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("SQS_ENDPOINT is not a valid URL: %w", err)
+		}
+		if u.Scheme != "http" && u.Scheme != "https" {
+			return nil, fmt.Errorf("SQS_ENDPOINT must use http or https scheme (got %q)", u.Scheme)
+		}
 	}
 	return &cfg, nil
 }

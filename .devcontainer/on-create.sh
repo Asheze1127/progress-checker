@@ -147,3 +147,8 @@ install_tools_from_tool_versions
 setup_nodejs
 setup_golang
 setup_shrc
+
+# Install Claude Code CLI globally via npm.
+if ! command -v claude >/dev/null 2>&1; then
+  npm install -g @anthropic-ai/claude-code
+fi
